@@ -1,0 +1,960 @@
+/* Ana konteynerde üst boşluğu kaldırıp, başlığa ekleyerek hizalama sağlıyoruz */
+.create-service-receipt {
+  max-width: 1000px;
+  /* Reduced from 1200px */
+  margin: 0 auto;
+  padding: 20px 15px;
+  /* Reduced left/right padding from 20px to 15px */
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.project-code-display {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333333;
+  margin-bottom: 20px;
+  padding: 0;
+}
+
+/* Daha spesifik selector kullanarak h2 elementlerinin margin'lerini sıfırlıyoruz */
+.create-service-receipt h2.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #333333;
+  margin: 0 0 15px 0;
+  /* Üst ve alt margin'i sıfırlayıp sadece alt margin'i azalttık */
+  padding-bottom: 10px;
+  /* Alt padding'i de azalttık */
+}
+
+.form-section {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 25px 20px;
+  /* Reduced left/right padding from 25px to 20px */
+  margin-bottom: 30px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  /* Reduced from 20px */
+  margin-bottom: 20px;
+}
+
+/* Machine info row with three columns - brand and model same width, year smaller */
+.form-row.machine-info-row {
+  grid-template-columns: 2fr 2fr 1fr;
+  gap: 15px;
+}
+
+/* 3 sütunlu form satırı - gereksiz boşlukları önler */
+.form-row.three-col {
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 15px;
+}
+
+/* YENİ SINIF: Grid elemanlarını dikeyde en alta hizalar */
+.form-row.align-end {
+  align-items: end;
+}
+
+.form-row:last-child {
+  margin-bottom: 0;
+}
+
+/* Add space after measurement section */
+.measurement-section+.form-row {
+  margin-top: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+/* YENİ SINIF: Flex elemanlarını dikeyde en alta hizalar */
+.form-group.justify-end {
+  justify-content: flex-end;
+  padding-bottom: 2px;
+  /* İnce ayar için */
+}
+
+.form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.form-group label {
+  font-weight: 600;
+  color: #333333;
+  margin-bottom: 8px;
+  font-size: 14px;
+  text-align: left;
+}
+
+/* Ensure machine brand and model labels are left-aligned */
+.form-group.machine-brand label,
+.form-group.machine-model label {
+  text-align: left;
+}
+
+.form-group input,
+.form-group select,
+.form-select {
+  padding: 12px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  background-color: #f3f4f6;
+  width: 100%;
+  appearance: none;
+}
+
+.form-group select,
+.form-select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 12px center;
+  background-repeat: no-repeat !important;
+  background-size: 16px 16px;
+  padding-right: 40px;
+  background-color: #f3f4f6;
+}
+
+/* Select kutucukları input ile aynı görünsün (Makine Durumu, İşletim Sistemi) */
+.form-select.form-input-style {
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-select:focus,
+.accessory-textarea:focus {
+  outline: none;
+  border-color: #333333;
+  box-shadow: 0 0 0 3px rgba(51, 51, 51, 0.1);
+}
+
+.accessory-textarea {
+  padding: 12px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  background-color: #f3f4f6;
+  width: 100%;
+  resize: vertical;
+  font-family: inherit;
+}
+
+/* DEĞİŞİKLİK BURADA: Artık grid yapısı kullanılıyor */
+.time-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.time-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.time-label {
+  font-size: 12px;
+  color: #666666;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+/* Tabs Section */
+.tabs-section {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tab-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.tab-title {
+  font-weight: 600;
+  color: #374151;
+  font-size: 14px;
+}
+
+/* DEĞİŞİKLİK BURADA: Aralık artırıldı ve hizalama eklendi */
+.tab-indicators {
+  display: flex;
+  gap: 28px;
+  /* Aralık artırıldı: 12px -> 20px */
+  align-items: center;
+  height: 45px;
+  /* Input ile aynı yüksekliğe getirmek için */
+}
+
+.tab-number {
+  width: 24px;
+  /* Genişlik artırıldı: 24px -> 28px */
+  height: 24px;
+  /* Yükseklik artırıldı: 24px -> 28px */
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  /* Font boyutu artırıldı: 12px -> 13px */
+  font-weight: 600;
+  background: #e5e7eb;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+  /* Text seçimini engeller */
+}
+
+.tab-number:hover {
+  background: #d1d5db;
+  transform: scale(1.05);
+}
+
+.tab-number.active {
+  background: #333333;
+  color: white;
+  transform: scale(1.1);
+}
+
+.dropdown-select {
+  padding: 15px 20px;
+  border: none;
+  background: #ffffff;
+  font-size: 14px;
+  width: 100%;
+  cursor: pointer;
+}
+
+.measurement-label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 14px;
+}
+
+.radio-group {
+  display: flex;
+  gap: 15px;
+}
+
+.radio-group-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #4b5563;
+  font-weight: 500;
+}
+
+.radio-option input[type="radio"] {
+  display: none;
+}
+
+.radio-dot {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #d1d5db;
+  border-radius: 50%;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.radio-option input[type="radio"]:checked+.radio-dot {
+  border-color: #333333;
+  background: #333333;
+}
+
+.radio-option input[type="radio"]:checked+.radio-dot::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: white;
+}
+
+/* Form Actions */
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+  margin-top: 30px;
+  padding-top: 20px;
+}
+
+.btn-cancel,
+.btn-save {
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.btn-cancel {
+  background: white;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.btn-cancel:hover {
+  background: #e5e7eb;
+}
+
+.btn-save {
+  background: #333333;
+  color: white;
+}
+
+.btn-save:hover {
+  background: #222222;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .create-service-receipt {
+    padding: 15px 10px;
+    /* Reduced left/right padding from 15px to 10px */
+  }
+
+  .page-title {
+    padding-top: 15px;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  /* Mobile: Machine info row stacks vertically */
+  .form-row.machine-info-row {
+    grid-template-columns: 1fr;
+  }
+
+  .form-row.three-col {
+    grid-template-columns: 1fr;
+  }
+
+  .time-inputs {
+    grid-template-columns: 1fr;
+    /* Mobilde alt alta */
+    gap: 10px;
+  }
+
+  .radio-group {
+    justify-content: space-around;
+  }
+
+  .form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .btn-cancel,
+  .btn-save {
+    width: 100%;
+  }
+
+  /* Photo upload mobile styles */
+  .photo-upload-buttons {
+    flex-direction: column;
+  }
+
+  .photo-upload-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .photo-previews {
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 8px;
+  }
+
+  .photo-preview-container {
+    width: 80px;
+    height: 80px;
+  }
+
+  .photo-drag-indicator {
+    font-size: 10px;
+    padding: 1px 4px;
+  }
+
+  .photo-modal-content {
+    max-width: 95vw;
+    max-height: 95vh;
+  }
+
+  .photo-modal-nav {
+    bottom: 10px;
+    padding: 8px 16px;
+    gap: 15px;
+  }
+
+  .photo-nav-btn {
+    width: 35px;
+    height: 35px;
+    font-size: 18px;
+  }
+
+  /* Mobile dropdown fixes - prevent background image tiling */
+  .form-group select,
+  .form-select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") !important;
+    background-position: right 12px center !important;
+    background-repeat: no-repeat !important;
+    background-size: 16px 16px !important;
+    background-color: #f3f4f6 !important;
+    padding-right: 40px !important;
+    min-height: 48px;
+    font-size: 16px;
+    /* Prevents iOS zoom on focus */
+  }
+
+  /* Measurement section mobile responsiveness - Fix for Konveyör, Kağıt Filtre etc. */
+  .measurement-row {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px 15px;
+  }
+
+  .measurement-group {
+    min-width: 0;
+    /* Prevent overflow */
+  }
+
+  .measurement-label {
+    font-size: 13px;
+    word-wrap: break-word;
+  }
+}
+
+/* Extra small screens - stack measurement items vertically */
+@media (max-width: 480px) {
+  .measurement-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 12px;
+  }
+
+  .measurement-label {
+    font-size: 12px;
+  }
+
+  .radio-option {
+    font-size: 13px;
+  }
+
+  .radio-dot {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* Measurement Section Container */
+.measurement-section {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 5px 0;
+}
+
+.measurement-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 15px;
+}
+
+.measurement-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Photo Upload Styles */
+.photo-upload-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.photo-upload-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.photo-upload-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 2px dashed #d1d5db;
+  border-radius: 6px;
+  background: #f9fafb;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 140px;
+}
+
+.photo-upload-btn:hover {
+  border-color: #333333;
+  background: #f3f4f6;
+}
+
+.photo-upload-btn.camera-btn {
+  border-color: #10b981;
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.photo-upload-btn.camera-btn:hover {
+  border-color: #059669;
+  background: #d1fae5;
+}
+
+.upload-icon {
+  font-size: 16px;
+}
+
+.photo-previews {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+  isolation: isolate;
+  /* Create stacking context to prevent drag ghost issues */
+}
+
+.photo-preview-container {
+  /* Diğer stillerin durabilir, bunları ekle: */
+  -webkit-user-select: none;
+  /* Safari için kritik */
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+
+  /* Sürüklerken elementin dışına taşmasını engellemek için bazen bu da gerekir */
+  touch-action: none;
+}
+
+/* Kapsayıcıya da eklemek gerekebilir */
+.photo-upload-container {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.photo-preview-container {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s;
+  cursor: grab;
+  background-color: #fff;
+  /* Ensure opaque background */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: element;
+  touch-action: none;
+}
+
+.photo-preview-container:active {
+  cursor: grabbing;
+}
+
+.photo-preview-container:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.photo-preview-container.dragging {
+  opacity: 0.6;
+  transform: scale(0.95) rotate(1deg);
+  cursor: grabbing;
+  z-index: 1000;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+  will-change: transform, opacity;
+  /* Optimize for drag performance */
+}
+
+/* Prevent child elements from being included in drag ghost */
+.photo-preview-container.dragging * {
+  pointer-events: none !important;
+}
+
+/* Ensure the image itself doesn't interfere with drag */
+.photo-preview-container img {
+  pointer-events: none;
+}
+
+.photo-preview-container.drag-over-left::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: -4px;
+  bottom: -4px;
+  width: 6px;
+  background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%);
+  border-radius: 3px;
+  z-index: 10;
+  box-shadow:
+    0 0 12px rgba(59, 130, 246, 0.8),
+    0 0 20px rgba(59, 130, 246, 0.5),
+    0 0 30px rgba(59, 130, 246, 0.3);
+  animation: pulse-indicator 1s ease-in-out infinite;
+}
+
+.photo-preview-container.drag-over-right::after {
+  content: '';
+  position: absolute;
+  right: -7px;
+  top: -4px;
+  bottom: -4px;
+  width: 6px;
+  background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%);
+  border-radius: 3px;
+  z-index: 10;
+  box-shadow:
+    0 0 12px rgba(59, 130, 246, 0.8),
+    0 0 20px rgba(59, 130, 246, 0.5),
+    0 0 30px rgba(59, 130, 246, 0.3);
+  animation: pulse-indicator 1s ease-in-out infinite;
+}
+
+@keyframes pulse-indicator {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+
+  50% {
+    opacity: 0.8;
+    transform: scaleY(0.98);
+  }
+}
+
+.photo-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.photo-preview:hover {
+  transform: scale(1.05);
+}
+
+.photo-delete-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.9);
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.photo-delete-btn:hover {
+  background: rgba(239, 68, 68, 1);
+  transform: scale(1.1);
+}
+
+.photo-order-number {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  background: rgba(51, 51, 51, 0.8);
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.photo-drag-indicator {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(51, 51, 51, 0.85);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.photo-preview-container:hover .photo-drag-indicator {
+  opacity: 1;
+}
+
+.photo-preview-container.dragging .photo-drag-indicator {
+  opacity: 0;
+}
+
+/* Keep reorder buttons for backward compatibility but hide them */
+.photo-reorder-buttons {
+  display: none;
+}
+
+.photo-reorder-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: rgba(51, 51, 51, 0.85);
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  padding: 0;
+  transition: all 0.2s;
+}
+
+.photo-reorder-btn:hover:not(:disabled) {
+  background: rgba(51, 51, 51, 1);
+  transform: scale(1.1);
+}
+
+.photo-reorder-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Photo Modal Styles */
+.photo-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.photo-modal-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+.photo-modal-close {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  z-index: 10;
+  transition: all 0.2s;
+}
+
+.photo-modal-close:hover {
+  background: rgba(0, 0, 0, 0.9);
+  transform: scale(1.1);
+}
+
+.photo-modal-image {
+  width: 100%;
+  height: auto;
+  max-height: 80vh;
+  object-fit: contain;
+  display: block;
+}
+
+.photo-modal-nav {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 10px 20px;
+  border-radius: 25px;
+  color: white;
+}
+
+.photo-nav-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.photo-nav-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.photo-nav-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.photo-counter {
+  font-size: 14px;
+  font-weight: 500;
+  min-width: 60px;
+  text-align: center;
+}
+
+.photo-gallery-thumbnails {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 15px 20px;
+  background: rgba(0, 0, 0, 0.5);
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.photo-thumbnail {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 3px solid transparent;
+  transition: all 0.2s ease;
+  opacity: 0.6;
+}
+
+.photo-thumbnail:hover {
+  opacity: 1;
+  border-color: #007bff;
+  transform: scale(1.05);
+}
+
+.photo-thumbnail.active {
+  opacity: 1;
+  border-color: #007bff;
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.4);
+}
+
+/* Form Validation Error Styles */
+.form-group.has-error input,
+.form-group.has-error select {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+}
+
+.form-group.has-error input:focus,
+.form-group.has-error select:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.error-message {
+  color: #dc2626;
+  font-size: 12px;
+  margin-top: 4px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.error-message::before {
+  content: "⚠";
+  font-size: 14px;
+}
+
+/* Autocomplete z-index fix - elevate form-row when autocomplete is open */
+.form-row:has(.autocomplete-wrapper.open) {
+  z-index: 100;
+  position: relative;
+}
+
+.form-group:has(.autocomplete-wrapper.open) {
+  z-index: 100;
+  position: relative;
+}

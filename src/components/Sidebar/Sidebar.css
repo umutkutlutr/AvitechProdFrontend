@@ -1,0 +1,266 @@
+/* Ana Sidebar Konteyneri */
+.sidebar {
+    width: 248px;
+    background: var(--color-surface, #ffffff);
+    height: calc(100vh - 24px);
+    position: fixed;
+    left: 12px;
+    top: 12px;
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+    box-shadow: var(--shadow-md, 0 2px 8px rgba(0, 0, 0, 0.06));
+    padding: var(--space-md, 16px);
+    box-sizing: border-box;
+    border-radius: var(--radius-lg, 10px);
+    border: 1px solid var(--color-border-subtle, #f1f5f9);
+  }
+  
+  /* Sidebar içeriği için ek bir sarmalayıcı */
+  .sidebar-content {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Desktop scrollbar stili */
+  .sidebar-content::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  .sidebar-content::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sidebar-content::-webkit-scrollbar-thumb {
+    background: #d0d0d0;
+    border-radius: 3px;
+  }
+
+  .sidebar-content::-webkit-scrollbar-thumb:hover {
+    background: #b0b0b0;
+  }
+  
+  /* Menü Bölümleri (Servis İşlemleri, Kullanıcı İşlemleri vb.) */
+  .menu-section {
+    margin-bottom: 0px;
+  }
+  
+  /* Bölüm Başlıkları */
+  .sidebar .section-header {
+    padding: 10px 12px 6px 12px;
+  }
+  
+  .sidebar .section-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-muted, #94a3b8);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+  }
+
+  /* Her bir menü öğesi */
+  .sidebar .menu-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    margin: 2px 0;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    border-radius: var(--radius-sm, 6px);
+    font-size: var(--font-size-sm, 13px);
+    font-weight: var(--font-weight-medium, 500);
+    color: var(--color-text-primary, #1a202c);
+    position: relative;
+    overflow: visible;
+  }
+  
+  .sidebar .menu-item:hover {
+    background-color: var(--color-border-subtle, #f1f5f9);
+  }
+  
+  .sidebar .menu-item.active {
+    background-color: var(--color-primary, #0f172a);
+    color: #ffffff;
+    font-weight: var(--font-weight-semibold, 600);
+  }
+  
+  .sidebar .menu-item.active .menu-icon {
+    color: #ffffff;
+  }
+  
+  .sidebar .menu-icon {
+    margin-right: 12px;
+    font-size: 15px;
+    color: var(--color-text-secondary, #64748b);
+    transition: color 0.15s ease;
+  }
+
+  /* Logo için özel stil */
+  .sidebar .menu-logo {
+    width: 50px;
+    height: 50px;
+    margin-left: 55px;
+    margin-right: 15px;
+    object-fit: contain;
+    transition: opacity 0.2s ease;
+    position: relative; 
+    z-index: 30;
+    transform: scale(3.5);
+  }
+
+  
+  
+  /* Menü metni */
+  .sidebar .menu-label {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  /* Kullanıcı Bilgisi Bölümü */
+  .user-section {
+    margin-top: auto;
+    padding-top: var(--space-lg, 24px);
+  }
+
+  .user-info {
+    padding: 12px 14px;
+    margin-bottom: var(--space-sm, 8px);
+    background-color: var(--color-border-subtle, #f1f5f9);
+    border-radius: var(--radius-md, 8px);
+    border-left: 3px solid var(--color-accent, #3b82f6);
+  }
+
+  .user-name {
+    display: block;
+    font-size: var(--font-size-sm, 13px);
+    font-weight: 600;
+    color: var(--color-text-primary, #1a202c);
+    margin-bottom: 2px;
+  }
+
+  .user-username {
+    display: block;
+    font-size: var(--font-size-xs, 12px);
+    color: var(--color-text-secondary, #64748b);
+    font-style: italic;
+  }
+
+  .logout-item {
+    color: var(--color-danger, #dc2626) !important;
+    border: 1px solid var(--color-danger, #dc2626);
+    background-color: transparent;
+  }
+
+  .logout-item:hover {
+    background-color: var(--color-danger, #dc2626) !important;
+    color: white !important;
+  }
+
+  .logout-item .menu-icon {
+    color: inherit;
+  }
+
+/* Mobil Cihazlar için Uyumluluk */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 280px; /* Mobil için biraz daha geniş */
+    top: 0;
+    left: 0;
+    height: 100vh;
+    border-radius: 0;
+    padding: 15px 10px;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+    z-index: 1060; /* Overlay'in üstünde olması için */
+    box-shadow: 2px 0 15px rgba(0, 0, 0, 0.2);
+    overflow: hidden; /* Sidebar'ın kendisi overflow hidden */
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  /* Mobilde sidebar içeriği scroll edilebilir olmalı */
+  .sidebar-content {
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: 100%;
+    padding-bottom: 10px;
+  }
+
+  /* Scrollbar stilini iyileştir */
+  .sidebar-content::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .sidebar-content::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sidebar-content::-webkit-scrollbar-thumb {
+    background: #d0d0d0;
+    border-radius: 3px;
+  }
+
+  .sidebar-content::-webkit-scrollbar-thumb:hover {
+    background: #b0b0b0;
+  }
+
+  /* Mobilde logo boyutunu küçült ve margin ayarla */
+  .sidebar .menu-logo {
+    transform: scale(2.2);
+    margin-left: 70px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+  }
+
+  /* Logo içeren menü öğesi için özel padding */
+  .sidebar .menu-item:has(.menu-logo) {
+    padding: 15px 16px;
+    margin-bottom: 5px;
+  }
+
+  /* Mobilde section başlıklarını daha küçük yap */
+  .sidebar .section-header {
+    padding: 4px 16px 6px 16px;
+  }
+
+  .sidebar .section-title {
+    font-size: 10px;
+  }
+
+  /* Mobilde menü öğelerini optimize et */
+  .sidebar .menu-item {
+    padding: 10px 14px;
+    font-size: 13px;
+    margin: 1px 0;
+  }
+
+  .sidebar .menu-icon {
+    font-size: 16px;
+    margin-right: 10px;
+  }
+
+  /* Mobilde menu section spacing'i azalt */
+  .menu-section {
+    margin-bottom: 8px;
+  }
+
+  /* User section için özel ayar */
+  .user-section {
+    margin-top: auto;
+    padding-top: 15px;
+    padding-bottom: 5px;
+  }
+
+  /* Logout button için özel stil */
+  .logout-item {
+    font-size: 13px !important;
+  }
+}

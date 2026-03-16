@@ -1,0 +1,762 @@
+.proposal-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.proposal-modal {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  max-width: 900px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+}
+
+.proposal-modal .modal-content {
+  padding: 0;
+}
+
+.proposal-modal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e9ecef;
+  background: #f8f9fa;
+  color: #2c3e50;
+  border-radius: 12px 12px 0 0;
+}
+
+.proposal-modal .modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.proposal-modal .header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.proposal-modal .export-excel-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #217346;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(33, 115, 70, 0.2);
+}
+
+.proposal-modal .export-excel-button:hover {
+  background: #1a5c37;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(33, 115, 70, 0.3);
+}
+
+.proposal-modal .export-excel-button svg {
+  font-size: 1.1rem;
+}
+
+.proposal-modal .close-button {
+  background: #e9ecef;
+  border: none;
+  color: #6c757d;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-left: -20px;
+}
+
+.proposal-modal .close-button:hover {
+  background: #dee2e6;
+  color: #495057;
+}
+
+.service-info {
+  padding: 20px 24px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.service-info h3 {
+  margin: 0 0 8px 0;
+  color: #2c3e50;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.service-info .service-id {
+  margin: 0;
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+.service-info .offer-count {
+  margin: 8px 0 0 0;
+  color: #17a2b8;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.proposal-content {
+  padding: 24px;
+}
+
+/* Section Headers */
+.section-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.section-icon {
+  margin-right: 8px;
+  color: #667eea;
+  font-size: 1.2rem;
+}
+
+.section-header h4 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* Offer Section */
+.offer-section {
+  margin-bottom: 32px;
+}
+
+.offer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.offer-card {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 16px;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.offer-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.offer-card.price-source {
+  background: #e8f5e9;
+  border: 2px solid #4caf50;
+}
+
+.offer-card.price-source:hover {
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+}
+
+.offer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.offer-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.offer-id {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.9rem;
+}
+
+.offer-status {
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.offer-status.status-closed {
+  background: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+}
+
+.offer-status.status-completed {
+  background: rgba(40, 167, 69, 0.1);
+  color: #28a745;
+}
+
+.price-badge {
+  font-weight: 600;
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: #4caf50;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: help;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.offer-date {
+  color: #6c757d;
+  font-size: 0.85rem;
+}
+
+.offer-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.detail-icon {
+  color: #667eea;
+  font-size: 1rem;
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.detail-label {
+  font-weight: 500;
+  color: #495057;
+  font-size: 0.85rem;
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.detail-value {
+  color: #2c3e50;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.detail-value.highlight-price {
+  color: #4caf50;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+/* Offer Actions */
+.offer-actions {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #e9ecef;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-view-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #000;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-view-form:hover {
+  background: #333;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Offer Description */
+.offer-description {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e9ecef;
+}
+
+.description-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.description-label {
+  font-weight: 600;
+  color: #495057;
+  font-size: 0.9rem;
+}
+
+.description-content {
+  color: #2c3e50;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  padding: 12px;
+  background: #ffffff;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* No Offers Message */
+.no-offers {
+  text-align: center;
+  padding: 40px 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.no-offers p {
+  margin: 0;
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+/* Loading and Error States */
+.loading-state,
+.error-state {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.loading-state p,
+.error-state p {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.loading-state p {
+  color: #6c757d;
+}
+
+.error-state p {
+  color: #dc3545;
+}
+
+/* ========== PROPOSAL FORM MODAL ========== */
+.proposal-form-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  padding: 20px;
+}
+
+.proposal-form-modal {
+  background: white;
+  border-radius: 12px;
+  max-width: 1000px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+}
+
+.form-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 30px;
+  border-bottom: 1px solid #e9ecef;
+  background-color: #f8f9fa;
+  border-radius: 12px 12px 0 0;
+}
+
+.form-modal-header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.form-modal-content {
+  padding: 30px;
+}
+
+/* Offer Document Styles (imported from SendOfferModal) */
+.offer-document {
+  background: white;
+  border: 2px solid #000;
+  border-radius: 8px;
+  padding: 30px;
+  font-family: 'Times New Roman', serif;
+}
+
+.document-header {
+  background: #f8f9fa;
+  border: 1px solid #000;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 30px;
+  position: relative;
+  display: flex;
+  gap: 30px;
+}
+
+.document-header::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background-color: #007bff;
+  border-radius: 8px 0 0 8px;
+}
+
+.left-column,
+.right-column {
+  flex: 1;
+}
+
+.left-column .info-row,
+.right-column .info-row {
+  margin-bottom: 12px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #000;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.left-column .info-row strong,
+.right-column .info-row strong {
+  color: #000;
+  min-width: 120px;
+  flex-shrink: 0;
+}
+
+.left-column .info-value {
+  color: #999;
+  font-style: italic;
+  flex: 1;
+}
+
+.right-column .company-name {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 15px;
+  color: #000;
+}
+
+.offer-title {
+  text-align: center;
+  margin: 30px 0;
+  padding: 20px 0;
+  border-top: 2px solid #000;
+  border-bottom: 2px solid #000;
+}
+
+.offer-title h3 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: bold;
+  color: #000;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.machine-details {
+  margin: 30px 0;
+}
+
+.machine-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #000;
+}
+
+.machine-table th {
+  background-color: #f8f9fa;
+  border: 1px solid #000;
+  padding: 12px;
+  text-align: left;
+  font-weight: bold;
+  font-size: 14px;
+  color: #000;
+}
+
+.machine-table td {
+  border: 1px solid #000;
+  padding: 15px;
+  vertical-align: top;
+  font-size: 14px;
+}
+
+.position {
+  font-weight: bold;
+  text-align: center;
+  color: #000;
+}
+
+.machine-name {
+  font-weight: bold;
+  font-size: 16px;
+  color: #000;
+}
+
+.quantity {
+  text-align: center;
+  font-weight: bold;
+  color: #000;
+}
+
+.machine-price {
+  font-weight: bold;
+  font-size: 16px;
+  color: #000;
+  text-align: right;
+}
+
+.offer-footer {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #000;
+}
+
+.total-section {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 20px;
+}
+
+.total-row {
+  display: flex;
+  gap: 20px;
+  font-size: 18px;
+  font-weight: bold;
+  color: #000;
+}
+
+.total-price {
+  font-size: 20px;
+}
+
+.terms-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #000;
+}
+
+.terms-row {
+  margin-bottom: 10px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #000;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.terms-row strong {
+  color: #000;
+  min-width: 120px;
+  flex-shrink: 0;
+}
+
+/* Description Section */
+.description-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #000;
+}
+
+.description-section .description-header {
+  margin-bottom: 12px;
+}
+
+.description-section .description-header strong {
+  color: #000;
+  font-size: 14px;
+}
+
+.description-section .description-content {
+  color: #000;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .proposal-modal {
+    margin: 10px;
+    max-height: 95vh;
+  }
+
+  .offer-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .offer-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .price-badge {
+    font-size: 0.7rem;
+    padding: 3px 8px;
+  }
+
+  .offer-details {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .detail-row {
+    flex-wrap: wrap;
+  }
+
+  .detail-label {
+    min-width: auto;
+  }
+
+  .document-header {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .left-column .info-row,
+  .right-column .info-row {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .left-column .info-row strong,
+  .right-column .info-row strong {
+    min-width: auto;
+  }
+
+  .machine-table {
+    font-size: 12px;
+  }
+
+  .machine-table th,
+  .machine-table td {
+    padding: 8px;
+  }
+
+  .terms-row {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .terms-row strong {
+    min-width: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .proposal-modal .modal-header {
+    padding: 16px 20px;
+  }
+
+  .proposal-modal .export-excel-button span {
+    display: none;
+  }
+
+  .proposal-modal .export-excel-button {
+    padding: 8px 12px;
+  }
+
+  .proposal-content {
+    padding: 16px;
+  }
+
+  .service-info {
+    padding: 16px 20px;
+  }
+
+  .proposal-form-modal {
+    margin: 10px;
+  }
+
+  .form-modal-header {
+    padding: 15px 20px;
+  }
+
+  .form-modal-header h2 {
+    font-size: 20px;
+  }
+
+  .form-modal-content {
+    padding: 20px;
+  }
+
+  .offer-document {
+    padding: 20px;
+  }
+
+  .offer-title h3 {
+    font-size: 20px;
+  }
+}

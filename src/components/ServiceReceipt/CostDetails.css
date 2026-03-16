@@ -1,0 +1,396 @@
+  .cost-details-section {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 25px 20px;
+    /* Reduced left/right padding from 25px to 20px */
+    margin-bottom: 30px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    /* Çizgi kaldırıldı */
+  }
+
+  /* Daha spesifik selector kullanarak h2 elementlerinin margin'lerini sıfırlıyoruz */
+  .cost-details-section h2.section-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #333333;
+    margin: 0;
+    /* Tüm margin'leri sıfırladık */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .btn-add-cost.header-button {
+    background: #333333;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-right: 20px;
+    /* Align with the actions column */
+  }
+
+  .btn-add-cost.header-button:hover {
+    background: #222222;
+  }
+
+  /* DEĞİŞİKLİK: .cost-table sınıfı kaldırıldı, .cost-list-container eklendi */
+  .cost-list-container {
+    /* Bu konteyner sadece satırları bir arada tutar */
+    display: block;
+  }
+
+  .table-header {
+    display: grid;
+    grid-template-columns: 2fr 0.8fr 0.8fr 1fr 60px;
+    gap: 12px;
+    /* Reduced from 15px */
+    padding: 0 8px 10px 8px;
+    /* Reduced left/right padding from 10px to 8px */
+    font-weight: 600;
+    color: #374151;
+    font-size: 14px;
+  }
+
+  .table-row {
+    display: grid;
+    grid-template-columns: 2fr 0.8fr 0.8fr 1fr 60px;
+    gap: 12px;
+    /* Reduced from 15px */
+    padding: 10px 8px;
+    /* Reduced left/right padding from 10px to 8px */
+    align-items: center;
+    transition: background-color 0.2s;
+  }
+
+  .table-row:last-child {
+    /* No border needed */
+    border-bottom: none;
+  }
+
+  /* DEĞİŞİKLİK: Input stillerinde hafif sadeleştirme */
+  .col-description input,
+  .col-amount input,
+  .currency-dropdown,
+  .cost-item-dropdown {
+    width: 100%;
+    padding: 10px 12px;
+    /* Reduced left/right padding from 14px to 12px */
+    border: none;
+    /* Border kaldırıldı */
+    border-radius: 6px;
+    /* Köşeler yuvarlatıldı */
+    font-size: 14px;
+    background-color: #f3f4f6;
+    /* Slightly dark gray background */
+    transition: background-color 0.2s;
+  }
+
+  /* Make currency and amount inputs more compact */
+  .col-currency .currency-dropdown,
+  .col-amount input {
+    padding: 8px 10px;
+    font-size: 13px;
+    min-width: 80px;
+  }
+
+  /* Remove spinner arrows from number inputs */
+  .col-amount input[type="number"]::-webkit-inner-spin-button,
+  .col-amount input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  .col-amount input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  /* Move currency dropdown slightly to the right */
+  .col-currency .currency-dropdown {
+    padding-left: 15px;
+    /* Increased left padding to move it right */
+  }
+
+  .col-description input:focus,
+  .col-amount input:focus,
+  .currency-dropdown:focus,
+  .cost-item-dropdown:focus {
+    outline: none;
+    background-color: #e5e7eb;
+    /* Darker gray on focus */
+  }
+
+  .currency-dropdown {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 10px center;
+    background-repeat: no-repeat;
+    background-size: 16px;
+    padding-right: 40px;
+  }
+
+  .cost-item-dropdown {
+    cursor: text;
+  }
+
+  .col-eur-equivalent {
+    text-align: left;
+    /* Sola hizalı */
+    padding-left: 0;
+    /* Sol padding kaldırıldı */
+  }
+
+  .eur-amount-box {
+    width: 100%;
+    padding: 8px 10px;
+    /* Reduced padding to make it more compact */
+    border: none;
+    /* Removed border to match other input fields */
+    border-radius: 6px;
+    font-size: 13px;
+    /* Reduced font size */
+    background-color: #fafbfc;
+    /* Very light gray background */
+    font-weight: 600;
+    color: #6b7280;
+    /* Lighter text color */
+    min-height: 36px;
+    /* Reduced height to match other compact inputs */
+    display: flex;
+    align-items: center;
+  }
+
+  .eur-amount {
+    font-weight: 600;
+    color: #1f2937;
+    /* Rengi daha standart hale getirildi */
+    font-size: 14px;
+  }
+
+  .col-actions {
+    display: flex;
+    justify-content: center;
+  }
+
+  .btn-delete.icon-button {
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 4px;
+    color: #ef4444;
+    /* Red trash can icon */
+    font-size: 14px;
+    /* Daha küçük icon */
+    transition: all 0.2s;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-delete.icon-button:hover {
+    background: #fee2e2;
+    color: #dc2626;
+    /* Darker red on hover */
+    border-color: #ef4444;
+  }
+
+  /* DEĞİŞİKLİK: Toplam maliyet bölümü tamamen yeniden tasarlandı */
+  .cost-summary {
+    margin-top: 25px;
+    padding-top: 20px;
+    display: flex;
+    justify-content: space-between;
+    /* İki uca yasla */
+    align-items: center;
+    border-top: 1px solid #e2e8f0;
+    /* Added line separator */
+  }
+
+  .total-cost-label {
+    font-size: 16px;
+    font-weight: 600;
+    color: #374151;
+  }
+
+  .total-cost-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1f2937;
+  }
+
+  /* Mobile Responsiveness */
+  @media (max-width: 768px) {
+    .cost-details-section {
+      padding: 15px 12px;
+      margin-bottom: 20px;
+    }
+
+    .section-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .cost-details-section h2.section-title {
+      font-size: 18px;
+    }
+
+    .btn-add-cost.header-button {
+      width: 100%;
+      justify-content: center;
+      margin-right: 0;
+      padding: 12px 20px;
+    }
+
+    .table-header {
+      display: grid;
+      grid-template-columns: 1.8fr 1fr 1fr 1fr 36px;
+      gap: 6px;
+      padding: 0 4px 10px 4px;
+      font-size: 11px;
+    }
+
+    .table-header .col-description {
+      display: block;
+    }
+
+    .table-row {
+      display: grid;
+      grid-template-columns: 1.8fr 1fr 1fr 1fr 36px;
+      gap: 6px;
+      padding: 8px 4px;
+      align-items: center;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .table-row .col-description {
+      display: block;
+      min-width: 0;
+      /* Important for text-overflow to work in grid */
+    }
+
+    .table-row .col-description input,
+    .table-row .col-description .cost-item-dropdown {
+      padding: 8px 6px;
+      font-size: 11px;
+      min-width: 0;
+      width: 100%;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .col-currency .currency-dropdown,
+    .col-amount input {
+      padding: 8px 4px;
+      font-size: 11px;
+      min-width: 0;
+      width: 100%;
+    }
+
+    .currency-dropdown {
+      background-position: right 2px center;
+      background-size: 10px;
+      padding-right: 14px;
+      padding-left: 4px;
+    }
+
+    .eur-amount-box {
+      padding: 8px 4px;
+      font-size: 11px;
+      min-height: 32px;
+      white-space: nowrap;
+    }
+
+    .col-actions {
+      justify-content: center;
+    }
+
+    .btn-delete.icon-button {
+      width: 26px;
+      height: 26px;
+      padding: 4px;
+      font-size: 11px;
+    }
+
+    .cost-summary {
+      flex-direction: row;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 15px;
+      padding-top: 15px;
+    }
+
+    .total-cost-label {
+      font-size: 14px;
+    }
+
+    .total-cost-value {
+      font-size: 18px;
+    }
+  }
+
+  /* Extra small screens */
+  @media (max-width: 480px) {
+    .table-header {
+      grid-template-columns: 1.6fr 0.9fr 0.9fr 1fr 32px;
+      font-size: 10px;
+      gap: 4px;
+    }
+
+    .table-row {
+      grid-template-columns: 1.6fr 0.9fr 0.9fr 1fr 32px;
+      gap: 4px;
+    }
+
+    .col-currency .currency-dropdown,
+    .col-amount input {
+      padding: 6px 3px;
+      font-size: 10px;
+    }
+
+    .eur-amount-box {
+      padding: 6px 3px;
+      font-size: 10px;
+    }
+
+    .table-row .col-description input,
+    .table-row .col-description .cost-item-dropdown {
+      padding: 6px 4px;
+      font-size: 10px;
+    }
+
+    .btn-delete.icon-button {
+      width: 24px;
+      height: 24px;
+      padding: 3px;
+      font-size: 10px;
+    }
+  }
+
+  .loading {
+    color: #6b7280;
+    font-style: italic;
+    font-size: 12px;
+  }

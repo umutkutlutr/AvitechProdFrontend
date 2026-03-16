@@ -1,0 +1,932 @@
+.all-services {
+  padding: 0;
+  max-width: var(--page-max-width, 1200px);
+  margin: 0 auto;
+  min-height: 100%;
+}
+
+.services-header {
+  margin-bottom: var(--page-header-margin-bottom, 24px);
+}
+
+.services-header h1 {
+  font-size: var(--page-title-size, 24px);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-text-primary, #1a202c);
+  margin-bottom: 6px;
+  letter-spacing: -0.02em;
+}
+
+.services-header p {
+  font-size: var(--page-subtitle-size, 14px);
+  color: var(--color-text-secondary, #64748b);
+  margin: 0;
+}
+
+/* Action buttons container for closed projects */
+.action-buttons-container {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+  max-width: 1400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Hide empty action buttons container to prevent spacing issues */
+.action-buttons-container:empty {
+  display: none;
+  margin-bottom: 0;
+}
+
+.btn-see-cost-all,
+.btn-submit-info-all {
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  font-size: var(--font-size-base, 14px);
+  font-weight: var(--font-weight-medium, 500);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm, 8px);
+  min-width: 160px;
+}
+
+.btn-see-cost-all {
+  background-color: var(--color-accent, #3b82f6);
+  color: white;
+}
+
+.btn-see-cost-all:hover {
+  background-color: var(--color-accent-hover, #2563eb);
+}
+
+.btn-submit-info-all {
+  background-color: var(--color-success, #059669);
+  color: white;
+}
+
+.btn-submit-info-all:hover {
+  background-color: var(--color-success-hover, #047857);
+}
+
+.services-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.service-card {
+  background: var(--color-surface, #ffffff);
+  border-radius: var(--radius-lg, 10px);
+  padding: 20px;
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.04));
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  border: 1px solid var(--color-border, #e2e8f0);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.service-card:hover {
+  box-shadow: var(--shadow-md, 0 2px 8px rgba(0, 0, 0, 0.06));
+}
+
+.service-card.clickable-card:hover {
+  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.15);
+  border-color: var(--color-accent, #3b82f6);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 12px;
+}
+
+.machine-name {
+  font-size: 16px;
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-text-primary, #1a202c);
+  margin: 0;
+  flex: 1;
+  line-height: 1.3;
+  word-break: keep-all;
+  min-width: 0;
+}
+
+.status-badge {
+  padding: 6px 12px;
+  border-radius: 2px;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.status-sent {
+  background-color: #000000;
+  color: white;
+}
+
+.status-draft {
+  background-color: #e9ecef;
+  color: #495057;
+}
+
+.status-approved {
+  background-color: #000000;
+  color: white;
+}
+
+.status-sold {
+  background-color: #28a745;
+  color: white;
+}
+
+.status-closed {
+  background-color: #dc3545;
+  color: white;
+}
+
+.status-default {
+  background-color: #f8f9fa;
+  color: #6c757d;
+}
+
+.sender-info {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  border-left: 3px solid #007bff;
+}
+
+.sender-label {
+  font-size: 13px;
+  color: #6c757d;
+  font-weight: 500;
+  margin-right: 8px;
+}
+
+.sender-name {
+  font-size: 14px;
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+.card-details {
+  margin-bottom: 20px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.detail-row:last-child {
+  margin-bottom: 0;
+}
+
+.detail-icon {
+  font-size: 16px;
+  width: 20px;
+  color: #6c757d;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.detail-label {
+  font-size: 14px;
+  color: #6c757d;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.detail-label:not(.machine-title) {
+  white-space: nowrap;
+}
+
+.detail-value {
+  font-size: 14px;
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+.machine-title {
+  flex: 1;
+  min-width: 0;
+  white-space: normal;
+  line-height: 1.3;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.serial-number,
+.creation-date,
+.client-company-name {
+  margin-left: auto;
+  text-align: right;
+}
+
+.separator-line {
+  height: 1px;
+  background-color: #dee2e6;
+  margin: 16px 0;
+  width: 100%;
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  width: 100%;
+}
+
+.card-actions-secondary {
+  display: flex;
+  margin-top: 8px;
+}
+
+.btn-offer,
+.btn-view-proposals,
+.btn-cost-detail,
+.btn-info,
+.btn-proposal-info,
+.btn-cost-info,
+.btn-download {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  font-size: var(--font-size-sm, 13px);
+  font-weight: var(--font-weight-medium, 500);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm, 8px);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  position: relative;
+}
+
+.btn-offer {
+  background-color: var(--color-primary, #0f172a);
+  color: white;
+  flex: 2;
+}
+
+.btn-offer:hover {
+  background-color: var(--color-primary-hover, #1e293b);
+}
+
+.btn-view-proposals {
+  background-color: var(--color-accent, #3b82f6);
+  color: white;
+  width: 100%;
+}
+
+.btn-view-proposals:hover {
+  background-color: var(--color-accent-hover, #2563eb);
+}
+
+.btn-cost-detail {
+  background-color: var(--color-text-secondary, #64748b);
+  color: white;
+  flex: 1;
+}
+
+.btn-cost-detail:hover {
+  background-color: #475569;
+}
+
+.btn-proposal-info {
+  background-color: var(--color-accent, #3b82f6);
+  color: white;
+  flex: 1;
+}
+
+.btn-proposal-info:hover {
+  background-color: var(--color-accent-hover, #2563eb);
+}
+
+.btn-cost-info {
+  background-color: var(--color-text-secondary, #64748b);
+  color: white;
+  flex: 1;
+}
+
+.btn-cost-info .btn-icon {
+  color: white !important;
+  font-size: 18px;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  flex-shrink: 0;
+  line-height: 1;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  visibility: visible !important;
+  opacity: 1 !important;
+  margin: 0;
+  padding: 0;
+}
+
+.btn-cost-info .btn-icon svg {
+  width: 100% !important;
+  height: 100% !important;
+  fill: currentColor !important;
+  stroke: currentColor !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.btn-cost-info:hover {
+  background-color: #475569;
+}
+
+.btn-proposal-info .btn-icon {
+  color: white !important;
+  font-size: 18px;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  flex-shrink: 0;
+  line-height: 1;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  visibility: visible !important;
+  opacity: 1 !important;
+  margin: 0;
+  padding: 0;
+}
+
+.btn-proposal-info .btn-icon svg {
+  width: 100% !important;
+  height: 100% !important;
+  fill: currentColor !important;
+  stroke: currentColor !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.btn-info {
+  background-color: transparent;
+  color: var(--color-text-primary, #1a202c);
+  border: 1px solid var(--color-border, #e2e8f0);
+  flex: 1;
+}
+
+.btn-info .btn-icon {
+  color: inherit;
+  font-size: 16px;
+}
+
+.btn-info:hover {
+  background-color: var(--color-border-subtle, #f8fafc);
+  border-color: var(--color-text-muted, #94a3b8);
+}
+
+.btn-download {
+  background-color: var(--color-success, #059669);
+  color: white;
+  flex: 1;
+}
+
+.btn-download:hover {
+  background-color: var(--color-success-hover, #047857);
+}
+
+.btn-icon {
+  font-size: 16px;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0 !important;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  line-height: 1;
+  vertical-align: middle;
+  visibility: visible !important;
+  opacity: 1 !important;
+  margin: 0;
+  padding: 0;
+}
+
+.btn-icon svg {
+  width: 100% !important;
+  height: 100% !important;
+  fill: currentColor !important;
+  stroke: currentColor !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* When offer button is hidden (for sold items), adjust remaining buttons */
+.card-actions.sold-item .btn-cost-detail {
+  flex: 2;
+}
+
+.card-actions.sold-item .btn-info {
+  flex: 1;
+}
+
+/* Responsive design */
+@media (max-width: 1200px) {
+  .services-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Transition to 2 columns earlier for better card spacing */
+@media (max-width: 992px) {
+  .services-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .service-card {
+    padding: 16px;
+  }
+
+  .card-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .machine-name {
+    font-size: 16px;
+    word-break: keep-all;
+    min-width: 80px;
+    flex-shrink: 1;
+  }
+
+  .status-badge {
+    font-size: 12px;
+    padding: 4px 8px;
+    flex-shrink: 0;
+  }
+
+  /* Detail row adjustments for medium screens */
+  .detail-row {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .detail-value {
+    font-size: 13px;
+  }
+
+  /* Button size adjustments */
+  .btn-offer,
+  .btn-view-proposals,
+  .btn-cost-detail,
+  .btn-info,
+  .btn-proposal-info,
+  .btn-cost-info,
+  .btn-download {
+    padding: 6px 10px;
+    font-size: 12px;
+    gap: 6px;
+  }
+
+  .btn-icon {
+    font-size: 14px;
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    min-height: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .services-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .service-card {
+    padding: 20px;
+  }
+
+  .card-header {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .machine-name {
+    font-size: 18px;
+    word-break: keep-all;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 60%;
+    flex-shrink: 1;
+  }
+
+  .status-badge {
+    margin-left: auto;
+    font-size: 11px;
+    padding: 4px 10px;
+    flex-shrink: 0;
+  }
+
+  .detail-row {
+    flex-wrap: wrap;
+    gap: 8px;
+    row-gap: 4px;
+  }
+
+  .detail-label,
+  .detail-value {
+    font-size: 13px;
+  }
+
+  /* Fix the first detail row (machine info) - allow wrapping */
+  .detail-row:first-child {
+    flex-wrap: wrap;
+  }
+
+  .detail-row:first-child .detail-value {
+    white-space: nowrap;
+  }
+
+  .card-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .btn-offer,
+  .btn-view-proposals,
+  .btn-cost-detail,
+  .btn-info,
+  .btn-proposal-info,
+  .btn-cost-info,
+  .btn-download {
+    flex: 1 1 auto;
+    padding: 10px 14px;
+    font-size: 13px;
+    min-width: calc(33% - 6px);
+    justify-content: center;
+  }
+
+  .card-actions-secondary {
+    margin-top: 12px;
+  }
+
+  .action-buttons-container {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .btn-see-cost-all,
+  .btn-submit-info-all {
+    min-width: auto;
+    width: 100%;
+  }
+
+  /* Sender info adjustments */
+  .sender-info {
+    padding: 6px 10px;
+  }
+
+  .sender-label {
+    font-size: 12px;
+  }
+
+  .sender-name {
+    font-size: 13px;
+  }
+
+  /* Accounting toggle adjustments */
+  .accounting-toggle-row {
+    flex-wrap: nowrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .all-services {
+    padding: 16px;
+  }
+
+  .services-header h1 {
+    font-size: 24px;
+  }
+
+  .services-header p {
+    font-size: 14px;
+  }
+
+  .service-card {
+    padding: 16px;
+  }
+
+  .card-header {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .machine-name {
+    font-size: 16px;
+    max-width: 55%;
+  }
+
+  .status-badge {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 2px;
+  }
+
+  .detail-row {
+    flex-wrap: wrap;
+    gap: 6px;
+    row-gap: 4px;
+  }
+
+  .detail-label,
+  .detail-value {
+    font-size: 12px;
+  }
+
+  .detail-icon {
+    font-size: 14px;
+    width: 16px;
+  }
+
+  /* Stack buttons vertically on very small screens */
+  .card-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .btn-offer,
+  .btn-view-proposals,
+  .btn-cost-detail,
+  .btn-info,
+  .btn-proposal-info,
+  .btn-cost-info,
+  .btn-download {
+    width: 100%;
+    min-width: 100%;
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+
+  /* Serial number and dates */
+  .serial-number,
+  .creation-date,
+  .client-company-name {
+    margin-left: 0;
+    text-align: left;
+    word-break: break-word;
+  }
+
+  /* Accounting toggle size */
+  .accounting-toggle {
+    width: 44px;
+    height: 22px;
+  }
+
+  .toggle-slider {
+    width: 14px;
+    height: 14px;
+  }
+
+  .accounting-toggle.active .toggle-slider {
+    left: 24px;
+  }
+}
+
+/* Accounting Toggle Styles */
+.accounting-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 8px 0;
+}
+
+.accounting-toggle-label {
+  font-size: 14px;
+  color: #6c757d;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.accounting-toggle {
+  position: relative;
+  width: 48px;
+  height: 24px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.accounting-toggle.inactive {
+  background-color: #dc3545;
+  border-color: #dc3545;
+}
+
+.accounting-toggle.active {
+  background-color: #28a745;
+  border-color: #28a745;
+}
+
+.accounting-toggle.disabled {
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: white;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.accounting-toggle.inactive .toggle-slider {
+  left: 2px;
+}
+
+.accounting-toggle.active .toggle-slider {
+  left: 26px;
+}
+
+.accounting-toggle:not(.disabled):hover {
+  opacity: 0.9;
+  transform: scale(1.05);
+}
+
+/* Confirmation Dialog Styles */
+.confirmation-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.confirmation-dialog {
+  background: white;
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.confirmation-dialog h3 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin: 0 0 16px 0;
+}
+
+.confirmation-dialog p {
+  font-size: 16px;
+  color: #6c757d;
+  margin: 0 0 24px 0;
+  line-height: 1.5;
+}
+
+.confirmation-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.btn-cancel,
+.btn-confirm {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 100px;
+}
+
+.btn-cancel {
+  min-width: 10px;
+  background-color: #e9ecef;
+  color: #495057;
+}
+
+.btn-cancel:hover {
+  background-color: #dee2e6;
+  transform: translateY(-1px);
+}
+
+.btn-confirm {
+  background-color: #28a745;
+  color: white;
+}
+
+.btn-confirm:hover {
+  background-color: #218838;
+  transform: translateY(-1px);
+}
+
+/* Responsive styles for toggle */
+@media (max-width: 768px) {
+  .accounting-toggle-row {
+    gap: 8px;
+    padding: 6px 0;
+  }
+
+  .accounting-toggle-label {
+    font-size: 13px;
+  }
+
+  .confirmation-dialog {
+    padding: 24px;
+    width: 95%;
+  }
+
+  .confirmation-dialog h3 {
+    font-size: 20px;
+  }
+
+  .confirmation-dialog p {
+    font-size: 14px;
+  }
+
+  .confirmation-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .btn-cancel,
+  .btn-confirm {
+    width: 100%;
+  }
+}
