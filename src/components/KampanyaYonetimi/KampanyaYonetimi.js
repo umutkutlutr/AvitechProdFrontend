@@ -610,7 +610,7 @@ const KampanyaYonetimi = () => {
                     <input
                       type="text"
                       className="input-field full-width"
-                      style={{ paddingLeft: '36px' }}
+                      style={{ paddingLeft: '42px' }}
                       placeholder="Makine adı, model, seri no ile ara..."
                       value={machineSearch}
                       onChange={e => setMachineSearch(e.target.value)}
