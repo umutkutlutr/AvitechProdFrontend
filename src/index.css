@@ -9,23 +9,22 @@
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--line-height-normal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--color-bg, #f8fafc);
-  line-height: 1.5;
-  color: var(--color-text-primary, #1a202c);
+  background-color: var(--color-bg);
+  color: var(--color-text);
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: var(--font-mono);
 }
 
 input, select, textarea, button {
   font-family: inherit;
+  font-size: inherit;
 }
 
 button {
@@ -36,41 +35,40 @@ input:focus, select:focus, textarea:focus {
   outline: none;
 }
 
-/* Global sidebar fade effect when modal is open */
 body.modal-open .sidebar {
   opacity: 0.4;
-  transition: opacity 0.3s ease;
+  transition: opacity var(--transition-normal);
 }
 
-/* ─── Global Loading State (matches Yönetici Paneli style) ──────────────── */
+/* ─── Global Loading ───────────────────────────────────────────────────── */
 .page-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 20px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: var(--space-12) var(--space-6);
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border);
 }
 
 .page-loading-spinner {
-  font-size: 48px;
-  color: #3498db;
-  animation: pageLoadingSpin 1s linear infinite;
+  font-size: 32px;
+  color: var(--color-accent);
+  animation: pageLoadingSpin 0.8s linear infinite;
 }
 
 .page-loading p {
-  margin-top: 20px;
-  font-size: 16px;
-  color: #7f8c8d;
+  margin-top: var(--space-4);
+  font-size: var(--text-base);
+  color: var(--color-text-muted);
 }
 
-/* Inline loading spinner for small contexts (stat cards, etc.) */
 .inline-loading-spinner {
   font-size: 18px;
-  color: #3498db;
-  animation: pageLoadingSpin 1s linear infinite;
+  color: var(--color-accent);
+  animation: pageLoadingSpin 0.8s linear infinite;
   vertical-align: middle;
 }
 
