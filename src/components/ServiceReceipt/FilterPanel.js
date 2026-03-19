@@ -10,6 +10,7 @@ const FilterPanel = ({ onFilter, onClear }) => {
   const [isFiltering, setIsFiltering] = useState(false);
   const [showAddDropdown, setShowAddDropdown] = useState(false);
   const [existingProjects, setExistingProjects] = useState([]);
+  const [filterOptions, setFilterOptions] = useState({});
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [filterSearchTerm, setFilterSearchTerm] = useState('');
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
@@ -17,31 +18,38 @@ const FilterPanel = ({ onFilter, onClear }) => {
   const addFilterButtonRef = useRef(null);
   const dropdownRef = useRef(null);
 
-  // Load existing projects for autocomplete options
+  // Load existing projects and filter options for dropdowns
   useEffect(() => {
-    const loadProjects = async () => {
+    const load = async () => {
       setLoadingProjects(true);
       try {
-        const projects = await projectService.getProjects();
+        const [projects, options] = await Promise.all([
+          projectService.getProjects(),
+          projectService.getFilterOptions(),
+        ]);
         setExistingProjects(projects);
+        setFilterOptions(options || {});
       } catch (error) {
-        console.error('Error loading projects for filters:', error);
+        console.error('Error loading filter data:', error);
       } finally {
         setLoadingProjects(false);
       }
     };
-    loadProjects();
+    load();
   }, []);
 
-  // Extract unique values from existing projects for each field (use normalizer for canonical fields)
+  // Extract unique values: prefer API filter-options, fallback to existing projects
   const getUniqueValues = (field) => {
+    if (filterOptions[field] && Array.isArray(filterOptions[field]) && filterOptions[field].length > 0) {
+      return filterOptions[field].filter(Boolean).sort();
+    }
     if (!existingProjects.length) return [];
-    
     const values = existingProjects
       .map(project => {
         const n = normalizeProjectCard(project);
         switch(field) {
           case 'make':
+            return project.make || n.make || n.machineName;
           case 'machineName':
             return n.machineName || n.make || n.title;
           case 'model':
@@ -66,6 +74,12 @@ const FilterPanel = ({ onFilter, onClear }) => {
             return project.holderType;
           case 'operatingSystem':
             return project.operatingSystem;
+          case 'machineOrigin':
+            return project.machineOrigin;
+          case 'machineType':
+            return project.type || project.machineType;
+          case 'condition':
+            return project.condition === 'NEW' ? 'Sıfır' : (project.condition ? '2. El' : null);
           default:
             return project[field];
         }
@@ -77,53 +91,53 @@ const FilterPanel = ({ onFilter, onClear }) => {
     return values;
   };
 
-  // Available filter options - ALL fields from CreateServiceReceipt
+  // Tüm filtreler (seri no hariç - arama çubuğundan aranır)
   const availableFilterOptions = [
-    { key: 'projectCode', label: 'Proje Kodu', type: 'text', placeholder: 'Proje kodunu girin' },
-    { key: 'machineName', label: 'Makine Markası', type: 'select-or-text', placeholder: 'Marka seçin veya girin', options: () => getUniqueValues('machineName') },
-    { key: 'model', label: 'Makine Modeli', type: 'select-or-text', placeholder: 'Model seçin veya girin', options: () => getUniqueValues('model') },
-    { key: 'year', label: 'Yıl', type: 'number', placeholder: 'Yıl girin', min: '1900', max: '2030' },
-    { key: 'workingHours', label: 'Çalışma Saati', type: 'number', placeholder: 'Minimum saat' },
-    { key: 'serialNumber', label: 'Seri Numarası', type: 'text', placeholder: 'Seri numarasını girin' },
-    { key: 'teamCount', label: 'Takım Sayısı', type: 'number', placeholder: 'Minimum takım sayısı' },
-    { key: 'machineNetWeight', label: 'Makine Net Kilo', type: 'number', placeholder: 'Minimum kg' },
-    { key: 'additionalWeight', label: 'Ek Kilo', type: 'number', placeholder: 'Minimum kg' },
-    { key: 'xMovement', label: 'X Hareketi', type: 'select-or-text', placeholder: 'Seçin veya girin (örn: 1000mm)', options: () => getUniqueValues('xMovement') },
-    { key: 'yMovement', label: 'Y Hareketi', type: 'select-or-text', placeholder: 'Seçin veya girin (örn: 500mm)', options: () => getUniqueValues('yMovement') },
-    { key: 'zMovement', label: 'Z Hareketi', type: 'select-or-text', placeholder: 'Seçin veya girin (örn: 300mm)', options: () => getUniqueValues('zMovement') },
-    { key: 'aMovement', label: 'A Hareketi', type: 'select-or-text', placeholder: 'Seçin veya girin (örn: 360°)', options: () => getUniqueValues('aMovement') },
-    { key: 'bMovement', label: 'B Hareketi', type: 'select-or-text', placeholder: 'Seçin veya girin (örn: 360°)', options: () => getUniqueValues('bMovement') },
-    { key: 'cMovement', label: 'C Hareketi', type: 'select-or-text', placeholder: 'Seçin veya girin (örn: 360°)', options: () => getUniqueValues('cMovement') },
-    { key: 'machineOrigin', label: 'Makine Menşei', type: 'select-or-text', placeholder: 'Seçin veya girin (örn: Almanya)', options: () => getUniqueValues('machineOrigin') },
-    { key: 'machinePower', label: 'Makinenin Çektiği Güç', type: 'select-or-text', placeholder: 'Seçin veya girin (örn: 25 Kw)', options: () => getUniqueValues('machinePower') },
-    { key: 'holderType', label: 'Tutucu Tipi', type: 'select-or-text', placeholder: 'Seçin veya girin (örn: HSK-63A)', options: () => getUniqueValues('holderType') },
-    { key: 'machineWidth', label: 'Makine Genişliği', type: 'number', placeholder: 'Minimum cm' },
-    { key: 'machineLength', label: 'Makine Uzunluğu', type: 'number', placeholder: 'Minimum cm' },
-    { key: 'machineHeight', label: 'Makine Yüksekliği', type: 'number', placeholder: 'Minimum cm' },
-    { key: 'maxMaterialWeight', label: 'Maksimum Malzeme Ağırlığı', type: 'number', placeholder: 'Minimum kg' },
-    { key: 'operatingSystem', label: 'İşletim Sistemi', type: 'select', placeholder: 'İşletim sistemi seçin', options: () => ['Heidenhain', 'Siemens', 'Fanuc', ...getUniqueValues('operatingSystem').filter(v => !['Heidenhain', 'Siemens', 'Fanuc'].includes(v))] },
-    { key: 'teamMeasurementProbe', label: 'Takım Ölçme Probu', type: 'select', placeholder: 'Seçin', options: () => ['Var', 'Yok'] },
-    { key: 'partMeasurementProbe', label: 'Parça Ölçme Probu', type: 'select', placeholder: 'Seçin', options: () => ['Var', 'Yok'] },
-    { key: 'insideWaterGiving', label: 'İçten Su Verme', type: 'select', placeholder: 'Seçin', options: () => ['Var', 'Yok'] },
-    { key: 'conveyor', label: 'Konveyör', type: 'select', placeholder: 'Seçin', options: () => ['Var', 'Yok'] },
-    { key: 'paperFilter', label: 'Kağıt Filtre', type: 'select', placeholder: 'Seçin', options: () => ['Var', 'Yok'] },
-    { key: 'accessoryData', label: 'Ek Aksesuar', type: 'text', placeholder: 'Aksesuar ara' },
+    { key: 'projectCode', label: 'Proje Kodu', type: 'text', placeholder: 'Proje kodunu girin', group: 'temel' },
+    { key: 'machineName', label: 'Makine Markası', type: 'select-or-text', placeholder: 'Marka seçin veya girin', options: () => getUniqueValues('machineName'), group: 'temel' },
+    { key: 'make', label: 'Marka (Make)', type: 'select-or-text', placeholder: 'Marka seçin veya girin', options: () => getUniqueValues('make'), group: 'temel' },
+    { key: 'model', label: 'Makine Modeli', type: 'select-or-text', placeholder: 'Model seçin veya girin', options: () => getUniqueValues('model'), group: 'temel' },
+    { key: 'machineType', label: 'Makine Tipi', type: 'select-or-text', placeholder: 'Tip seçin veya girin', options: () => getUniqueValues('machineType'), group: 'temel' },
+    { key: 'condition', label: 'Kullanım Durumu', type: 'select', placeholder: 'Seçin', options: () => ['Sıfır', '2. El'], group: 'temel' },
+    { key: 'yearMin', label: 'Yıl (En Düşük)', type: 'number', placeholder: 'Örn: 2018', min: '1900', max: '2030', group: 'temel' },
+    { key: 'yearMax', label: 'Yıl (En Yüksek)', type: 'number', placeholder: 'Örn: 2024', min: '1900', max: '2030', group: 'temel' },
+    { key: 'machineOrigin', label: 'Makine Menşei', type: 'select-or-text', placeholder: 'Örn: Almanya', options: () => getUniqueValues('machineOrigin'), group: 'temel' },
+    { key: 'conveyor', label: 'Konveyör', type: 'select', placeholder: 'Var / Yok', options: () => ['Var', 'Yok'], group: 'ozellik' },
+    { key: 'operatingSystem', label: 'İşletim Sistemi', type: 'select-or-text', placeholder: 'Seçin veya girin', options: () => ['Heidenhain', 'Siemens', 'Fanuc', ...getUniqueValues('operatingSystem').filter(v => v && !['Heidenhain', 'Siemens', 'Fanuc'].includes(v))], group: 'ozellik' },
+    { key: 'holderType', label: 'Tutucu Tipi', type: 'select-or-text', placeholder: 'Örn: HSK-63A', options: () => getUniqueValues('holderType'), group: 'ozellik' },
+    { key: 'machinePower', label: 'Makine Gücü', type: 'select-or-text', placeholder: 'Örn: 25 Kw', options: () => getUniqueValues('machinePower'), group: 'ozellik' },
+    { key: 'takimOlcmeProbu', label: 'Takım Ölçme Probu', type: 'select', placeholder: 'Var / Yok', options: () => ['Var', 'Yok'], group: 'ozellik' },
+    { key: 'parcaOlcmeProbu', label: 'Parça Ölçme Probu', type: 'select', placeholder: 'Var / Yok', options: () => ['Var', 'Yok'], group: 'ozellik' },
+    { key: 'ictenSuVerme', label: 'İçten Su Verme', type: 'select', placeholder: 'Var / Yok', options: () => ['Var', 'Yok'], group: 'ozellik' },
+    { key: 'kagitFiltre', label: 'Kağıt Filtre', type: 'select', placeholder: 'Var / Yok', options: () => ['Var', 'Yok'], group: 'ozellik' },
+    { key: 'elCarki', label: 'El Çarkı', type: 'select', placeholder: 'Var / Yok', options: () => ['Var', 'Yok'], group: 'ozellik' },
+    { key: 'xMovement', label: 'X Hareketi', type: 'select-or-text', placeholder: 'Örn: 1000mm', options: () => getUniqueValues('xMovement'), group: 'hareket' },
+    { key: 'yMovement', label: 'Y Hareketi', type: 'select-or-text', placeholder: 'Örn: 500mm', options: () => getUniqueValues('yMovement'), group: 'hareket' },
+    { key: 'zMovement', label: 'Z Hareketi', type: 'select-or-text', placeholder: 'Örn: 300mm', options: () => getUniqueValues('zMovement'), group: 'hareket' },
+    { key: 'aMovement', label: 'A Hareketi', type: 'select-or-text', placeholder: 'Örn: 360°', options: () => getUniqueValues('aMovement'), group: 'hareket' },
+    { key: 'bMovement', label: 'B Hareketi', type: 'select-or-text', placeholder: 'Örn: 360°', options: () => getUniqueValues('bMovement'), group: 'hareket' },
+    { key: 'cMovement', label: 'C Hareketi', type: 'select-or-text', placeholder: 'Örn: 360°', options: () => getUniqueValues('cMovement'), group: 'hareket' },
+    { key: 'netWeightMin', label: 'Makine Net Kilo (min)', type: 'number', placeholder: 'Minimum kg', group: 'boyut' },
+    { key: 'additionalWeightMin', label: 'Ek Kilo (min)', type: 'number', placeholder: 'Minimum kg', group: 'boyut' },
+    { key: 'machineWidthMin', label: 'Makine Genişliği (min)', type: 'number', placeholder: 'Minimum cm', group: 'boyut' },
+    { key: 'machineLengthMin', label: 'Makine Uzunluğu (min)', type: 'number', placeholder: 'Minimum cm', group: 'boyut' },
+    { key: 'machineHeightMin', label: 'Makine Yüksekliği (min)', type: 'number', placeholder: 'Minimum cm', group: 'boyut' },
+    { key: 'maxMaterialWeightMin', label: 'Maks. Malzeme Ağırlığı (min)', type: 'number', placeholder: 'Minimum kg', group: 'boyut' },
+    { key: 'accessoryData', label: 'Ek Aksesuar', type: 'text', placeholder: 'Aksesuar ara', group: 'diger' },
   ];
 
-  // Get available options that haven't been added yet
+  const filterGroupLabels = { temel: 'Temel Bilgiler', ozellik: 'Özellikler (Var/Yok)', hareket: 'Hareket Eksenleri', boyut: 'Boyut / Ağırlık', diger: 'Diğer' };
+
+  // Get available options that haven't been added yet, grouped
   const getAvailableOptions = () => {
     const activeFields = activeFilters.map(f => f.field);
     let available = availableFilterOptions.filter(opt => !activeFields.includes(opt.key));
-    
-    // Apply search filter
     if (filterSearchTerm.trim()) {
       const searchLower = filterSearchTerm.toLowerCase();
-      available = available.filter(opt => 
-        opt.label.toLowerCase().includes(searchLower) ||
-        opt.key.toLowerCase().includes(searchLower)
+      available = available.filter(opt =>
+        opt.label.toLowerCase().includes(searchLower) || opt.key.toLowerCase().includes(searchLower)
       );
     }
-    
     return available;
   };
 
@@ -416,27 +430,36 @@ const FilterPanel = ({ onFilter, onClear }) => {
                         autoFocus
                       />
                     </div>
-                    <div 
+                    <div
                       className="filter-dropdown-list"
-                      onScroll={(e) => {
-                        // Stop scroll event from bubbling to window
-                        e.stopPropagation();
-                      }}
+                      onScroll={(e) => e.stopPropagation()}
                     >
                       {availableOptions.length > 0 ? (
-                        availableOptions.map(option => (
-                          <button
-                            key={option.key}
-                            className="filter-dropdown-item"
-                            onClick={() => handleAddFilter(option.key)}
-                          >
-                            {option.label}
-                          </button>
-                        ))
+                        (() => {
+                          const byGroup = {};
+                          availableOptions.forEach(opt => {
+                            const g = opt.group || 'diger';
+                            if (!byGroup[g]) byGroup[g] = [];
+                            byGroup[g].push(opt);
+                          });
+                          const order = ['temel', 'ozellik', 'hareket', 'boyut', 'diger'];
+                          return order.filter(g => byGroup[g]?.length).map(groupKey => (
+                            <div key={groupKey} className="filter-dropdown-group">
+                              <div className="filter-dropdown-group-label">{filterGroupLabels[groupKey] || groupKey}</div>
+                              {byGroup[groupKey].map(option => (
+                                <button
+                                  key={option.key}
+                                  className="filter-dropdown-item"
+                                  onClick={() => handleAddFilter(option.key)}
+                                >
+                                  {option.label}
+                                </button>
+                              ))}
+                            </div>
+                          ));
+                        })()
                       ) : (
-                        <div className="filter-dropdown-empty">
-                          Filtre bulunamadı
-                        </div>
+                        <div className="filter-dropdown-empty">Filtre bulunamadı</div>
                       )}
                     </div>
                   </div>

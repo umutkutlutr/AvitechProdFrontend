@@ -42,7 +42,8 @@
 }
 
 .admin-filter-icon {
-    font-size: 18px;
+    font-size: 20px;
+    flex-shrink: 0;
 }
 
 .admin-active-indicator {
@@ -82,28 +83,34 @@
 
 .admin-filter-fields-container {
     display: flex;
-    flex-direction: column;
-    gap: 16px;
+    flex-wrap: wrap;
+    gap: 12px 16px;
+    align-items: flex-end;
 }
 
 .admin-filter-field-row {
     display: flex;
-    align-items: flex-start;
-    gap: 12px;
+    align-items: center;
+    gap: 8px;
+    flex: 0 1 auto;
+    min-width: 160px;
+    max-width: 260px;
 }
 
 .admin-filter-field {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
     flex: 1;
+    min-width: 0;
 }
 
 .admin-filter-field label {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
-    color: #2c3e50;
-    margin-bottom: 4px;
+    color: #374151;
+    margin-bottom: 0;
+    white-space: nowrap;
 }
 
 .admin-filter-field input {

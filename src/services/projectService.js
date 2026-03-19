@@ -459,6 +459,20 @@ class ProjectService {
     }
   }
 
+  async getFilterOptions() {
+    try {
+      const response = await fetchWithAuth(`${API_BASE_URL}/api/projects/filter-options`, {
+        method: 'GET',
+        headers: authService.getAuthHeaders(),
+      });
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Get filter options error:', error);
+      return {};
+    }
+  }
+
   async filterProjects(filters) {
     try {
       // Build query string from filters object

@@ -280,6 +280,12 @@
   font-size: 12px;
 }
 
+.offer-actions-inline {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .btn-download-inline {
   padding: 4px 10px;
   background: #059669;
@@ -288,6 +294,14 @@
   border-radius: 6px;
   font-size: 12px;
   cursor: pointer;
+}
+
+.btn-view-inline {
+  background: #2563eb;
+}
+
+.btn-view-inline:hover {
+  background: #1d4ed8;
 }
 
 .btn-download-inline:hover:not(:disabled) {

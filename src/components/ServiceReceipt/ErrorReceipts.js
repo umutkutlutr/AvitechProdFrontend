@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import projectService from '../../services/projectService';
 import ServiceDetailsModal from './ServiceDetailsModal';
+import Pagination from '../shared/Pagination';
+import SearchBar from './SearchBar';
 import { AiOutlineUndo, AiOutlineDelete, AiOutlineInfoCircle } from 'react-icons/ai';
 import './AllServicesTable.css';
 
@@ -11,6 +13,13 @@ const ErrorReceipts = () => {
   const [processingIds, setProcessingIds] = useState(new Set());
   const [selectedService, setSelectedService] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+    try {
+      return parseInt(localStorage.getItem('errorReceipts_pageSize') || '25', 10);
+    } catch { return 25; }
+  });
+  const [searchTerm, setSearchTerm] = useState('');
 
   const fetchDeleted = async () => {
     try {
@@ -81,12 +90,30 @@ const ErrorReceipts = () => {
     return title.replace(/\s*\([^)]*\)\s*/g, '').trim();
   };
 
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredProjects = normalizedSearch
+    ? projects.filter((p) => {
+        const fields = [p.projectCode, p.machineName, p.title, p.model, p.year].filter(Boolean);
+        return fields.some((f) => String(f).toLowerCase().includes(normalizedSearch));
+      })
+    : projects;
+  const totalPages = Math.ceil(filteredProjects.length / itemsPerPage);
+  const startIdx = (currentPage - 1) * itemsPerPage;
+  const paginatedProjects = filteredProjects.slice(startIdx, startIdx + itemsPerPage);
+
   return (
     <div className="all-services">
       <div className="services-header">
         <h1>İptal Edilen Projeler</h1>
         <p>İptal edilen projeler burada listelenir.</p>
       </div>
+
+      {projects.length > 0 && (
+        <SearchBar
+          onSearch={(q) => { setSearchTerm(q); setCurrentPage(1); }}
+          placeholder="Proje kodu, makine, model veya yıl ile ara..."
+        />
+      )}
 
       {loading && (
         <div className="loading-state">
@@ -102,7 +129,11 @@ const ErrorReceipts = () => {
 
       {!loading && !error && (
         <div className="services-table-container">
-          {projects.length === 0 ? (
+          {projects.length > 0 && filteredProjects.length === 0 ? (
+            <div className="empty-state">
+              <p>Arama kriterlerinize uygun kayıt bulunamadı.</p>
+            </div>
+          ) : projects.length === 0 ? (
             <div className="empty-state">
               <p>Kayıt bulunamadı.</p>
             </div>
@@ -118,7 +149,7 @@ const ErrorReceipts = () => {
                 </tr>
               </thead>
               <tbody>
-                {projects.map((project) => (
+                {paginatedProjects.map((project) => (
                   <tr key={project.id} className="service-row">
                     <td className="form-number">{project.projectCode || '-'}</td>
                     <td className="device-name">{cleanTitle(project.title) || 'Belirtilmemiş'}</td>
@@ -157,6 +188,23 @@ const ErrorReceipts = () => {
             </table>
           )}
         </div>
+      )}
+
+      {!loading && !error && projects.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={projects.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={(v) => {
+            setItemsPerPage(v);
+            setCurrentPage(1);
+            try { localStorage.setItem('errorReceipts_pageSize', String(v)); } catch (_) {}
+          }}
+          storageKey="errorReceipts_pageSize"
+          label="proje"
+        />
       )}
 
       {isModalOpen && selectedService && (

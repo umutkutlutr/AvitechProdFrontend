@@ -33,7 +33,7 @@ const SECTION_LABELS = {
   machineVisit: '1b. Makine Ziyareti',
   logistics: '2. Lojistik',
   customs: '3. Gümrük',
-  transfer: '4. Transfer',
+  transfer: '4. Devir İşlemleri',
   generalCosts: '5. Genel Maliyetler',
   costSummary: '6. Maliyet Özeti',
 };
@@ -372,7 +372,9 @@ const CurrencyInput = ({ label, amountField, currencyField, rateField, tryField,
     const storedVal = (val === '' || val === null) ? '' : (!isNaN(num) ? String(num) : val);
     let newRate = parseFloat(rate);
     let newTry = '';
-    if (!isNaN(num) && !isNaN(newRate)) {
+    if (currency === 'TRY') {
+      newTry = !isNaN(num) ? num.toFixed(2) : '';
+    } else if (!isNaN(num) && !isNaN(newRate)) {
       newTry = (num * newRate).toFixed(2);
     }
     onChange(section, amountField, storedVal);
@@ -392,27 +394,36 @@ const CurrencyInput = ({ label, amountField, currencyField, rateField, tryField,
     const numVal = parseFormattedNumber(amount);
     const num = typeof numVal === 'number' ? numVal : parseFloat(String(numVal).replace(',', '.'));
     const numRate = parseFloat(String(val).replace(',', '.'));
-    if (!isNaN(num) && !isNaN(numRate)) {
+    if (currency === 'TRY') {
+      if (!isNaN(num)) onChange(section, tryField, num.toFixed(2));
+    } else if (!isNaN(num) && !isNaN(numRate)) {
       onChange(section, tryField, (num * numRate).toFixed(2));
     }
   };
 
   const handleCurrencyChange = (val) => {
+    const numVal = parseFormattedNumber(amount);
+    const num = typeof numVal === 'number' ? numVal : parseFloat(String(numVal).replace(',', '.'));
+    const currentRate = parseFloat(rate) || 1;
     onChange(section, currencyField, val);
-    // Auto-fill rate from live rates (rates are direct TRY rates: rates[EUR]=38.50 means 1 EUR = 38.50 TRY)
-    if (rates && val !== 'TRY') {
-      const newRate = rates[val] || '';
-      if (rateField && newRate) {
-        onChange(section, rateField, parseFloat(newRate).toFixed(4));
-        const numVal = parseFormattedNumber(amount);
-        const num = typeof numVal === 'number' ? numVal : parseFloat(String(numVal).replace(',', '.'));
-        if (!isNaN(num)) {
-          onChange(section, tryField, (num * newRate).toFixed(2));
-        }
+    if (val === 'TRY') {
+      const eurRate = rates?.EUR ?? currentRate;
+      const newRate = parseFloat(eurRate) || 1;
+      if (rateField) onChange(section, rateField, String(newRate));
+      if (!isNaN(num)) onChange(section, tryField, num.toFixed(2));
+      else if (tryField) onChange(section, tryField, amount);
+    } else {
+      const newRate = rates?.[val] ?? currentRate;
+      const r = parseFloat(newRate) || 1;
+      if (rateField) onChange(section, rateField, r.toFixed(4));
+      if (!isNaN(num)) {
+        const amountInOrig = currency === 'TRY' ? num / currentRate : num;
+        const tryAmount = amountInOrig * r;
+        onChange(section, tryField, tryAmount.toFixed(2));
       }
-    } else if (val === 'TRY') {
-      onChange(section, rateField, '1');
-      onChange(section, tryField, amount);
+      if (currency === 'TRY' && !isNaN(num) && currentRate > 0) {
+        onChange(section, amountField, (num / currentRate).toFixed(2));
+      }
     }
   };
 
@@ -437,22 +448,20 @@ const CurrencyInput = ({ label, amountField, currencyField, rateField, tryField,
           {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
       </div>
-      {currency !== 'TRY' && (
-        <div className="exchange-row">
-          <div className="exchange-rate-group">
-            <label className="field-label-small">1 {currency} = </label>
-            <input
-              type="text"
-              inputMode="decimal"
-              className="input-field rate-field"
-              placeholder="Kur"
-              value={rate}
-              onChange={(e) => handleRateChange(e.target.value)}
-            />
-            <span className="field-label-small">TRY</span>
-          </div>
+      <div className="exchange-row">
+        <div className="exchange-rate-group">
+          <label className="field-label-small">1 {currency === 'TRY' ? 'EUR' : currency} = </label>
+          <input
+            type="text"
+            inputMode="decimal"
+            className="input-field rate-field"
+            placeholder="Kur"
+            value={rate}
+            onChange={(e) => handleRateChange(e.target.value)}
+          />
+          <span className="field-label-small">TRY</span>
         </div>
-      )}
+      </div>
     </div>
   );
 };
@@ -606,9 +615,9 @@ const AdditionalCostRow = ({ item, index, section, projectId, onChange, onRemove
             />
             <span className="field-label-small">TRY</span>
           </div>
-          {item.amountTry && (
+          {item.amountTry && item.exchangeRate && parseFloat(item.exchangeRate) > 0 && (
             <div className="try-equivalent">
-              ≈ <strong>₺{parseFloat(item.amountTry).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+              ≈ <strong>€{(parseFloat(item.amountTry) / parseFloat(item.exchangeRate)).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
             </div>
           )}
         </div>
@@ -1033,14 +1042,14 @@ const ProjeMuhasebesi = () => {
         case 'customs':
           check(s.entryCustomsCost, s.entryCustomsInvoiceKey, 'Giriş gümrük bedeli');
           if (!s.warehousePaidByBuyer) {
-            check(s.warehouseUnloadingCost, s.warehouseUnloadingInvoiceKey, 'Depo indirme');
-            check(s.storageCost, s.storageInvoiceKey, 'Depolama');
+            check(s.warehouseUnloadingCost, s.warehouseUnloadingInvoiceKey, 'Antrepo indirme vinç maliyeti');
+            check(s.storageCost, s.storageInvoiceKey, 'Ardiye');
           }
           checkAdditional(s.additionalCosts, 'Gümrük');
           break;
         case 'transfer':
-          check(s.transferCost, s.transferInvoiceKey, 'Transfer maliyeti');
-          checkAdditional(s.additionalCosts, 'Transfer');
+          check(s.transferCost, s.transferInvoiceKey, 'Gümrükçü Devir Bedeli');
+          checkAdditional(s.additionalCosts, 'Devir İşlemleri');
           break;
         case 'generalCosts':
           check(s.installationCost, s.installationInvoiceKey, 'Kurulum maliyeti');
@@ -1274,13 +1283,13 @@ const ProjeMuhasebesi = () => {
     return statusMap[sectionKey] || 'NOT_STARTED';
   };
 
-  // ── Compute total costs from all sections ──
+  // ── Compute total costs from all sections (EUR bazlı) ──
   const computeTotalCosts = () => {
     const num = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
-    const sumAdditional = (items) => (items || []).reduce((acc, ac) => acc + num(ac.amountTry), 0);
+    const eurRate = num(rates?.EUR) || 38.5;
     const sumAdditionalEur = (items) => {
-      if (!rates?.EUR || rates.EUR <= 0) return 0;
-      return (items || []).reduce((acc, ac) => acc + (num(ac.amountTry) / rates.EUR), 0);
+      if (!eurRate || eurRate <= 0) return 0;
+      return (items || []).reduce((acc, ac) => acc + (num(ac.amountTry) / eurRate), 0);
     };
     const financingDays = Math.max(num(form.generalCosts.financingDays), 0);
     const purchaseRate = num(form.machinePurchase.purchaseExchangeRate) || num(rates?.EUR);
@@ -1290,194 +1299,147 @@ const ProjeMuhasebesi = () => {
       ? (creditAmount * creditInterestRate / 100) * (financingDays / 365)
       : 0;
     const financingCostTry = financingCostEur * purchaseRate;
+    const toEur = (tryVal) => (eurRate > 0 ? tryVal / eurRate : 0);
 
     const sections = [
       {
         key: 'machinePurchase', label: '1a. Makine Alım',
         items: [
-          { label: 'Makine Alım Bedeli', try: num(form.machinePurchase.purchasePriceTry), currency: form.machinePurchase.purchaseCurrency, amount: num(form.machinePurchase.purchasePrice) },
-          { label: 'Dış Komisyon', try: num(form.machinePurchase.externalCommissionTry), currency: form.machinePurchase.externalCommissionCurrency, amount: num(form.machinePurchase.externalCommission) },
-          { label: 'Finansman Maliyeti', try: financingCostTry, currency: 'EUR', amount: financingCostEur },
+          { label: 'Makine Alım Bedeli', try: num(form.machinePurchase.purchasePriceTry), eur: toEur(num(form.machinePurchase.purchasePriceTry)), currency: form.machinePurchase.purchaseCurrency, amount: num(form.machinePurchase.purchasePrice) },
+          { label: 'Dış Komisyon', try: num(form.machinePurchase.externalCommissionTry), eur: toEur(num(form.machinePurchase.externalCommissionTry)), currency: form.machinePurchase.externalCommissionCurrency, amount: num(form.machinePurchase.externalCommission) },
+          { label: 'Finansman Maliyeti', try: financingCostTry, eur: financingCostEur, currency: 'EUR', amount: financingCostEur },
         ],
-        additional: sumAdditional(form.machinePurchase.additionalCosts),
         additionalEur: sumAdditionalEur(form.machinePurchase.additionalCosts),
       },
       {
         key: 'machineVisit', label: '1b. Makine Ziyareti',
         items: [
-          { label: 'Uçak', try: num(form.machineVisit.flightCostTry), currency: form.machineVisit.flightCurrency, amount: num(form.machineVisit.flightCost) },
-          { label: 'Otel', try: num(form.machineVisit.hotelCostTry), currency: form.machineVisit.hotelCurrency, amount: num(form.machineVisit.hotelCost) },
-          { label: 'Araç Kiralama', try: num(form.machineVisit.carRentalCostTry), currency: form.machineVisit.carRentalCurrency, amount: num(form.machineVisit.carRentalCost) },
-          { label: 'Ek Masraf', try: num(form.machineVisit.additionalExpenseCostTry), currency: form.machineVisit.additionalExpenseCurrency, amount: num(form.machineVisit.additionalExpenseCost) },
+          { label: 'Uçak', try: num(form.machineVisit.flightCostTry), eur: toEur(num(form.machineVisit.flightCostTry)), currency: form.machineVisit.flightCurrency, amount: num(form.machineVisit.flightCost) },
+          { label: 'Otel', try: num(form.machineVisit.hotelCostTry), eur: toEur(num(form.machineVisit.hotelCostTry)), currency: form.machineVisit.hotelCurrency, amount: num(form.machineVisit.hotelCost) },
+          { label: 'Araç Kiralama', try: num(form.machineVisit.carRentalCostTry), eur: toEur(num(form.machineVisit.carRentalCostTry)), currency: form.machineVisit.carRentalCurrency, amount: num(form.machineVisit.carRentalCost) },
+          { label: 'Ek Masraf', try: num(form.machineVisit.additionalExpenseCostTry), eur: toEur(num(form.machineVisit.additionalExpenseCostTry)), currency: form.machineVisit.additionalExpenseCurrency, amount: num(form.machineVisit.additionalExpenseCost) },
         ],
-        additional: sumAdditional(form.machineVisit.additionalCosts),
         additionalEur: sumAdditionalEur(form.machineVisit.additionalCosts),
       },
       {
         key: 'logistics', label: '2. Lojistik',
         items: [
-          { label: 'Nakliye', try: num(form.logistics.freightCostTry), currency: form.logistics.freightCurrency, amount: num(form.logistics.freightCost) },
-          { label: 'Ek Lojistik', try: num(form.logistics.additionalLogisticsCostTry), currency: form.logistics.additionalLogisticsCurrency, amount: num(form.logistics.additionalLogisticsCost) },
-          { label: 'Brandalama', try: num(form.logistics.brandingCostTry), currency: form.logistics.brandingCurrency, amount: num(form.logistics.brandingCost) },
-          { label: 'Sigorta', try: num(form.logistics.insuranceCostTry), currency: form.logistics.insuranceCurrency, amount: num(form.logistics.insuranceCost) },
+          { label: 'Nakliye', try: num(form.logistics.freightCostTry), eur: toEur(num(form.logistics.freightCostTry)), currency: form.logistics.freightCurrency, amount: num(form.logistics.freightCost) },
+          { label: 'Ek Lojistik', try: num(form.logistics.additionalLogisticsCostTry), eur: toEur(num(form.logistics.additionalLogisticsCostTry)), currency: form.logistics.additionalLogisticsCurrency, amount: num(form.logistics.additionalLogisticsCost) },
+          { label: 'Brandalama', try: num(form.logistics.brandingCostTry), eur: toEur(num(form.logistics.brandingCostTry)), currency: form.logistics.brandingCurrency, amount: num(form.logistics.brandingCost) },
+          { label: 'Sigorta', try: num(form.logistics.insuranceCostTry), eur: toEur(num(form.logistics.insuranceCostTry)), currency: form.logistics.insuranceCurrency, amount: num(form.logistics.insuranceCost) },
         ],
-        additional: sumAdditional(form.logistics.additionalCosts),
         additionalEur: sumAdditionalEur(form.logistics.additionalCosts),
       },
       {
         key: 'customs', label: '3. Gümrük',
         items: [
-          { label: 'Giriş Gümrük', try: num(form.customs.entryCustomsCostTry), currency: form.customs.entryCustomsCurrency, amount: num(form.customs.entryCustomsCost) },
-          // Depo alıcı tarafından ödenecekse toplam maliyete dahil etme
-          { label: 'Antrepo Boşaltma', try: form.customs.warehousePaidByBuyer ? 0 : num(form.customs.warehouseUnloadingCostTry), currency: form.customs.warehouseUnloadingCurrency, amount: num(form.customs.warehouseUnloadingCost) },
-          { label: 'Depolama', try: form.customs.warehousePaidByBuyer ? 0 : num(form.customs.storageCostTry), currency: form.customs.storageCurrency, amount: num(form.customs.storageCost) },
+          { label: 'Gümrükçü bedeli', try: num(form.customs.entryCustomsCostTry), eur: toEur(num(form.customs.entryCustomsCostTry)), currency: form.customs.entryCustomsCurrency, amount: num(form.customs.entryCustomsCost) },
+          { label: 'Antrepo indirme vinç maliyeti', try: form.customs.warehousePaidByBuyer ? 0 : num(form.customs.warehouseUnloadingCostTry), eur: toEur(form.customs.warehousePaidByBuyer ? 0 : num(form.customs.warehouseUnloadingCostTry)), currency: form.customs.warehouseUnloadingCurrency, amount: num(form.customs.warehouseUnloadingCost) },
+          { label: 'Ardiye', try: form.customs.warehousePaidByBuyer ? 0 : num(form.customs.storageCostTry), eur: toEur(form.customs.warehousePaidByBuyer ? 0 : num(form.customs.storageCostTry)), currency: form.customs.storageCurrency, amount: num(form.customs.storageCost) },
         ],
-        additional: sumAdditional(form.customs.additionalCosts),
         additionalEur: sumAdditionalEur(form.customs.additionalCosts),
       },
       {
-        key: 'transfer', label: '4. Transfer',
+        key: 'transfer', label: '4. Devir İşlemleri',
         items: [
-          { label: 'Transfer', try: num(form.transfer.transferCostTry), currency: form.transfer.transferCurrency, amount: num(form.transfer.transferCost) },
+          { label: 'Gümrükçü Devir Bedeli', try: num(form.transfer.transferCostTry), eur: toEur(num(form.transfer.transferCostTry)), currency: form.transfer.transferCurrency, amount: num(form.transfer.transferCost) },
         ],
-        additional: sumAdditional(form.transfer.additionalCosts),
         additionalEur: sumAdditionalEur(form.transfer.additionalCosts),
       },
       {
         key: 'generalCosts', label: '5. Genel Maliyetler',
         items: [
-          { label: 'Kurulum', try: num(form.generalCosts.installationCostTry), currency: form.generalCosts.installationCurrency, amount: num(form.generalCosts.installationCost) },
+          { label: 'Kurulum', try: num(form.generalCosts.installationCostTry), eur: toEur(num(form.generalCosts.installationCostTry)), currency: form.generalCosts.installationCurrency, amount: num(form.generalCosts.installationCost) },
         ],
-        additional: sumAdditional(form.generalCosts.additionalCosts),
         additionalEur: sumAdditionalEur(form.generalCosts.additionalCosts),
       },
     ];
 
-    let grandTotal = 0;
+    let grandTotalEur = 0;
     for (const sec of sections) {
-      sec.sectionTotal = sec.items.reduce((acc, it) => acc + it.try, 0) + sec.additional;
-      grandTotal += sec.sectionTotal;
+      sec.sectionTotalEur = sec.items.reduce((acc, it) => acc + it.eur, 0) + sec.additionalEur;
+      grandTotalEur += sec.sectionTotalEur;
     }
 
-    return { sections, grandTotal };
+    return { sections, grandTotalEur, eurRate };
   };
 
-  // ── Export cost summary as Excel (CSV) ──
-  const handleExportCostExcel = () => {
-    const { sections, grandTotal } = computeTotalCosts();
-    const gc = form.generalCosts;
-    const labelPriceTry = parseFloat(gc.salesPriceTry) || 0;
-    const profit = labelPriceTry - grandTotal;
-    const margin = labelPriceTry > 0 ? ((profit / labelPriceTry) * 100) : 0;
-    const sep = ';';
-    const rows = [];
-
-    rows.push(['PROJE MALİYET RAPORU']);
-    rows.push(['Oluşturma Tarihi', new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })]);
-    rows.push([]);
-    rows.push(['PROJE BİLGİLERİ']);
-    rows.push(['Proje Kodu', selectedProject?.projectCode || '']);
-    rows.push(['Marka / Model', `${selectedProject?.make || ''} ${selectedProject?.model || ''}`]);
-    rows.push(['Seri No', selectedProject?.serialNumber || '']);
-    rows.push([]);
-
-    rows.push(['MALİYET DETAYLARI']);
-    rows.push(['Bölüm', 'Kalem', 'Tutar (Orijinal)', 'Para Birimi', 'Kur', 'Tutar (TRY)']);
-
-    sections.forEach(sec => {
-      sec.items.filter(it => it.try > 0).forEach(it => {
-        const rate = it.currency !== 'TRY' && it.amount > 0 ? (it.try / it.amount).toFixed(4) : (it.currency === 'TRY' ? '1.0000' : '-');
-        rows.push([sec.label, it.label, it.amount > 0 ? it.amount.toFixed(2) : '0.00', it.currency, rate, it.try.toFixed(2)]);
-      });
-      if (sec.additional > 0) {
-        rows.push([sec.label, 'Ek Kalemler', '', '', '', sec.additional.toFixed(2)]);
-      }
-    });
-    rows.push([]);
-
-    rows.push(['ÖZET']);
-    rows.push(['Toplam Maliyet (TRY)', '', '', '', '', grandTotal.toFixed(2)]);
-    if (gc.salesPrice) {
-      rows.push([`Etiket Fiyatı (${gc.salesCurrency || 'TRY'})`, '', parseFloat(gc.salesPrice).toFixed(2), gc.salesCurrency || 'TRY', gc.salesExchangeRate || '-', labelPriceTry.toFixed(2)]);
+  // ── Export cost summary as Excel (backend API - same format as admin/aktif projeler) ──
+  const [exportingCostExcel, setExportingCostExcel] = useState(false);
+  const handleExportCostExcel = async () => {
+    if (!selectedProject?.id) return;
+    setExportingCostExcel(true);
+    try {
+      await projectService.exportCostSummaryToExcel(selectedProject.id);
+    } catch (err) {
+      console.error('Maliyet Excel indirme hatası:', err);
+      alert(err?.message || 'Maliyet Excel indirilemedi.');
+    } finally {
+      setExportingCostExcel(false);
     }
-    if (labelPriceTry > 0) {
-      rows.push(['Net Kâr (TRY)', '', '', '', '', profit.toFixed(2)]);
-      rows.push(['Kâr Marjı', '', '', '', '', `%${margin.toFixed(1)}`]);
-    }
-
-    const BOM = '\uFEFF';
-    const csvContent = BOM + rows.map(row =>
-      row.map(cell => {
-        const str = String(cell ?? '');
-        return str.includes(sep) || str.includes('"') || str.includes('\n') ? `"${str.replace(/"/g, '""')}"` : str;
-      }).join(sep)
-    ).join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `maliyet_raporu_${selectedProject?.projectCode || 'proje'}_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   };
 
-  // ── Render cost summary (Section 6) ──
+  // ── Render cost summary (Section 6) - EUR bazlı ──
   const renderCostSummary = () => {
-    const { sections, grandTotal } = computeTotalCosts();
+    const { sections, grandTotalEur, eurRate } = computeTotalCosts();
     const gc = form.generalCosts;
-    const labelPriceTry = parseFloat(gc.salesPriceTry) || 0;
-    const profit = labelPriceTry - grandTotal;
-    const margin = labelPriceTry > 0 ? ((profit / labelPriceTry) * 100) : 0;
-    const fmtTry = (v) => `₺${v.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const salesPrice = parseFloat(gc.salesPrice) || 0;
+    const salesCurrency = gc.salesCurrency || 'EUR';
+    const salesExchangeRate = parseFloat(gc.salesExchangeRate) || eurRate;
+    const labelPriceEur = salesCurrency === 'EUR' ? salesPrice : (parseFloat(gc.salesPriceTry) || 0) / (salesExchangeRate || eurRate);
+    const profitEur = labelPriceEur - grandTotalEur;
+    const margin = labelPriceEur > 0 ? ((profitEur / labelPriceEur) * 100) : 0;
+    const fmtEur = (v) => `€${v.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     return (
       <div className="section-form cost-summary-section">
         {/* Cost Breakdown */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h3 style={{ margin: 0, color: '#1a202c' }}>Maliyet Özeti</h3>
+          <h3 style={{ margin: 0, color: '#1a202c' }}>Maliyet Özeti (EUR)</h3>
           <button
             onClick={handleExportCostExcel}
+            disabled={exportingCostExcel}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
               background: '#059669', color: '#fff', border: 'none',
               borderRadius: '6px', padding: '8px 14px', fontSize: '13px',
-              fontWeight: 600, cursor: 'pointer'
+              fontWeight: 600, cursor: exportingCostExcel ? 'wait' : 'pointer',
+              opacity: exportingCostExcel ? 0.8 : 1
             }}
-            title="Maliyet detaylarını Excel olarak indir"
+            title="Maliyet detaylarını Excel olarak indir (backend ile aynı format)"
           >
-            <AiOutlineDownload /> Excel İndir
+            {exportingCostExcel ? <AiOutlineLoading3Quarters className="spin" /> : <AiOutlineDownload />}
+            {exportingCostExcel ? 'İndiriliyor...' : 'Maliyet Excel İndir'}
           </button>
         </div>
         <div style={{ background: '#f9fafb', borderRadius: '8px', padding: '16px', marginBottom: '24px' }}>
           {sections.map(sec => (
-            sec.sectionTotal > 0 && (
+            sec.sectionTotalEur > 0 && (
               <div key={sec.key} style={{ marginBottom: '12px' }}>
                 <div style={{ fontWeight: 600, fontSize: '13px', color: '#4a5568', marginBottom: '4px' }}>{sec.label}</div>
-                {sec.items.filter(it => it.try > 0).map((it, idx) => (
+                {sec.items.filter(it => it.eur > 0).map((it, idx) => (
                   <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', padding: '2px 0 2px 16px' }}>
                     <span style={{ color: '#718096' }}>{it.label} {it.currency !== 'TRY' && it.amount > 0 ? `(${it.amount.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} ${it.currency})` : ''}</span>
-                    <span>{fmtTry(it.try)}</span>
+                    <span>{fmtEur(it.eur)}</span>
                   </div>
                 ))}
-                {sec.additional > 0 && (
+                {sec.additionalEur > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', padding: '2px 0 2px 16px' }}>
-                    <span style={{ color: '#718096' }}>Ek Kalemler {sec.additionalEur > 0 ? `(${sec.additionalEur.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} EUR)` : ''}</span>
-                    <span>{fmtTry(sec.additional)}</span>
+                    <span style={{ color: '#718096' }}>Ek Kalemler</span>
+                    <span>{fmtEur(sec.additionalEur)}</span>
                   </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 600, padding: '4px 0 4px 16px', borderTop: '1px solid #e2e8f0', marginTop: '4px' }}>
                   <span>Alt Toplam</span>
-                  <span>{fmtTry(sec.sectionTotal)}</span>
+                  <span>{fmtEur(sec.sectionTotalEur)}</span>
                 </div>
               </div>
             )
           ))}
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: 700, padding: '12px 0 0', borderTop: '2px solid #2563eb', marginTop: '8px', color: '#1a202c' }}>
             <span>TOPLAM MALİYET</span>
-            <span>{fmtTry(grandTotal)}</span>
+            <span>{fmtEur(grandTotalEur)}</span>
           </div>
         </div>
 
@@ -1519,23 +1481,23 @@ const ProjeMuhasebesi = () => {
         </div>
 
         {/* Profit Analysis */}
-        {labelPriceTry > 0 && (
+        {labelPriceEur > 0 && (
           <div style={{ marginTop: '24px' }}>
-            <h3 style={{ marginBottom: '16px', color: '#1a202c' }}>Kâr Analizi</h3>
+            <h3 style={{ marginBottom: '16px', color: '#1a202c' }}>Kâr Analizi (EUR)</h3>
             <div style={{ background: '#f9fafb', borderRadius: '8px', padding: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', padding: '6px 0' }}>
                 <span>Toplam Maliyet</span>
-                <span style={{ fontWeight: 600 }}>{fmtTry(grandTotal)}</span>
+                <span style={{ fontWeight: 600 }}>{fmtEur(grandTotalEur)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', padding: '6px 0' }}>
-                <span>Etiket Fiyatı (TRY)</span>
-                <span style={{ fontWeight: 600 }}>{fmtTry(labelPriceTry)}</span>
+                <span>Etiket Fiyatı</span>
+                <span style={{ fontWeight: 600 }}>{fmtEur(labelPriceEur)}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: 700, padding: '12px 0 0', borderTop: '2px solid ' + (profit >= 0 ? '#38a169' : '#e53e3e'), marginTop: '8px', color: profit >= 0 ? '#38a169' : '#e53e3e' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: 700, padding: '12px 0 0', borderTop: '2px solid ' + (profitEur >= 0 ? '#38a169' : '#e53e3e'), marginTop: '8px', color: profitEur >= 0 ? '#38a169' : '#e53e3e' }}>
                 <span>Net Kâr</span>
-                <span>{fmtTry(profit)}</span>
+                <span>{fmtEur(profitEur)}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', padding: '6px 0', color: profit >= 0 ? '#38a169' : '#e53e3e' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', padding: '6px 0', color: profitEur >= 0 ? '#38a169' : '#e53e3e' }}>
                 <span>Kâr Marjı</span>
                 <span style={{ fontWeight: 600 }}>{margin.toFixed(1)}%</span>
               </div>
@@ -1769,8 +1731,8 @@ const ProjeMuhasebesi = () => {
         return (
           <div className="section-form">
             <div className="form-grid">
-              <CurrencyInput label="Giriş Gümrük Bedeli" amountField="entryCustomsCost" currencyField="entryCustomsCurrency" rateField="entryCustomsExchangeRate" tryField="entryCustomsCostTry" section={s} form={form} onChange={handleChange} rates={rates} required />
-              <FileUploadField label="Giriş Gümrük Faturası" fieldKey="entryCustomsInvoiceKey" section={s} currentKey={f.entryCustomsInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
+              <CurrencyInput label="Gümrükçü bedeli" amountField="entryCustomsCost" currencyField="entryCustomsCurrency" rateField="entryCustomsExchangeRate" tryField="entryCustomsCostTry" section={s} form={form} onChange={handleChange} rates={rates} required />
+              <FileUploadField label="Gümrükçü Faturası" fieldKey="entryCustomsInvoiceKey" section={s} currentKey={f.entryCustomsInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
             </div>
 
             <div className="doc-grid">
@@ -1802,12 +1764,12 @@ const ProjeMuhasebesi = () => {
             {!f.warehousePaidByBuyer && (
               <>
                 <div className="form-grid">
-                  <CurrencyInput label="Depo İndirme Maliyeti" amountField="warehouseUnloadingCost" currencyField="warehouseUnloadingCurrency" rateField="warehouseUnloadingExchangeRate" tryField="warehouseUnloadingCostTry" section={s} form={form} onChange={handleChange} rates={rates} />
-                  <CurrencyInput label="Depo Kiralama Maliyeti" amountField="storageCost" currencyField="storageCurrency" rateField="storageExchangeRate" tryField="storageCostTry" section={s} form={form} onChange={handleChange} rates={rates} />
+                  <CurrencyInput label="Antrepo indirme vinç maliyeti" amountField="warehouseUnloadingCost" currencyField="warehouseUnloadingCurrency" rateField="warehouseUnloadingExchangeRate" tryField="warehouseUnloadingCostTry" section={s} form={form} onChange={handleChange} rates={rates} />
+                  <CurrencyInput label="Ardiye" amountField="storageCost" currencyField="storageCurrency" rateField="storageExchangeRate" tryField="storageCostTry" section={s} form={form} onChange={handleChange} rates={rates} />
                 </div>
                 <div className="form-grid">
-                  <FileUploadField label="Depo İndirme Faturası" fieldKey="warehouseUnloadingInvoiceKey" section={s} currentKey={f.warehouseUnloadingInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
-                  <FileUploadField label="Depo Kiralama Faturası" fieldKey="storageInvoiceKey" section={s} currentKey={f.storageInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
+                  <FileUploadField label="Antrepo indirme vinç maliyeti Faturası" fieldKey="warehouseUnloadingInvoiceKey" section={s} currentKey={f.warehouseUnloadingInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
+                  <FileUploadField label="Ardiye Faturası" fieldKey="storageInvoiceKey" section={s} currentKey={f.storageInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
                 </div>
               </>
             )}
@@ -1830,22 +1792,22 @@ const ProjeMuhasebesi = () => {
         return (
           <div className="section-form">
             <div className="form-grid">
-              <CurrencyInput label="Transfer Maliyeti" amountField="transferCost" currencyField="transferCurrency" rateField="transferExchangeRate" tryField="transferCostTry" section={s} form={form} onChange={handleChange} rates={rates} />
-              <FileUploadField label="Transfer Faturası" fieldKey="transferInvoiceKey" section={s} currentKey={f.transferInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
+              <CurrencyInput label="Gümrükçü Devir Bedeli" amountField="transferCost" currencyField="transferCurrency" rateField="transferExchangeRate" tryField="transferCostTry" section={s} form={form} onChange={handleChange} rates={rates} />
+              <FileUploadField label="Gümrükçü Devir Bedeli Faturası" fieldKey="transferInvoiceKey" section={s} currentKey={f.transferInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
             </div>
 
             <div className="doc-grid">
               <div className="doc-row">
                 <label className="checkbox-label">
                   <input type="checkbox" checked={!!f.transferDeclarationKey} disabled />
-                  <span>Transfer Beyannamesi</span>
+                  <span>Devir beyannamesi</span>
                 </label>
                 <FileUploadField label="" fieldKey="transferDeclarationKey" section={s} currentKey={f.transferDeclarationKey} projectId={selectedProject?.id} onUploaded={(sec, field, key) => { handleDocUploaded(sec, field, key); handleChange(sec, 'hasTransferDeclaration', true); }} onRemoved={handleDocRemoved} onError={handleUploadError} />
               </div>
               <div className="doc-row">
                 <label className="checkbox-label">
                   <input type="checkbox" checked={!!f.transferCountReportKey} disabled />
-                  <span>Transfer Sayım Tutanağı</span>
+                  <span>Devir sayım tutanağı</span>
                 </label>
                 <FileUploadField label="" fieldKey="transferCountReportKey" section={s} currentKey={f.transferCountReportKey} projectId={selectedProject?.id} onUploaded={(sec, field, key) => { handleDocUploaded(sec, field, key); handleChange(sec, 'hasTransferCountReport', true); }} onRemoved={handleDocRemoved} onError={handleUploadError} />
               </div>
@@ -2053,11 +2015,11 @@ const ProjeMuhasebesi = () => {
                                     'Makine Ziyaret': 'machineVisit',
                                     'Lojistik': 'logistics',
                                     'Gümrük & Depo': 'customs',
-                                    'Transfer': 'transfer',
+                                    'Devir İşlemleri': 'transfer',
                                     'Genel Gider': 'generalCosts',
                                     'Satış Belgeleri': 'generalCosts',
                                   };
-                                  const orderedSections = ['Makine Alım', 'Makine Ziyaret', 'Lojistik', 'Gümrük & Depo', 'Transfer', 'Genel Gider', 'Satış Belgeleri'];
+                                  const orderedSections = ['Makine Alım', 'Makine Ziyaret', 'Lojistik', 'Gümrük & Depo', 'Devir İşlemleri', 'Genel Gider', 'Satış Belgeleri'];
                                   const missingSections = n.missingSections || {};
                                   let targetSection = null;
                                   for (const secName of orderedSections) {

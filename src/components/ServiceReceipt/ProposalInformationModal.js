@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { AiOutlineClose, AiOutlineEuro, AiOutlineUser, AiOutlineMail, AiOutlineCalendar, AiOutlineFileText } from 'react-icons/ai';
+import { AiOutlineClose, AiOutlineEuro, AiOutlineUser, AiOutlineMail, AiOutlineFileText } from 'react-icons/ai';
 import { FaPaperPlane, FaFileAlt } from 'react-icons/fa';
 import offerService from '../../services/offerService';
+import OfferPdfPreviewModal from '../shared/OfferPdfPreviewModal';
 import './ProposalInformationModal.css';
 
 const ProposalInformationModal = ({ service, onClose }) => {
   const [offerDetails, setOfferDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showProposalForm, setShowProposalForm] = useState(false);
-  const [selectedOffer, setSelectedOffer] = useState(null);
+  const [showOfferPdfId, setShowOfferPdfId] = useState(null);
 
   useEffect(() => {
     const fetchProposalData = async () => {
@@ -90,37 +90,8 @@ const ProposalInformationModal = ({ service, onClose }) => {
     }
   };
 
-  // Clean machine name by removing project code in parentheses
-  const cleanMachineName = (name) => {
-    if (!name) return name;
-    return name.replace(/\s*\(AVEMAK-\d+\)\s*$/, '').trim();
-  };
-
-  // Format number with dots
-  const formatNumberWithDots = (number) => {
-    if (number === null || number === undefined || isNaN(number)) {
-      return '0.00';
-    }
-    const numStr = Math.abs(number).toString();
-    const parts = numStr.split('.');
-    const integerPart = parts[0];
-    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    const decimalPart = parts.length > 1 ? parts[1].padEnd(2, '0').substring(0, 2) : '00';
-    return `${formattedInteger}.${decimalPart}`;
-  };
-
-  const formatCurrencyDetailed = (amount) => {
-    return `€${formatNumberWithDots(amount)}`;
-  };
-
   const handleViewForm = (offer) => {
-    setSelectedOffer(offer);
-    setShowProposalForm(true);
-  };
-
-  const handleCloseForm = () => {
-    setShowProposalForm(false);
-    setSelectedOffer(null);
+    setShowOfferPdfId(offer.id);
   };
 
 
@@ -236,9 +207,9 @@ const ProposalInformationModal = ({ service, onClose }) => {
                             <button
                               className="btn-view-form"
                               onClick={() => handleViewForm(offer)}
-                              title="Teklif formunu görüntüle"
+                              title="Teklif PDF önizlemesi"
                             >
-                              <FaFileAlt /> Teklif Formunu Görüntüle
+                              <FaFileAlt /> Teklif PDF Önizleme
                             </button>
                           </div>
 
@@ -281,116 +252,12 @@ const ProposalInformationModal = ({ service, onClose }) => {
             </div>
           )}
 
-          {/* Proposal Form Modal */}
-          {showProposalForm && selectedOffer && (
-            <div className="proposal-form-overlay" onClick={handleCloseForm}>
-              <div className="proposal-form-modal" onClick={(e) => e.stopPropagation()}>
-                <div className="form-modal-header">
-                  <h2>Teklif Formu</h2>
-                  <button className="close-button" onClick={handleCloseForm}>
-                    <AiOutlineClose />
-                  </button>
-                </div>
-
-                <div className="form-modal-content">
-                  <div className="offer-document">
-                    {/* Document Header */}
-                    <div className="document-header">
-                      <div className="left-column">
-                        <div className="info-row">
-                          <strong>Şirket Adı:</strong>
-                          <span className="info-value">{selectedOffer.clientCompanyName || 'N/A'}</span>
-                        </div>
-                        <div className="info-row">
-                          <strong>Proje Kodu:</strong>
-                          <span className="info-value">{selectedOffer.projectCode || 'N/A'}</span>
-                        </div>
-                        <div className="info-row">
-                          <strong>Belge Tarihi:</strong>
-                          <span className="info-value">{formatDate(selectedOffer.sentAt)}</span>
-                        </div>
-                      </div>
-
-                      <div className="right-column">
-                        <div className="company-name">Avitech Metal Teknolojileri Anonim Şirketi</div>
-                        <div className="info-row">
-                          <strong>Adres:</strong> Rüzgarlıbahçe, K Plaza 34805 Beykoz/Istanbul, Turkey
-                        </div>
-                        <div className="info-row">
-                          <strong>Telefon:</strong> +90 541 563 49 90
-                        </div>
-                        <div className="info-row">
-                          <strong>İletişim Kişisi:</strong> Bora Urçar
-                        </div>
-                        <div className="info-row">
-                          <strong>E-Mail:</strong> bora.urcar@avitech.com.tr
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Offer Title */}
-                    <div className="offer-title">
-                      <h3>TEKLİF</h3>
-                    </div>
-
-                    {/* Machine Details */}
-                    <div className="machine-details">
-                      <table className="machine-table">
-                        <thead>
-                          <tr>
-                            <th>Pos.</th>
-                            <th>Item Description</th>
-                            <th>Quantity</th>
-                            <th>Price</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td className="position">1</td>
-                            <td className="machine-name">{cleanMachineName(service?.machineTitle || 'Makine Adı')}</td>
-                            <td className="quantity">1</td>
-                            <td className="machine-price">{formatCurrencyDetailed(selectedOffer.price || 0)}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Offer Footer */}
-                    <div className="offer-footer">
-                      <div className="total-section">
-                        <div className="total-row">
-                          <span>TOPLAM:</span>
-                          <span className="total-price">{formatCurrencyDetailed(selectedOffer.price || 0)}</span>
-                        </div>
-                      </div>
-
-                      {/* Description and Sales Note Section */}
-                      {selectedOffer.description && (
-                        <div className="description-section">
-                          <div className="description-header">
-                            <strong>Teklif Notu:</strong>
-                          </div>
-                          <div className="description-content">
-                            {selectedOffer.description}
-                          </div>
-                        </div>
-                      )}
-                      {selectedOffer.status === 'COMPLETED' && selectedOffer.saleNote && (
-                        <div className="description-section">
-                          <div className="description-header">
-                            <strong>Satış Notu:</strong>
-                          </div>
-                          <div className="description-content">
-                            {selectedOffer.saleNote}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Teklif PDF Önizleme - Müşteriye gönderilen teklifin PDF'i */}
+          <OfferPdfPreviewModal
+            isOpen={!!showOfferPdfId}
+            onClose={() => setShowOfferPdfId(null)}
+            offerId={showOfferPdfId}
+          />
         </div>
       </div>
     </div>

@@ -153,18 +153,78 @@
 }
 
 .bank-section {
-  background: #fefce8;
-  border: 1px solid #fde68a;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 20px;
+}
+
+.bank-proforma-switch-row {
+  margin-bottom: 12px;
+}
+
+.bank-proforma-switch-row .switch-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.95rem;
+  color: #374151;
+}
+
+.bank-proforma-switch-row .switch-label input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.bank-proforma-switch-row .switch-slider {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  background-color: #d1d5db;
+  border-radius: 24px;
+  transition: background-color 0.2s;
+}
+
+.bank-proforma-switch-row .switch-slider::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  top: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.bank-proforma-switch-row .switch-label input:checked + .switch-slider {
+  background-color: #3b82f6;
+}
+
+.bank-proforma-switch-row .switch-label input:checked + .switch-slider::after {
+  transform: translateX(20px);
+}
+
+.bank-proforma-switch-row .switch-text {
+  user-select: none;
+}
+
+.bank-section .proforma-form-group:first-of-type {
+  margin-top: 4px;
 }
 
 .bank-section h3 {
   margin: 0 0 12px;
   font-size: 1rem;
   font-weight: 600;
-  color: #92400e;
+  color: #374151;
 }
 
 .bank-section .leasing-badge {

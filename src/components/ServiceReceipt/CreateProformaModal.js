@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { FaTimes, FaFileInvoice, FaPaperPlane } from 'react-icons/fa';
+import { FaTimes, FaFileInvoice, FaPaperPlane, FaPlus, FaTrash } from 'react-icons/fa';
 import proformaService from '../../services/proformaService';
 import bankService from '../../services/bankService';
-import accountingService from '../../services/accountingService';
 import './CreateProformaModal.css';
 
 const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
@@ -14,8 +13,10 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
     paymentTerms: 'Proforma fatura tarihinden itibaren 30 gün',
     deliveryDate: 'Ödeme sonrası 4-6 hafta',
   });
+  const [extraNotes, setExtraNotes] = useState([]);
+  const [newNoteInput, setNewNoteInput] = useState('');
 
-  const [isLeasing, setIsLeasing] = useState(false);
+  const [includeBankProforma, setIncludeBankProforma] = useState(false);
   const [banks, setBanks] = useState([]);
   const [selectedBankId, setSelectedBankId] = useState('');
   const [showNewBankForm, setShowNewBankForm] = useState(false);
@@ -58,21 +59,6 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
     fetchBanks();
   }, []);
 
-  useEffect(() => {
-    const checkLeasing = async () => {
-      if (!offer?.projectId) return;
-      try {
-        const draft = await accountingService.getDraft(offer.projectId);
-        if (draft?.machinePurchase?.paymentMethod === 'leasing' || (parseFloat(draft?.machinePurchase?.creditAmount) || 0) > 0) {
-          setIsLeasing(true);
-        }
-      } catch (e) {
-        console.error('Failed to check leasing status:', e);
-      }
-    };
-    checkLeasing();
-  }, [offer?.projectId]);
-
   const formatPrice = (val) => {
     const clean = val.replace(/[^\d]/g, '');
     if (!clean) return '';
@@ -92,6 +78,18 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
       .join('|');
   };
 
+  const handleAddNote = () => {
+    const trimmed = newNoteInput.trim();
+    if (trimmed) {
+      setExtraNotes([...extraNotes, trimmed]);
+      setNewNoteInput('');
+    }
+  };
+
+  const handleRemoveNote = (idx) => {
+    setExtraNotes(extraNotes.filter((_, i) => i !== idx));
+  };
+
   const handleSendClick = () => {
     setError('');
     const numericPrice = parseInt(price.replace(/\./g, ''));
@@ -99,11 +97,11 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
       setError('Geçerli bir fiyat giriniz.');
       return;
     }
-    if (isLeasing && !selectedBankId && !showNewBankForm) {
-      setError('Leasing için banka seçimi veya yeni banka girişi gereklidir.');
+    if (includeBankProforma && !selectedBankId && !showNewBankForm) {
+      setError('Banka proforması için banka seçimi veya yeni banka girişi gereklidir.');
       return;
     }
-    if (isLeasing && showNewBankForm && !newBank.companyName.trim()) {
+    if (includeBankProforma && showNewBankForm && !newBank.companyName.trim()) {
       setError('Banka ünvanı zorunludur.');
       return;
     }
@@ -122,9 +120,10 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
         price: numericPrice,
         gtipCode: gtipCode,
         terms: buildTermsString(),
+        extraNotes: extraNotes.length > 0 ? extraNotes.join('\n') : null,
       };
 
-      if (isLeasing) {
+      if (includeBankProforma) {
         if (showNewBankForm && newBank.companyName.trim()) {
           requestData.newBank = newBank;
           requestData.saveNewBank = saveNewBank;
@@ -236,11 +235,54 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
             </div>
           </div>
 
-          {/* Bank Section - always visible for bank selection */}
+          {/* Ek Notlar - 3 şart sonrası madde madde */}
+          <div className="proforma-section">
+            <h3>Ek Notlar</h3>
+            <p className="proforma-hint" style={{ fontSize: '12px', color: '#666', marginBottom: '10px' }}>
+              TRT ve çalışması harici ek parça yoktu notlarından sonra eklemek istediğiniz maddeleri aşağıya ekleyin.
+            </p>
+            <div className="extra-notes-list">
+              {extraNotes.map((note, idx) => (
+                <div key={idx} className="extra-note-item" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                  <span style={{ flex: 1, padding: '6px 10px', background: '#f8f9fa', borderRadius: '6px', fontSize: '13px' }}>{note}</span>
+                  <button type="button" onClick={() => handleRemoveNote(idx)} className="btn-remove-note" title="Kaldır" style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer' }}>
+                    <FaTrash size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="add-note-row" style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+              <input
+                type="text"
+                value={newNoteInput}
+                onChange={(e) => setNewNoteInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddNote())}
+                placeholder="Yeni madde ekleyin..."
+                style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: '1px solid #d1d5db' }}
+              />
+              <button type="button" onClick={handleAddNote} className="btn-add-note" style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 14px', cursor: 'pointer', fontWeight: 600 }}>
+                <FaPlus size={14} /> Ekle
+              </button>
+            </div>
+          </div>
+
+          {/* Bank Section - optional, controlled by switch */}
           <div className="bank-section">
-            <h3>Banka Bilgileri {isLeasing && <span className="leasing-badge">LEASING</span>}</h3>
+            <div className="bank-proforma-switch-row">
+              <label className="switch-label">
+                <input
+                  type="checkbox"
+                  checked={includeBankProforma}
+                  onChange={(e) => setIncludeBankProforma(e.target.checked)}
+                />
+                <span className="switch-slider"></span>
+                <span className="switch-text">Banka proforması da oluştur</span>
+              </label>
+            </div>
+            {includeBankProforma && (
+              <>
             <div className="proforma-form-group">
-              <label>Banka Seçimi {isLeasing && <span style={{ color: '#dc2626' }}>*</span>}</label>
+              <label>Banka Seçimi <span style={{ color: '#dc2626' }}>*</span></label>
               <select
                 value={showNewBankForm ? 'new' : selectedBankId}
                 onChange={(e) => {
@@ -285,6 +327,8 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
                 </div>
               </div>
             )}
+              </>
+            )}
           </div>
 
           {error && (
@@ -309,7 +353,7 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
               <h3>Proforma Gönderilsin mi?</h3>
               <p>
                 <strong>{offer.clientCompanyName}</strong> müşterisine proforma fatura gönderilecektir.
-                {isLeasing && (selectedBankId || showNewBankForm) && ' Ayrıca banka proforması da oluşturulacaktır.'}
+                {includeBankProforma && (selectedBankId || showNewBankForm) && ' Ayrıca banka proforması da oluşturulacaktır.'}
               </p>
               <div className="confirm-buttons">
                 <button className="confirm-no" onClick={() => setShowConfirm(false)}>Vazgeç</button>

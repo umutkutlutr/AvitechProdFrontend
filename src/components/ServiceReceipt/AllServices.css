@@ -73,6 +73,75 @@
   background-color: var(--color-success-hover, #047857);
 }
 
+.quotes-sent-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  max-width: 1400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.quotes-sent-table-wrapper {
+  overflow-x: auto;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.quotes-sent-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.quotes-sent-table th {
+  padding: 12px 16px;
+  text-align: left;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 600;
+  color: #374151;
+}
+
+.quotes-sent-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.quotes-sent-table tbody tr {
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.quotes-sent-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.quotes-sent-table .operation-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  margin-right: 4px;
+  border: none;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #2563eb;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.quotes-sent-table .operation-btn:hover {
+  background: #dbeafe;
+}
+
 .services-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

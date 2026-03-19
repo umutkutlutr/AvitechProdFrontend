@@ -36,6 +36,7 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
     // New Features
     conveyor: 'Yok',
     paperFilter: 'Yok',
+    elCarki: 'Yok',
 
     // Movement Fields
     xMovement: '',
@@ -265,8 +266,9 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
         teamMeasurementProbe: editingService.teamMeasurementProbe || 'Var',
         partMeasurementProbe: editingService.partMeasurementProbe || 'Var',
         insideWaterGiving: editingService.insideWaterGiving || 'Yok',
-        conveyor: editingService.conveyor || 'Yok',
-        paperFilter: editingService.paperFilter || 'Yok',
+        conveyor: (editingService.konveyor || editingService.conveyor) ? 'Var' : 'Yok',
+        paperFilter: (editingService.kagitFiltre || editingService.paperFilter) ? 'Var' : 'Yok',
+        elCarki: editingService.elCarki ? 'Var' : 'Yok',
         xMovement: editingService.xmovement || editingService.xMovement || '',
         yMovement: editingService.ymovement || editingService.yMovement || '',
         zMovement: editingService.zmovement || editingService.zMovement || '',
@@ -976,6 +978,7 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
       ictenSuVerme: formData.insideWaterGiving === 'Var',
       konveyor: formData.conveyor === 'Var',
       kagitFiltre: formData.paperFilter === 'Var',
+      elCarki: formData.elCarki === 'Var',
       xmovement: formData.xMovement || '',
       ymovement: formData.yMovement || '',
       zmovement: formData.zMovement || '',
@@ -1090,6 +1093,7 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
           insideWaterGiving: 'Yok',
           conveyor: 'Yok',
           paperFilter: 'Yok',
+          elCarki: 'Yok',
           xMovement: '',
           yMovement: '',
           zMovement: '',
@@ -1547,8 +1551,8 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
           </div>
         </div>
 
-        <div className="form-row">
-          <div className="form-group">
+        <div className="form-row os-key-el-row">
+          <div className="form-group form-group-os-select">
             <label>İşletim Sistemi</label>
             <select
               value={formData.operatingSystem}
@@ -1638,6 +1642,33 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
               >
                 4
               </span>
+            </div>
+          </div>
+          <div className="form-group">
+            <label>El Çarkı</label>
+            <div className="radio-group-vertical">
+              <label className="radio-option">
+                <input
+                  type="radio"
+                  name="elCarki"
+                  value="Var"
+                  checked={formData.elCarki === 'Var'}
+                  onChange={(e) => handleInputChange('elCarki', e.target.value)}
+                />
+                <span className="radio-dot"></span>
+                Var
+              </label>
+              <label className="radio-option">
+                <input
+                  type="radio"
+                  name="elCarki"
+                  value="Yok"
+                  checked={formData.elCarki === 'Yok'}
+                  onChange={(e) => handleInputChange('elCarki', e.target.value)}
+                />
+                <span className="radio-dot"></span>
+                Yok
+              </label>
             </div>
           </div>
         </div>
@@ -1784,6 +1815,7 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
                 </label>
               </div>
             </div>
+
           </div>
         </div>
 

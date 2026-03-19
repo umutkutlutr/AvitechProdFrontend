@@ -1,0 +1,25 @@
+.sortable-header {
+  user-select: none;
+}
+
+.sortable-header-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sortable-header-icons {
+  display: inline-flex;
+  flex-direction: column;
+  margin-left: 2px;
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+.sortable-header.active .sortable-header-icons .active {
+  color: #2563eb;
+}
+
+.sortable-header:hover .sortable-header-icons {
+  color: #6b7280;
+}

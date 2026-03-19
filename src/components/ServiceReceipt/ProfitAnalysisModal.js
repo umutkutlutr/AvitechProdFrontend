@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AiOutlineClose, AiOutlineEuro, AiOutlineLoading3Quarters } from 'react-icons/ai';
+import { AiOutlineClose, AiOutlineEuro, AiOutlineLoading3Quarters, AiOutlineDownload } from 'react-icons/ai';
 import { FaChartLine } from 'react-icons/fa';
 import { normalizeProjectCard } from '../../utils/projectNormalizer';
 import accountingService from '../../services/accountingService';
 import offerService from '../../services/offerService';
+import projectService from '../../services/projectService';
 import './ProfitAnalysisModal.css';
 
 const ProfitAnalysisModal = ({ service, onClose, showSalesPrice = false }) => {
@@ -84,21 +85,30 @@ const ProfitAnalysisModal = ({ service, onClose, showSalesPrice = false }) => {
   };
 
   // Compute derived values - Satış Fiyatı: completed offer veya muhasebe genel maliyetlerinden
-  const totalCostTry = costSummary?.totalCostTry ?? 0;
+  const totalCostEur = costSummary?.totalCostEur ?? 0;
   const labelPriceOriginal = costSummary?.labelPriceOriginal;
   const bidPrice = bidPriceFromOffer ?? 0;
   const isSold = service?.status === 'SOLD' || service?.rawStatus === 'SOLD' || service?.rawStatus === 'COMPLETED' || service?.originalStatus === 'COMPLETED' || offerPrice != null;
   const actualSalePriceFromCost = costSummary?.actualSalePriceOriginal != null ? parseFloat(costSummary.actualSalePriceOriginal) : null;
   const salesPriceFromCost = costSummary?.salesPriceOriginal != null ? parseFloat(costSummary.salesPriceOriginal) : null;
   const salesPrice = actualSalePriceFromCost ?? offerPrice ?? (isSold ? salesPriceFromCost : null);
-  const priceForProfit = salesPrice ?? bidPrice ?? 0;
-  const eurRate = costSummary?.salesCurrency === 'EUR' && costSummary?.salesExchangeRate > 0 ? parseFloat(costSummary.salesExchangeRate) : 38.5;
-  const netProfit = costSummary?.netProfitTry ?? (priceForProfit > 0 ? (priceForProfit * eurRate - totalCostTry) : 0);
-  const profitMargin = costSummary?.profitMarginPercent ?? (priceForProfit > 0 && priceForProfit * eurRate > 0 ? ((netProfit / (priceForProfit * eurRate)) * 100) : 0);
+  const salesPriceEur = costSummary?.salesPriceEur ?? (salesPrice != null ? salesPrice : null);
+  const netProfitEur = costSummary?.netProfitEur ?? null;
+  const profitMargin = costSummary?.profitMarginPercent ?? (salesPriceEur != null && salesPriceEur > 0 && netProfitEur != null ? ((netProfitEur / salesPriceEur) * 100) : 0);
 
   const allCostItems = costSummary?.sections?.flatMap(section =>
     section.items.map(item => ({ ...item, sectionName: section.sectionName }))
   ) || [];
+
+  const handleExportExcel = async () => {
+    if (!service?.id) return;
+    try {
+      await projectService.exportCostSummaryToExcel(service.id);
+    } catch (err) {
+      console.error('Excel export error:', err);
+      alert(err?.message || 'Excel indirilemedi.');
+    }
+  };
 
   // Force scroll recalculation after content loads
   useEffect(() => {
@@ -138,9 +148,25 @@ const ProfitAnalysisModal = ({ service, onClose, showSalesPrice = false }) => {
     <div className="profit-analysis-modal-overlay" onClick={onClose}>
       <div ref={modalRef} className="profit-analysis-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-content">
-          <button className="close-button" onClick={onClose}>
-            <AiOutlineClose />
-          </button>
+          <div className="profit-modal-header-row" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            {costSummary && (
+              <button
+                onClick={handleExportExcel}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  background: '#059669', color: '#fff', border: 'none',
+                  borderRadius: '6px', padding: '8px 14px', fontSize: '13px',
+                  fontWeight: 600, cursor: 'pointer'
+                }}
+                title="Maliyet detaylarını Excel olarak indir"
+              >
+                <AiOutlineDownload /> Excel İndir
+              </button>
+            )}
+            <button className="close-button" onClick={onClose}>
+              <AiOutlineClose />
+            </button>
+          </div>
 
           <div className="service-info machine-identity-block">
             {(() => {
@@ -181,17 +207,19 @@ const ProfitAnalysisModal = ({ service, onClose, showSalesPrice = false }) => {
                       {section.items.length > 0 && (
                         <>
                           <div className="cost-section-label">{section.sectionName}</div>
-                          {section.items.map((item, idx) => (
+                          {section.items.map((item, idx) => {
+                            const eurAmount = (item.amountEur != null && !isNaN(item.amountEur))
+                              ? parseFloat(item.amountEur)
+                              : ((parseFloat(item.amountTry) || 0) / (parseFloat(costSummary?.salesExchangeRate) || 38.5));
+                            return (
                             <div key={`${section.sectionKey}-${idx}`} className="cost-item">
                               <span className="cost-description">{item.label}</span>
                               <span className="cost-amount">
-                                {item.currency && item.currency !== 'TRY'
-                                  ? `${formatCurrency(item.amount, item.currency)} → ${formatCurrency(item.amountTry, 'TRY')}`
-                                  : formatCurrency(item.amountTry, 'TRY')
-                                }
+                                €{eurAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                             </div>
-                          ))}
+                            );
+                          })}
                         </>
                       )}
                     </React.Fragment>
@@ -205,10 +233,10 @@ const ProfitAnalysisModal = ({ service, onClose, showSalesPrice = false }) => {
                 <div className="total-cost">
                   <span>Toplam Maliyet:</span>
                   <span className="total-amount">
-                    {totalCostTry > 0 && eurRate > 0 ? (
-                      <>€{(totalCostTry / eurRate).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}<span style={{ fontSize: '12px', marginLeft: '8px', opacity: 0.9 }}>(₺{totalCostTry.toLocaleString('tr-TR', { minimumFractionDigits: 2 })})</span></>
+                    {totalCostEur > 0 ? (
+                      <>€{totalCostEur.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
                     ) : (
-                      formatCurrency(totalCostTry, 'TRY')
+                      '-'
                     )}
                   </span>
                 </div>
@@ -249,11 +277,11 @@ const ProfitAnalysisModal = ({ service, onClose, showSalesPrice = false }) => {
                 <div className="profit-info">
                   <div className="profit-item">
                     <span>Net Kâr:</span>
-                    <span className={`profit-amount ${netProfit >= 0 ? 'positive' : 'negative'}`}>
-                      {eurRate > 0 ? (
-                        <>€{(netProfit / eurRate).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}<span style={{ fontSize: '12px', marginLeft: '8px', opacity: 0.9 }}>(₺{netProfit.toLocaleString('tr-TR', { minimumFractionDigits: 2 })})</span></>
+                    <span className={`profit-amount ${(netProfitEur ?? 0) >= 0 ? 'positive' : 'negative'}`}>
+                      {netProfitEur != null && !isNaN(netProfitEur) ? (
+                        <>€{netProfitEur.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
                       ) : (
-                        formatCurrency(netProfit, 'TRY')
+                        '-'
                       )}
                     </span>
                   </div>

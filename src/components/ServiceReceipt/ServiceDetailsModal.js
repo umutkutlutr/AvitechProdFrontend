@@ -577,6 +577,11 @@ const ServiceDetailsModal = ({ service, onClose, isCompletedProject = false }) =
                   </div>
 
                   <div className="spec-row">
+                    <span className="spec-label">El Çarkı:</span>
+                    <span className="spec-value">{projectDetails.elCarki ? 'Var' : 'Yok'}</span>
+                  </div>
+
+                  <div className="spec-row">
                     <span className="spec-label">X Hareketi:</span>
                     <span className="spec-value">{projectDetails.xmovement || '-'}</span>
                   </div>

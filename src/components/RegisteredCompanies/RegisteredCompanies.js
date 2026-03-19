@@ -17,6 +17,7 @@ import {
 import ViewOfferModal from './ViewOfferModal';
 import EditCompanyModal from './EditCompanyModal';
 import AddCompanyModal from './AddCompanyModal';
+import Pagination from '../shared/Pagination';
 import './RegisteredCompanies.css';
 
 const RegisteredCompanies = () => {
@@ -30,10 +31,20 @@ const RegisteredCompanies = () => {
   const [editingClient, setEditingClient] = useState(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+    try {
+      return parseInt(localStorage.getItem('registeredCompanies_pageSize') || '25', 10);
+    } catch { return 25; }
+  });
 
   useEffect(() => {
     loadClients();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const loadClients = async () => {
     try {
@@ -123,6 +134,10 @@ const RegisteredCompanies = () => {
       .some((field) => String(field).toLowerCase().includes(normalizedSearchTerm));
   });
 
+  const totalPages = Math.ceil(filteredClients.length / itemsPerPage);
+  const startIdx = (currentPage - 1) * itemsPerPage;
+  const paginatedClients = filteredClients.slice(startIdx, startIdx + itemsPerPage);
+
   if (loading) {
     return (
       <div className="registered-companies">
@@ -203,8 +218,26 @@ const RegisteredCompanies = () => {
             <p>Farklı bir anahtar kelime deneyerek tekrar arama yapabilirsiniz.</p>
           </div>
         ) : (
+          <>
+          <div className="companies-toolbar">
+            <Pagination
+              inline
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredClients.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={(v) => {
+                setItemsPerPage(v);
+                setCurrentPage(1);
+                try { localStorage.setItem('registeredCompanies_pageSize', String(v)); } catch (_) {}
+              }}
+              storageKey="registeredCompanies_pageSize"
+              label="firma"
+            />
+          </div>
           <div className="companies-grid">
-            {filteredClients.map((client) => (
+            {paginatedClients.map((client) => (
               <div key={client.id} className="company-card">
                 <div className="company-header">
                   <AiOutlineHome className="company-icon" />
@@ -286,6 +319,7 @@ const RegisteredCompanies = () => {
               </div>
             ))}
           </div>
+          </>
         )}
       </div>
 

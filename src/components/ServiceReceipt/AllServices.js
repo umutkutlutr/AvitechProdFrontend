@@ -8,6 +8,10 @@ import ViewOfferModal from './ViewOfferModal';
 import CreateSaleModal from './CreateSaleModal';
 import SearchBar from './SearchBar';
 import FilterPanel from './FilterPanel';
+import Pagination from '../shared/Pagination';
+import FilterChips from '../shared/FilterChips';
+import SortableHeader from '../shared/SortableHeader';
+import ColumnVisibility from '../shared/ColumnVisibility';
 import projectService from '../../services/projectService';
 import proformaService from '../../services/proformaService';
 import { normalizeProjectCard } from '../../utils/projectNormalizer';
@@ -49,11 +53,66 @@ const AllServices = ({ onEditService }) => {
   const [activeFilters, setActiveFilters] = useState({});
   const [isSearching, setIsSearching] = useState(false);
   const [isFiltering, setIsFiltering] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+    try {
+      return parseInt(localStorage.getItem('allServices_pageSize') || '25', 10);
+    } catch { return 25; }
+  });
+  const [sortKey, setSortKey] = useState('projectCode');
+  const [sortDir, setSortDir] = useState('asc');
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    try {
+      const saved = localStorage.getItem('allServices_visibleColumns');
+      if (saved) {
+        const arr = JSON.parse(saved);
+        return new Set(arr.length ? arr : ['projectCode', 'machineName', 'model', 'year', 'offerProforma']);
+      }
+    } catch {}
+    return new Set(['projectCode', 'machineName', 'model', 'year', 'offerProforma']);
+  });
   const tableRef = useRef(null);
 
-  // Load projects from API
+  const ALL_SERVICES_COLUMNS = [
+    { key: 'projectCode', label: 'Proje Kodu' },
+    { key: 'machineName', label: 'Makine Markası' },
+    { key: 'model', label: 'Makine Modeli' },
+    { key: 'year', label: 'Makine Yılı' },
+    { key: 'offerProforma', label: 'Teklif/Proforma' }
+  ];
+
+  // Load projects from API (cancellation prevents double-load flash in React Strict Mode)
   useEffect(() => {
-    loadProjects();
+    let cancelled = false;
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        const projectsData = await projectService.getProjects();
+        if (cancelled) return;
+        const filteredProjects = filterOutSoldProjects(projectsData);
+        setProjects(filteredProjects);
+        const summaries = {};
+        await Promise.all(filteredProjects.map(async (project) => {
+          try {
+            const summary = await proformaService.getOfferProformaSummary(project.id);
+            if (!cancelled) summaries[project.id] = summary;
+          } catch (e) {
+            if (!cancelled) summaries[project.id] = { offerCount: 0, proformaCount: 0, summaryText: '-', items: [] };
+          }
+        }));
+        if (!cancelled) setOfferProformaSummaries(summaries);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err.message || 'Projeler yüklenirken bir hata oluştu');
+          console.error('Error loading projects:', err);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
   }, []);
 
   // Helper function to filter out SOLD projects
@@ -149,8 +208,71 @@ const AllServices = ({ onEditService }) => {
   const handleClearFilters = () => {
     setActiveFilters({});
     setSearchTerm('');
+    setCurrentPage(1);
     loadProjects();
   };
+
+  const handleFilterRemove = (fieldKey) => {
+    const next = { ...activeFilters };
+    delete next[fieldKey];
+    setActiveFilters(next);
+    setCurrentPage(1);
+    handleFilter(next);
+  };
+
+  const handleSort = (key, dir) => {
+    setSortKey(key);
+    setSortDir(dir);
+    setCurrentPage(1);
+  };
+
+  const handleItemsPerPageChange = (val) => {
+    setItemsPerPage(val);
+    setCurrentPage(1);
+    try {
+      localStorage.setItem('allServices_pageSize', String(val));
+    } catch (_) {}
+  };
+
+  const handleVisibilityChange = (keys) => {
+    setVisibleColumns(keys);
+    try {
+      localStorage.setItem('allServices_visibleColumns', JSON.stringify([...keys]));
+    } catch (_) {}
+  };
+
+  // Sort and paginate
+  const sortedProjects = [...projects].sort((a, b) => {
+    const nA = normalizeProjectCard(a);
+    const nB = normalizeProjectCard(b);
+    let va, vb;
+    switch (sortKey) {
+      case 'projectCode':
+        va = (nA.projectCode || '').toLowerCase();
+        vb = (nB.projectCode || '').toLowerCase();
+        break;
+      case 'machineName':
+        va = (nA.machineName || nA.title || '').toLowerCase();
+        vb = (nB.machineName || nB.title || '').toLowerCase();
+        break;
+      case 'model':
+        va = (nA.model || '').toLowerCase();
+        vb = (nB.model || '').toLowerCase();
+        break;
+      case 'year':
+        va = nA.year ?? 0;
+        vb = nB.year ?? 0;
+        return sortDir === 'asc' ? va - vb : vb - va;
+      default:
+        return 0;
+    }
+    const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
+
+  const totalPages = Math.ceil(sortedProjects.length / itemsPerPage);
+  const startIdx = (currentPage - 1) * itemsPerPage;
+  const paginatedProjects = sortedProjects.slice(startIdx, startIdx + itemsPerPage);
 
   const handleInfoClick = (service) => {
     setSelectedService(service);
@@ -566,6 +688,29 @@ const AllServices = ({ onEditService }) => {
         onClear={handleClearFilters}
       />
 
+      <div className="all-services-toolbar">
+        <FilterChips
+          activeFilters={activeFilters}
+          onRemove={handleFilterRemove}
+          onClearAll={handleClearFilters}
+          fieldLabels={{
+            projectCode: 'Proje Kodu',
+            machineName: 'Marka',
+            model: 'Model',
+            make: 'Marka',
+            yearMin: 'Yıl (Min)',
+            yearMax: 'Yıl (Max)',
+            conveyor: 'Konveyör'
+          }}
+        />
+        <ColumnVisibility
+          columns={ALL_SERVICES_COLUMNS}
+          visibleKeys={visibleColumns}
+          onVisibilityChange={handleVisibilityChange}
+          storageKey="allServices_visibleColumns"
+        />
+      </div>
+
       {error && (
         <div className="error-message">
           <p>{error}</p>
@@ -597,24 +742,41 @@ const AllServices = ({ onEditService }) => {
           <table className="services-table" ref={tableRef}>
             <thead>
               <tr>
-                <th>PROJE KODU</th>
-                <th className="machine-brand-header">MAKİNE MARKASI</th>
-                <th>MAKİNE MODELİ</th>
-                <th>MAKİNE YILI</th>
-                <th>TEKLİF/PROFORMA</th>
+                {visibleColumns.has('projectCode') && (
+                  <SortableHeader sortKey={sortKey} sortDir={sortDir} fieldKey="projectCode" onSort={handleSort}>
+                    PROJE KODU
+                  </SortableHeader>
+                )}
+                {visibleColumns.has('machineName') && (
+                  <SortableHeader sortKey={sortKey} sortDir={sortDir} fieldKey="machineName" onSort={handleSort} className="machine-brand-header">
+                    MAKİNE MARKASI
+                  </SortableHeader>
+                )}
+                {visibleColumns.has('model') && (
+                  <SortableHeader sortKey={sortKey} sortDir={sortDir} fieldKey="model" onSort={handleSort}>
+                    MAKİNE MODELİ
+                  </SortableHeader>
+                )}
+                {visibleColumns.has('year') && (
+                  <SortableHeader sortKey={sortKey} sortDir={sortDir} fieldKey="year" onSort={handleSort}>
+                    MAKİNE YILI
+                  </SortableHeader>
+                )}
+                {visibleColumns.has('offerProforma') && <th>TEKLİF/PROFORMA</th>}
                 <th>İŞLEMLER</th>
                 {canDelete() && <th>SİL</th>}
               </tr>
             </thead>
             <tbody>
-              {projects.map((project) => {
+              {paginatedProjects.map((project) => {
                 const n = normalizeProjectCard(project);
                 return (
                 <tr key={project.id} className="service-row">
-                  <td className="form-number">{n.projectCode}</td>
-                  <td className="device-name machine-brand">{cleanTitle(n.machineName) || 'Belirtilmemiş'}</td>
-                  <td className="device-name">{n.model}</td>
-                  <td className="start-date">{n.year ?? '-'}</td>
+                  {visibleColumns.has('projectCode') && <td className="form-number">{n.projectCode}</td>}
+                  {visibleColumns.has('machineName') && <td className="device-name machine-brand">{cleanTitle(n.machineName) || 'Belirtilmemiş'}</td>}
+                  {visibleColumns.has('model') && <td className="device-name">{n.model}</td>}
+                  {visibleColumns.has('year') && <td className="start-date">{n.year ?? '-'}</td>}
+                  {visibleColumns.has('offerProforma') && (
                   <td className="offer-proforma-status" onClick={() => {
                     const summary = offerProformaSummaries[project.id];
                     if (summary && summary.summaryText !== '-') {
@@ -626,6 +788,7 @@ const AllServices = ({ onEditService }) => {
                       {offerProformaSummaries[project.id]?.summaryText || '-'}
                     </span>
                   </td>
+                  )}
                   <td className="operations">
                     <div className="operation-buttons">
                       <button
@@ -694,6 +857,19 @@ const AllServices = ({ onEditService }) => {
           </table>
         )}
       </div>
+
+      {!loading && !isSearching && !isFiltering && projects.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={projects.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={handleItemsPerPageChange}
+          storageKey="allServices_pageSize"
+          label="proje"
+        />
+      )}
 
       {isModalOpen && selectedService && (
         <ServiceDetailsModal

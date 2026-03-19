@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FaTimes } from 'react-icons/fa';
 import proformaService from '../../services/proformaService';
 import offerService from '../../services/offerService';
+import OfferPdfPreviewModal from '../shared/OfferPdfPreviewModal';
 import { extractFilenameFromResponse } from '../../utils/apiUtils';
 import './OfferProformaDetailModal.css';
 
@@ -22,6 +23,7 @@ const statusToTurkish = (status) => {
 const OfferProformaDetailModal = ({ projectId, summary, onClose }) => {
   const [downloadingOfferId, setDownloadingOfferId] = useState(null);
   const [downloadingProformaId, setDownloadingProformaId] = useState(null);
+  const [viewOfferPdfId, setViewOfferPdfId] = useState(null);
 
   if (!summary) return null;
 
@@ -171,6 +173,12 @@ const OfferProformaDetailModal = ({ projectId, summary, onClose }) => {
           )}
         </div>
       </div>
+
+      <OfferPdfPreviewModal
+        isOpen={!!viewOfferPdfId}
+        onClose={() => setViewOfferPdfId(null)}
+        offerId={viewOfferPdfId}
+      />
     </div>
   );
 };

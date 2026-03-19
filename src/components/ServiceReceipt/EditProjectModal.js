@@ -33,6 +33,7 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
     // New Features
     conveyor: 'Yok',
     paperFilter: 'Yok',
+    elCarki: 'Yok',
 
     // Movement Fields
     xMovement: '',
@@ -217,6 +218,7 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
         insideWaterGiving: (project.internalWater || project.ictenSuVerme) ? 'Var' : (project.insideWaterGiving || 'Yok'),
         conveyor: project.conveyor ? 'Var' : (project.conveyor || 'Yok'),
         paperFilter: (project.paperFilter || project.kagitFiltre) ? 'Var' : (project.paperFilter || 'Yok'),
+        elCarki: project.elCarki ? 'Var' : 'Yok',
         xMovement: project.xmovement || project.xMovement || '',
         yMovement: project.ymovement || project.yMovement || '',
         zMovement: project.zmovement || project.zMovement || '',
@@ -262,7 +264,8 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
         partMeasurementProbe: project.parcaOlcmeProbu ? 'Var' : (project.partMeasurementProbe || 'Var'),
         insideWaterGiving: project.ictenSuVerme ? 'Var' : (project.insideWaterGiving || 'Yok'),
         conveyor: project.konveyor ? 'Var' : (project.conveyor || 'Yok'),
-        paperFilter: project.kagitFiltre ? 'Var' : (project.paperFilter || 'Yok')
+        paperFilter: project.kagitFiltre ? 'Var' : (project.paperFilter || 'Yok'),
+        elCarki: project.elCarki ? 'Var' : 'Yok'
       });
       console.log('=====================');
 
@@ -744,6 +747,7 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
       ictenSuVerme: formData.insideWaterGiving === 'Var',
       konveyor: formData.conveyor === 'Var',
       kagitFiltre: formData.paperFilter === 'Var',
+      elCarki: formData.elCarki === 'Var',
       xmovement: formData.xMovement || '',
       ymovement: formData.yMovement || '',
       zmovement: formData.zMovement || '',
@@ -1232,13 +1236,13 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
                   </div>
                 </div>
 
-                <div className="form-row">
-                  <div className="form-group">
+                <div className="form-row os-key-el-row">
+                  <div className="form-group form-group-os-select">
                     <label>İşletim Sistemi</label>
                     <select
                       value={formData.operatingSystem}
                       onChange={(e) => handleInputChange('operatingSystem', e.target.value)}
-                      className="form-select"
+                      className="form-select form-input-style"
                     >
                       <option value="Heidenhain">Heidenhain</option>
                       <option value="Siemens">Siemens</option>
@@ -1283,6 +1287,33 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
                       >
                         4
                       </span>
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>El Çarkı</label>
+                    <div className="radio-group-vertical">
+                      <label className="radio-option">
+                        <input
+                          type="radio"
+                          name="elCarki"
+                          value="Var"
+                          checked={formData.elCarki === 'Var'}
+                          onChange={(e) => handleInputChange('elCarki', e.target.value)}
+                        />
+                        <span className="radio-dot"></span>
+                        Var
+                      </label>
+                      <label className="radio-option">
+                        <input
+                          type="radio"
+                          name="elCarki"
+                          value="Yok"
+                          checked={formData.elCarki === 'Yok'}
+                          onChange={(e) => handleInputChange('elCarki', e.target.value)}
+                        />
+                        <span className="radio-dot"></span>
+                        Yok
+                      </label>
                     </div>
                   </div>
                 </div>
@@ -1429,6 +1460,7 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
                         </label>
                       </div>
                     </div>
+
                   </div>
                 </div>
 

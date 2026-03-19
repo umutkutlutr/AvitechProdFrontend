@@ -166,6 +166,18 @@
 }
 
 /* Table container */
+.all-services-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md, 12px);
+  margin-bottom: var(--space-md, 12px);
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+}
+
 .services-table-container {
   max-width: 1400px;
   margin: 0 auto 40px auto;

@@ -41,6 +41,28 @@ class OfferService {
     });
   }
 
+  async previewOfferPdf(projectId, clientId, price, description, invalidTermKeys = []) {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/offers/preview-pdf`, {
+      method: 'POST',
+      headers: {
+        ...authService.getAuthHeaders(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        projectId,
+        clientId,
+        price,
+        description,
+        invalidTermKeys,
+      }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || 'PDF önizleme alınamadı');
+    }
+    return response.blob();
+  }
+
   async getOfferById(offerId) {
     try {
       const response = await fetchWithAuth(`${API_BASE_URL}/api/offers`, {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import bankService from '../../services/bankService';
+import Pagination from '../shared/Pagination';
 import {
   AiOutlineReload,
   AiOutlineBank,
@@ -19,6 +20,12 @@ const RegisteredBanks = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingBank, setEditingBank] = useState(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+    try {
+      return parseInt(localStorage.getItem('registeredBanks_pageSize') || '25', 10);
+    } catch { return 25; }
+  });
 
   useEffect(() => {
     loadBanks();
@@ -70,12 +77,20 @@ const RegisteredBanks = () => {
     }
   };
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const filteredBanks = banks.filter((bank) => {
     if (!normalizedSearch) return true;
     const fields = [bank.companyName, bank.address, bank.taxOffice, bank.taxNumber].filter(Boolean);
     return fields.some((f) => String(f).toLowerCase().includes(normalizedSearch));
   });
+
+  const totalPages = Math.ceil(filteredBanks.length / itemsPerPage);
+  const startIdx = (currentPage - 1) * itemsPerPage;
+  const paginatedBanks = filteredBanks.slice(startIdx, startIdx + itemsPerPage);
 
   if (loading) {
     return (
@@ -140,8 +155,26 @@ const RegisteredBanks = () => {
             <h3>Arama kriterlerinize uygun banka bulunamadı</h3>
           </div>
         ) : (
+          <>
+          <div className="banks-toolbar">
+            <Pagination
+              inline
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredBanks.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={(v) => {
+                setItemsPerPage(v);
+                setCurrentPage(1);
+                try { localStorage.setItem('registeredBanks_pageSize', String(v)); } catch (_) {}
+              }}
+              storageKey="registeredBanks_pageSize"
+              label="banka"
+            />
+          </div>
           <div className="banks-grid">
-            {filteredBanks.map((bank) => (
+            {paginatedBanks.map((bank) => (
               <div key={bank.id} className="bank-card">
                 <div className="bank-header">
                   <AiOutlineBank className="bank-icon" />
@@ -187,6 +220,7 @@ const RegisteredBanks = () => {
               </div>
             ))}
           </div>
+          </>
         )}
       </div>
 

@@ -4,6 +4,15 @@
   50% { opacity: 0.4; }
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
 /* ─── Container & Layout (PageLayout standardına uyumlu) ─────────────────── */
 .pm-container {
   padding: 0;

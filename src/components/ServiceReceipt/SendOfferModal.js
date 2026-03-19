@@ -3,6 +3,7 @@ import { FaTimes, FaPaperPlane, FaPlus, FaTrash, FaPencilAlt, FaSearch, FaChevro
 import projectService from '../../services/projectService';
 import clientService from '../../services/clientService';
 import accountingService from '../../services/accountingService';
+import offerService from '../../services/offerService';
 import { getExchangeRates } from '../../services/currencyService';
 import './SendOfferModal.css';
 
@@ -44,19 +45,28 @@ const SendOfferModal = ({ service, onClose }) => {
     phone: '',
     businessPhone: '',
     email: '',
+    country: '',
     vergiDairesi: '',
     vergiNo: '',
     deliveryTerms: 'Makinenin teslimatı, sözleşmede belirtilen tarihte veya tarafların mutabık kaldığı süre içerisinde yapılacaktır.',
     paymentTerms: 'Ödeme, taraflar arasında mutabık kalınan tutar ve vade planına göre, sözleşmede belirtilen yöntemlerle gerçekleştirilecektir.',
     deliveryDate: 'Ödeme onayının ardından, stok ve planlamaya bağlı olarak hemen / anlaşılan tarihte.'
   });
+  const [machineFields, setMachineFields] = useState({
+    machineModel: '',
+    machineType: '',
+    manufacturingYear: '',
+    stockNumber: '',
+    condition: ''
+  });
   const [clientSearchQuery, setClientSearchQuery] = useState('');
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
   const clientDropdownRef = useRef(null);
   const editOriginalValueRef = useRef(null);
-  const [conditionsValidated, setConditionsValidated] = useState(false);
   const [showConditionsWarning, setShowConditionsWarning] = useState(false);
-  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [showPdfPreviewModal, setShowPdfPreviewModal] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
+  const [loadingPdfPreview, setLoadingPdfPreview] = useState(false);
   const [accountingData, setAccountingData] = useState(null);
   const [rates, setRates] = useState(null);
 
@@ -125,6 +135,26 @@ const SendOfferModal = ({ service, onClose }) => {
       }));
       // Format the display value
       setSalesPriceDisplay(formatInputValue(String(price)));
+    }
+  }, [service]);
+
+  // Initialize machine fields from service (PDF layout)
+  useEffect(() => {
+    if (service) {
+      const make = service.make || service.machineMake || service.brand || '';
+      const model = service.model || service.machineModel || '';
+      const machineModel = [make, model].filter(Boolean).join(' / ') || service.machineName || service.title || '';
+      const machineType = service.type || 'CNC machining centre';
+      const year = service.year ?? service.machineYear ?? null;
+      const cond = service.condition;
+      const conditionDisplay = typeof cond === 'string' ? cond : (cond?.displayName || cond);
+      setMachineFields({
+        machineModel: machineModel || '',
+        machineType: machineType || '',
+        manufacturingYear: year != null ? String(year) : '',
+        stockNumber: service.id ? String(service.id) : '',
+        condition: conditionDisplay || '2. El'
+      });
     }
   }, [service]);
 
@@ -379,10 +409,10 @@ const SendOfferModal = ({ service, onClose }) => {
     } else if (field === 'vergiDairesi') {
       setNewClientData(prev => ({ ...prev, vergiDairesi: value }));
     } else if (field === 'vergiNo') {
-      // Only allow numbers for tax number
       const numericValue = value.replace(/\D/g, '');
       setNewClientData(prev => ({ ...prev, vergiNo: numericValue }));
     }
+    // country: form-only, not in Client entity
   };
 
   const handleSaveNewClient = () => {
@@ -538,131 +568,121 @@ const SendOfferModal = ({ service, onClose }) => {
     e.preventDefault();
     setError(null);
 
-    // Step 1: First click - always show warning to review conditions
-    if (!conditionsValidated) {
-      // Validate that conditions are filled
-      if (!validateConditions()) {
-        setShowConditionsWarning(true);
-        // Scroll to the conditions section
-        setTimeout(() => {
-          const termsSection = document.querySelector('.terms-section');
-          if (termsSection) {
-            termsSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }, 100);
+    // Validate client
+    let clientToUse = selectedClient;
+    if (newClientDataReady && !selectedClient) {
+      try {
+        const createdClient = await clientService.createClient(newClientData);
+        clientToUse = createdClient;
+        setSelectedClient(createdClient);
+        setSelectedClientId(String(createdClient.id));
+        setNewClientDataReady(false);
+        setNewClientData({ companyName: '', contactName: '', email: '', phone: '', businessPhone: '', address: '', vergiDairesi: '', vergiNo: '' });
+      } catch (createError) {
+        setError(createError.message || 'Müşteri oluşturulurken bir hata oluştu');
         return;
       }
-      // Show warning for user to review
+    } else if (!selectedClient && !clientToUse) {
+      setError('Lütfen bir müşteri seçin veya yeni müşteri bilgilerini kaydedin');
+      return;
+    }
+
+    const priceFromInput = parseFloat(parseFormattedInput(salesPriceDisplay || ''));
+    const priceToSend = !isNaN(priceFromInput) && priceFromInput > 0 ? priceFromInput : formData.salesPrice;
+    if (!priceToSend || priceToSend <= 0 || isNaN(priceToSend)) {
+      setError('Geçerli bir teklif fiyatı giriniz (0\'dan büyük olmalı)');
+      return;
+    }
+
+    const description = [
+      `Teslimat Şartları: ${editableTexts.deliveryTerms}`,
+      `Ödeme Şartları: ${editableTexts.paymentTerms}`,
+      `Teslimat Tarihi: ${editableTexts.deliveryDate}`
+    ].join('\n');
+
+    // Validate conditions - collect invalid keys for PDF highlighting
+    const invalidTermKeys = [];
+    if (!editableTexts.deliveryTerms?.trim()) invalidTermKeys.push('Teslimat Şartları');
+    if (!editableTexts.paymentTerms?.trim()) invalidTermKeys.push('Ödeme Şartları');
+    if (!editableTexts.deliveryDate?.trim()) invalidTermKeys.push('Teslimat Tarihi');
+    if (invalidTermKeys.length > 0) {
       setShowConditionsWarning(true);
-      setConditionsValidated(true);
-      // Scroll to the conditions section
       setTimeout(() => {
         const termsSection = document.querySelector('.terms-section');
-        if (termsSection) {
-          termsSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+        if (termsSection) termsSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 100);
-      return;
-    }
-
-    // Step 2: Second click - show confirmation modal
-    if (conditionsValidated && !showConfirmationModal) {
+    } else {
       setShowConditionsWarning(false);
-      setShowConfirmationModal(true);
-      return;
     }
 
-    // Step 2: If conditions already validated, proceed with sending
-    // This will be called from the confirmation modal
+    // Fetch PDF preview and show modal
+    setLoadingPdfPreview(true);
+    try {
+      const blob = await offerService.previewOfferPdf(
+        service?.id || service?.projectId,
+        clientToUse.id,
+        priceToSend,
+        description,
+        invalidTermKeys
+      );
+      const url = URL.createObjectURL(blob);
+      setPdfPreviewUrl(url);
+      setShowPdfPreviewModal(true);
+    } catch (err) {
+      console.error('PDF preview error:', err);
+      setError(err.message || 'PDF önizleme alınamadı');
+    } finally {
+      setLoadingPdfPreview(false);
+    }
+  };
+
+  const handleConfirmSend = async () => {
+    setError(null);
     setIsSubmitting(true);
 
     try {
-      let clientToUse = selectedClient;
-
-      // If we have new client data ready, create the client first
-      if (newClientDataReady && !selectedClient) {
-        try {
-          const createdClient = await clientService.createClient(newClientData);
-          clientToUse = createdClient;
-
-          // Reset new client state
-          setNewClientDataReady(false);
-          setNewClientData({
-            companyName: '',
-            contactName: '',
-            email: '',
-            phone: '',
-            businessPhone: '',
-            address: '',
-            vergiDairesi: '',
-            vergiNo: ''
-          });
-        } catch (createError) {
-          console.error('Error creating client:', createError);
-          setError(createError.message || 'Müşteri oluşturulurken bir hata oluştu');
-          setIsSubmitting(false);
-          return;
-        }
-      } else if (!selectedClient) {
-        // Check if a client is selected or new client data is ready
-        setError('Lütfen bir müşteri seçin veya yeni müşteri bilgilerini kaydedin');
+      if (!selectedClient?.id) {
+        setError('Müşteri bilgisi bulunamadı. Lütfen sayfayı yenileyip tekrar deneyin.');
         setIsSubmitting(false);
         return;
       }
 
-      // Combine delivery terms, payment terms, and delivery date into description
       const description = [
         `Teslimat Şartları: ${editableTexts.deliveryTerms}`,
         `Ödeme Şartları: ${editableTexts.paymentTerms}`,
         `Teslimat Tarihi: ${editableTexts.deliveryDate}`
       ].join('\n');
 
-      // Kullanıcının input'a yazdığı fiyatı kullan (display'den parse et) - tutar kontrolü
       const priceFromInput = parseFloat(parseFormattedInput(salesPriceDisplay || ''));
       const priceToSend = !isNaN(priceFromInput) && priceFromInput > 0 ? priceFromInput : formData.salesPrice;
-      if (!priceToSend || priceToSend <= 0 || isNaN(priceToSend)) {
-        setError('Geçerli bir teklif fiyatı giriniz (0\'dan büyük olmalı)');
-        setIsSubmitting(false);
-        setShowConfirmationModal(false);
-        return;
-      }
       const projectId = service?.id || service?.projectId;
 
       const results = await projectService.sendOfferToClients(
         projectId,
-        [clientToUse.id],
+        [selectedClient.id],
         ccEmails,
         priceToSend,
         description
       );
       const firstResult = Array.isArray(results) ? results[0] : results;
 
-      setIsSubmitting(false);
       setSuccessInfo(firstResult || null);
       setShowSuccess(true);
-      setShowConfirmationModal(false);
+      setShowPdfPreviewModal(false);
+      if (pdfPreviewUrl) {
+        URL.revokeObjectURL(pdfPreviewUrl);
+        setPdfPreviewUrl(null);
+      }
 
-      // Close modal after showing success message
-      setTimeout(() => {
-        onClose();
-      }, 2000);
+      setTimeout(() => onClose(), 2000);
     } catch (err) {
       console.error('Error sending offer:', err);
       setError(err.message || 'Teklif gönderilirken bir hata oluştu');
+    } finally {
       setIsSubmitting(false);
-      setShowConfirmationModal(false);
     }
   };
 
-  const handleConfirmSend = () => {
-    // Close confirmation modal and proceed with sending
-    handleSubmit(new Event('submit'));
-  };
-
-  const handleCancelConfirmation = () => {
-    setShowConfirmationModal(false);
-    setConditionsValidated(false); // Reset validation state
-  };
 
   // Format number with dots as thousand separators (e.g., 12000.03 -> 12.000.03)
   const formatNumberWithDots = (number) => {
@@ -839,15 +859,26 @@ const SendOfferModal = ({ service, onClose }) => {
                             filteredClients.map((client) => (
                               <div
                                 key={client.id}
-                                className="custom-dropdown-item"
+                                className="custom-dropdown-item custom-dropdown-item-full"
                                 onClick={() => handleClientSelect(client.id)}
                               >
                                 <div className="dropdown-item-main">
                                   {client.companyName}
                                 </div>
                                 <div className="dropdown-item-sub">
-                                  {client.contactName} • {client.email}
+                                  {client.contactName && <span>{client.contactName}</span>}
+                                  {client.email && <span> • {client.email}</span>}
                                 </div>
+                                {(client.phone || client.address || client.vergiDairesi || client.vergiNo) && (
+                                  <div className="dropdown-item-extra">
+                                    {client.phone && <span>Tel: {client.phone}</span>}
+                                    {client.businessPhone && <span> • İş: {client.businessPhone}</span>}
+                                    {client.address && <span> • {client.address}</span>}
+                                    {(client.vergiDairesi || client.vergiNo) && (
+                                      <span> • VD: {client.vergiDairesi || '-'} / VN: {client.vergiNo || '-'}</span>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             ))
                           ) : (
@@ -927,207 +958,168 @@ const SendOfferModal = ({ service, onClose }) => {
               </div>
             </div>
 
-            <div className="offer-document">
-              <div className="document-header">
-                <div className="left-column">
-                  <div className="info-row">
-                    <strong>Şirket Adı:</strong>
-                    {isAddingNewClient ? (
-                      <input
-                        type="text"
-                        value={editableTexts.companyName}
-                        onChange={(e) => handleCompanyFieldChange('companyName', e.target.value)}
-                        placeholder="Şirket adını girin"
-                        className="inline-edit-input"
-                        autoFocus
-                      />
-                    ) : (
-                      <span className="info-value">{editableTexts.companyName || 'Şirket Adı'}</span>
-                    )}
-                  </div>
-                  <div className="info-row">
-                    <strong>Adres:</strong>
-                    {isAddingNewClient ? (
-                      <input
-                        type="text"
-                        value={editableTexts.address}
-                        onChange={(e) => handleCompanyFieldChange('address', e.target.value)}
-                        placeholder="Adresi girin"
-                        className="inline-edit-input"
-                      />
-                    ) : (
-                      <span className="info-value">{editableTexts.address || 'Adres'}</span>
-                    )}
-                  </div>
-                  <div className="info-row">
-                    <strong>İletişim Kişisi:</strong>
-                    {isAddingNewClient ? (
-                      <input
-                        type="text"
-                        value={editableTexts.contactPerson}
-                        onChange={(e) => handleCompanyFieldChange('contactPerson', e.target.value)}
-                        placeholder="İletişim kişisini girin"
-                        className="inline-edit-input"
-                      />
-                    ) : (
-                      <span className="info-value">{editableTexts.contactPerson || 'İletişim Kişisi'}</span>
-                    )}
-                  </div>
-                  <div className="info-row">
-                    <strong>Telefon:</strong>
-                    {isAddingNewClient ? (
-                      <input
-                        type="tel"
-                        value={editableTexts.phone}
-                        onChange={(e) => handleCompanyFieldChange('phone', e.target.value)}
-                        placeholder="+905551234567"
-                        className="inline-edit-input"
-                      />
-                    ) : (
-                      <span className="info-value">{editableTexts.phone || 'Telefon'}</span>
-                    )}
-                  </div>
-                  <div className="info-row">
-                    <strong>İş Telefonu:</strong>
-                    {isAddingNewClient ? (
-                      <input
-                        type="tel"
-                        value={editableTexts.businessPhone}
-                        onChange={(e) => handleCompanyFieldChange('businessPhone', e.target.value)}
-                        placeholder="+902125555555"
-                        className="inline-edit-input"
-                      />
-                    ) : (
-                      <span className="info-value">{editableTexts.businessPhone || 'İş Telefonu'}</span>
-                    )}
-                  </div>
-                  <div className="info-row">
-                    <strong>E-Mail:</strong>
-                    {isAddingNewClient ? (
-                      <input
-                        type="email"
-                        value={editableTexts.email}
-                        onChange={(e) => handleCompanyFieldChange('email', e.target.value)}
-                        placeholder="email@example.com"
-                        className="inline-edit-input"
-                      />
-                    ) : (
-                      <span className="info-value">{editableTexts.email || 'E-Mail'}</span>
-                    )}
-                  </div>
-                  <div className="info-row">
-                    <strong>Vergi Dairesi:</strong>
-                    {isAddingNewClient ? (
-                      <input
-                        type="text"
-                        value={editableTexts.vergiDairesi}
-                        onChange={(e) => handleCompanyFieldChange('vergiDairesi', e.target.value)}
-                        placeholder="Vergi dairesini girin"
-                        className="inline-edit-input"
-                      />
-                    ) : (
-                      <span className="info-value">{editableTexts.vergiDairesi || 'Vergi Dairesi'}</span>
-                    )}
-                  </div>
-                  <div className="info-row">
-                    <strong>Vergi No:</strong>
-                    {isAddingNewClient ? (
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={editableTexts.vergiNo}
-                        onChange={(e) => {
-                          // Only allow numeric input
-                          const numericValue = e.target.value.replace(/\D/g, '');
-                          handleCompanyFieldChange('vergiNo', numericValue);
-                        }}
-                        placeholder="Vergi numarasını girin"
-                        className="inline-edit-input"
-                      />
-                    ) : (
-                      <span className="info-value">{editableTexts.vergiNo || 'Vergi No'}</span>
-                    )}
-                  </div>
-                  <div className="info-row">
-                    <strong>Belge Tarihi:</strong>
-                    <span className="info-value">{formData.documentDate}</span>
-                  </div>
+            <div className="offer-document offer-document-pdf-layout">
+              {/* PDF Header Bar */}
+              <div className="offer-header-bar">
+                <div className="offer-header-bar-inner">
+                  <span>Proje Kodu: <strong>{service?.projectCode || '-'}</strong></span>
+                  <span>
+                    Teklif Tarihi:{' '}
+                    <input
+                      type="text"
+                      value={formData.documentDate}
+                      onChange={(e) => handleInputChange('documentDate', e.target.value)}
+                      className="offer-date-input"
+                      placeholder="gg.aa.yyyy"
+                    />
+                  </span>
+                </div>
+              </div>
 
+              {/* PDF Meta Table: TEKLİF ÖZETİ | MÜŞTERİ BİLGİLERİ */}
+              <div className="offer-meta-table">
+                <div className="meta-left">
+                  <div className="meta-title">TEKLİF ÖZETİ</div>
+                  <div className="meta-row"><span className="meta-label">Proje Kodu:</span> <span className="meta-value">{service?.projectCode || '-'}</span></div>
+                  <div className="meta-row"><span className="meta-label">Müşteri No:</span> <span className="meta-value">{selectedClient?.id || (newClientDataReady ? 'Yeni' : '-')}</span></div>
+                  <div className="meta-row"><span className="meta-label">Teklif Tarihi:</span> <span className="meta-value"><input type="text" value={formData.documentDate} onChange={(e) => handleInputChange('documentDate', e.target.value)} className="meta-input" placeholder="gg.aa.yyyy" /></span></div>
+                  <div className="meta-row"><span className="meta-label">Para Birimi:</span> <span className="meta-value">EUR (€)</span></div>
+                </div>
+                <div className="meta-right">
+                  <div className="meta-title">MÜŞTERİ BİLGİLERİ</div>
+                  <div className="customer-fields">
+                    <div className="customer-field-row">
+                      <span className="meta-label">Şirket:</span>
+                      {(isAddingNewClient || newClientDataReady) ? (
+                        <input type="text" value={editableTexts.companyName} onChange={(e) => handleCompanyFieldChange('companyName', e.target.value)} className="meta-input full-width" placeholder="Şirket adı" />
+                      ) : (
+                        <span className="meta-value-readonly">{editableTexts.companyName || '-'}</span>
+                      )}
+                    </div>
+                    <div className="customer-field-row">
+                      <span className="meta-label">İletişim:</span>
+                      {(isAddingNewClient || newClientDataReady) ? (
+                        <input type="text" value={editableTexts.contactPerson} onChange={(e) => handleCompanyFieldChange('contactPerson', e.target.value)} className="meta-input full-width" placeholder="İletişim kişisi" />
+                      ) : (
+                        <span className="meta-value-readonly">{editableTexts.contactPerson || '-'}</span>
+                      )}
+                    </div>
+                    <div className="customer-field-row">
+                      <span className="meta-label">Adres/Şehir:</span>
+                      {(isAddingNewClient || newClientDataReady) ? (
+                        <input type="text" value={editableTexts.address} onChange={(e) => handleCompanyFieldChange('address', e.target.value)} className="meta-input full-width" placeholder="Adres veya şehir" />
+                      ) : (
+                        <span className="meta-value-readonly">{editableTexts.address || '-'}</span>
+                      )}
+                    </div>
+                    <div className="customer-field-row">
+                      <span className="meta-label">Ülke:</span>
+                      {(isAddingNewClient || newClientDataReady) ? (
+                        <input type="text" value={editableTexts.country} onChange={(e) => handleCompanyFieldChange('country', e.target.value)} className="meta-input full-width" placeholder="Ülke" />
+                      ) : (
+                        <span className="meta-value-readonly">{editableTexts.country || '-'}</span>
+                      )}
+                    </div>
+                    <div className="customer-field-row">
+                      <span className="meta-label">E-posta:</span>
+                      {(isAddingNewClient || newClientDataReady) ? (
+                        <input type="email" value={editableTexts.email} onChange={(e) => handleCompanyFieldChange('email', e.target.value)} className="meta-input full-width" placeholder="E-posta" />
+                      ) : (
+                        <span className="meta-value-readonly">{editableTexts.email || '-'}</span>
+                      )}
+                    </div>
+                    <div className="customer-field-row">
+                      <span className="meta-label">Telefon:</span>
+                      {(isAddingNewClient || newClientDataReady) ? (
+                        <input type="text" value={editableTexts.phone} onChange={(e) => handleCompanyFieldChange('phone', e.target.value)} className="meta-input full-width" placeholder="Telefon" />
+                      ) : (
+                        <span className="meta-value-readonly">{editableTexts.phone || '-'}</span>
+                      )}
+                    </div>
+                    <div className="customer-field-row">
+                      <span className="meta-label">İş Tel:</span>
+                      {(isAddingNewClient || newClientDataReady) ? (
+                        <input type="text" value={editableTexts.businessPhone} onChange={(e) => handleCompanyFieldChange('businessPhone', e.target.value)} className="meta-input full-width" placeholder="İş telefonu" />
+                      ) : (
+                        <span className="meta-value-readonly">{editableTexts.businessPhone || '-'}</span>
+                      )}
+                    </div>
+                    <div className="customer-field-row">
+                      <span className="meta-label">Vergi Dairesi:</span>
+                      {(isAddingNewClient || newClientDataReady) ? (
+                        <input type="text" value={editableTexts.vergiDairesi} onChange={(e) => handleCompanyFieldChange('vergiDairesi', e.target.value)} className="meta-input full-width" placeholder="Vergi dairesi" />
+                      ) : (
+                        <span className="meta-value-readonly">{editableTexts.vergiDairesi || '-'}</span>
+                      )}
+                    </div>
+                    <div className="customer-field-row">
+                      <span className="meta-label">Vergi No:</span>
+                      {(isAddingNewClient || newClientDataReady) ? (
+                        <input type="text" value={editableTexts.vergiNo} onChange={(e) => handleCompanyFieldChange('vergiNo', e.target.value)} className="meta-input full-width" placeholder="Vergi no" />
+                      ) : (
+                        <span className="meta-value-readonly">{editableTexts.vergiNo || '-'}</span>
+                      )}
+                    </div>
+                  </div>
                   {isAddingNewClient && (
                     <div className="inline-edit-actions">
-                      <button
-                        type="button"
-                        onClick={handleCancelNewClient}
-                        className="btn-cancel-inline-edit"
-                      >
-                        İptal
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSaveNewClient}
-                        className="btn-save-inline-edit"
-                      >
-                        Kaydet
-                      </button>
+                      <button type="button" onClick={handleCancelNewClient} className="btn-cancel-inline-edit">İptal</button>
+                      <button type="button" onClick={handleSaveNewClient} className="btn-save-inline-edit">Kaydet</button>
                     </div>
                   )}
-
-
-                </div>
-
-                <div className="right-column">
-                  <div className="info-row">
-                    <strong>Avitech Metal Teknolojileri Anonim Şirketi</strong>
-                  </div>
-                  <div className="info-row">
-                    <strong>Adres:</strong> Rüzgarlıbahçe, K Plaza 34805 Beykoz/Istanbul, Turkey
-                  </div>
-                  <div className="info-row">
-                    <strong>Telefon:</strong> +90 541 563 49 90
-                  </div>
-                  <div className="info-row">
-                    <strong>İletişim Kişisi:</strong> Bora Urçar
-                  </div>
-                  <div className="info-row">
-                    <strong>E-Mail:</strong> bora.urcar@avitech.com.tr
-                  </div>
                 </div>
               </div>
 
               <div className="offer-title">
-                <h3>TEKLİF</h3>
+                <h3>MAKİNE SATIŞ TEKLİFİ</h3>
+                <div className="offer-subtitle">Tarafımıza iletmiş olduğunuz talep doğrultusunda aşağıda detayları verilen makine için satış teklifimizi bilgilerinize sunarız.</div>
               </div>
 
-              <div className="machine-details">
-                <table className="machine-table">
+              {/* MAKİNE TANIMI VE FİYATLANDIRMA - PDF layout */}
+              <div className="section-header-pdf">
+                <div className="section-title-pdf">MAKİNE TANIMI VE FİYATLANDIRMA</div>
+                <div className="section-line-pdf" />
+              </div>
+              <div className="machine-details-pdf">
+                <table className="machine-table-pdf">
                   <thead>
                     <tr>
-                      <th>Pos.</th>
-                      <th>Item Description</th>
-                      <th>Quantity</th>
-                      <th>Price</th>
+                      <th>AÇIKLAMA</th>
+                      <th className="qty">ADET</th>
+                      <th className="price">TOPLAM FİYAT</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td className="position">1</td>
-                      <td className="machine-name">{cleanMachineName(service?.machineName || service?.title || service?.machineTitle || 'Makine Adı')}</td>
-                      <td className="quantity">1</td>
-                      <td className="machine-price">{formatCurrency(formData.salesPrice, 'EUR')}</td>
+                      <td>
+                        <div className="desc-main-title">{machineFields.machineModel || '-'}</div>
+                        <div className="desc-sub">
+                          Tip: <span className="desc-value">{machineFields.machineType || '-'}</span>
+                          <br />
+                          Model: <span className="desc-value">{machineFields.machineModel || '-'}</span>
+                          <br />
+                          Üretim Yılı: <span className="desc-value">{machineFields.manufacturingYear || '-'}</span>
+                          <br />
+                          Stok No: <span className="desc-value">{machineFields.stockNumber || '-'}</span>
+                          <br />
+                          Kondisyon: <span className="desc-value">{machineFields.condition || '-'}</span>
+                        </div>
+                      </td>
+                      <td className="qty">1</td>
+                      <td className="price price-strong">
+                        <input type="text" inputMode="decimal" value={salesPriceDisplay} onChange={handleSalesPriceChange} onBlur={handleSalesPriceBlur} className="machine-price-input" placeholder="Fiyat" /> €
+                      </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
 
-              <div className="offer-footer">
-                <div className="total-section">
-                  <div className="total-row">
-                    <span>TOPLAM:</span>
-                    <span className="total-price">{formatCurrency(formData.salesPrice, 'EUR')}</span>
-                  </div>
-                </div>
-
-                <div className="terms-section">
+              {/* TİCARİ ŞARTLAR - PDF layout */}
+              <div className="section-header-pdf">
+                <div className="section-title-pdf">TİCARİ ŞARTLAR</div>
+                <div className="section-line-pdf" />
+              </div>
+              <div className="terms-section">
                   <div className={`terms-row ${showConditionsWarning ? 'terms-row-warning' : ''}`}>
                     <strong>Teslimat Şartları:</strong>
                     {editingField === 'deliveryTerms' ? (
@@ -1245,7 +1237,6 @@ const SendOfferModal = ({ service, onClose }) => {
                       </span>
                     )}
                   </div>
-                </div>
 
                 {showConditionsWarning && (
                   <div className="conditions-warning">
@@ -1268,9 +1259,9 @@ const SendOfferModal = ({ service, onClose }) => {
               <button type="button" className="btn-cancel" onClick={onClose} disabled={isSubmitting}>
                 İptal
               </button>
-              <button type="submit" className="btn-send" disabled={isSubmitting}>
+              <button type="submit" className="btn-send" disabled={isSubmitting || loadingPdfPreview}>
                 <FaPaperPlane />
-                {isSubmitting ? 'Gönderiliyor...' : 'Teklifi Gönder'}
+                {loadingPdfPreview ? 'PDF hazırlanıyor...' : isSubmitting ? 'Gönderiliyor...' : 'Teklifi Gönder'}
               </button>
             </div>
           </form>
@@ -1293,35 +1284,49 @@ const SendOfferModal = ({ service, onClose }) => {
           </div>
         )}
 
-        {showConfirmationModal && (
-          <div className="confirmation-modal-overlay">
-            <div className="confirmation-modal">
-              <div className="confirmation-header">
-                <h3>Teklifi Onayla</h3>
+        {showPdfPreviewModal && (
+          <div className="confirmation-modal-overlay pdf-preview-overlay">
+            <div className="pdf-preview-modal">
+              <div className="pdf-preview-header">
+                <h3>Teklif PDF Önizlemesi</h3>
+                <p className="pdf-preview-subtitle">Gönderilecek teklifi kontrol edin. Onayladığınızda müşteriye e-posta ile gönderilecektir.</p>
+                <button
+                  type="button"
+                  className="pdf-preview-close"
+                  onClick={() => {
+                    setShowPdfPreviewModal(false);
+                    if (pdfPreviewUrl) {
+                      URL.revokeObjectURL(pdfPreviewUrl);
+                      setPdfPreviewUrl(null);
+                    }
+                  }}
+                >
+                  <FaTimes />
+                </button>
               </div>
-              <div className="confirmation-body">
-                <p>Teklif bilgileri doğru mu?</p>
-                <p className="confirmation-warning">
-                  Onayladığınızda müşteriye teklif e-postası gönderilecektir.
-                </p>
-                <div className="confirmation-details">
-                  <p><strong>Marka:</strong> {service?.make || service?.brand || '-'}</p>
-                  <p><strong>Model:</strong> {service?.model || '-'}</p>
-                  <p><strong>Müşteri:</strong> {selectedClient?.companyName || newClientData?.companyName}</p>
-                  <p><strong>Fiyat:</strong> {formatCurrency(formData.salesPrice, 'EUR')}</p>
-                  <p><strong>Teslimat Şartları:</strong> {editableTexts.deliveryTerms}</p>
-                  <p><strong>Ödeme Şartları:</strong> {editableTexts.paymentTerms}</p>
-                  <p><strong>Teslimat Tarihi:</strong> {editableTexts.deliveryDate}</p>
-                </div>
+              <div className="pdf-preview-body">
+                {pdfPreviewUrl && (
+                  <iframe
+                    src={pdfPreviewUrl}
+                    title="Teklif önizlemesi"
+                    className="pdf-preview-iframe"
+                  />
+                )}
               </div>
-              <div className="confirmation-actions">
+              <div className="pdf-preview-actions">
                 <button
                   type="button"
                   className="btn-confirmation-cancel"
-                  onClick={handleCancelConfirmation}
+                  onClick={() => {
+                    setShowPdfPreviewModal(false);
+                    if (pdfPreviewUrl) {
+                      URL.revokeObjectURL(pdfPreviewUrl);
+                      setPdfPreviewUrl(null);
+                    }
+                  }}
                   disabled={isSubmitting}
                 >
-                  Hayır
+                  İptal
                 </button>
                 <button
                   type="button"
@@ -1329,7 +1334,7 @@ const SendOfferModal = ({ service, onClose }) => {
                   onClick={handleConfirmSend}
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? 'Gönderiliyor...' : 'Evet, Gönder'}
+                  {isSubmitting ? 'Gönderiliyor...' : 'Onayla ve Gönder'}
                 </button>
               </div>
             </div>

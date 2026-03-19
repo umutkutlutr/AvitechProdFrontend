@@ -69,17 +69,16 @@ const CostInformationModal = ({ service, onClose }) => {
     };
 
     // Compute derived values - Satış Fiyatı: completed offer salePrice veya muhasebe genel maliyetlerinden
-    const totalCostTry = costSummary?.totalCostTry ?? 0;
+    const totalCostEur = costSummary?.totalCostEur ?? 0;
     const labelPriceOriginal = costSummary?.labelPriceOriginal;
     const isSold = service?.status === 'SOLD' || service?.rawStatus === 'SOLD' || service?.status === 'ONAYLANDI' || offerPrice != null;
     const actualSalePriceFromCost = costSummary?.actualSalePriceOriginal != null ? parseFloat(costSummary.actualSalePriceOriginal) : null;
     const salesPriceFromCost = costSummary?.salesPriceOriginal != null ? parseFloat(costSummary.salesPriceOriginal) : null;
     const salesPrice = actualSalePriceFromCost ?? offerPrice ?? (isSold ? salesPriceFromCost : null);
     const finalBidPrice = bidPrice ?? 0;
-    const priceForProfit = salesPrice ?? (bidPrice || 0);
-    const eurRate = costSummary?.salesCurrency === 'EUR' && costSummary?.salesExchangeRate > 0 ? parseFloat(costSummary.salesExchangeRate) : 38.5;
-    const netProfit = costSummary?.netProfitTry ?? (priceForProfit > 0 ? (priceForProfit * eurRate - totalCostTry) : 0);
-    const profitMargin = costSummary?.profitMarginPercent ?? (priceForProfit > 0 && priceForProfit * eurRate > 0 ? ((netProfit / (priceForProfit * eurRate)) * 100) : 0);
+    const salesPriceEur = costSummary?.salesPriceEur ?? (salesPrice != null ? salesPrice : null);
+    const netProfitEur = costSummary?.netProfitEur ?? null;
+    const profitMargin = costSummary?.profitMarginPercent ?? (salesPriceEur != null && salesPriceEur > 0 && netProfitEur != null ? ((netProfitEur / salesPriceEur) * 100) : 0);
 
     const allCostItems = costSummary?.sections?.flatMap(section =>
         section.items.map(item => ({ ...item, sectionName: section.sectionName }))
@@ -154,21 +153,19 @@ const CostInformationModal = ({ service, onClose }) => {
                                                     <div className="cost-section-label" style={{ fontWeight: 600, color: '#555', marginTop: '8px', fontSize: '13px' }}>
                                                         {section.sectionName}
                                                     </div>
-                                                    {section.items.map((item, idx) => (
+                                                    {section.items.map((item, idx) => {
+                                                        const eurAmount = (item.amountEur != null && !isNaN(item.amountEur))
+                                                            ? parseFloat(item.amountEur)
+                                                            : ((parseFloat(item.amountTry) || 0) / (parseFloat(costSummary?.salesExchangeRate) || 38.5));
+                                                        return (
                                                         <div key={`${section.sectionKey}-${idx}`} className="cost-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                             <span className="cost-description">{item.label}</span>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                <span className="cost-amount" style={{ fontWeight: 600 }}>
-                                                                    {formatCurrency(item.amount, item.currency || 'TRY')}
-                                                                </span>
-                                                                {item.currency && item.currency !== 'TRY' && item.exchangeRate && (
-                                                                    <span style={{ fontSize: '10px', color: '#94a3b8', whiteSpace: 'nowrap' }}>
-                                                                        (kur: {parseFloat(item.exchangeRate).toFixed(2)})
-                                                                    </span>
-                                                                )}
-                                                            </div>
+                                                            <span className="cost-amount" style={{ fontWeight: 600 }}>
+                                                                €{eurAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                            </span>
                                                         </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </>
                                             )}
                                         </React.Fragment>
@@ -182,10 +179,10 @@ const CostInformationModal = ({ service, onClose }) => {
                                 <div className="total-cost">
                                     <span>Toplam Maliyet:</span>
                                     <span className="total-amount">
-                                        {totalCostTry > 0 && costSummary?.salesExchangeRate > 0 && costSummary?.salesCurrency === 'EUR' ? (
-                                            <>€{(totalCostTry / parseFloat(costSummary.salesExchangeRate)).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}<span style={{ fontSize: '12px', marginLeft: '8px', opacity: 0.9 }}>(₺{totalCostTry.toLocaleString('tr-TR', { minimumFractionDigits: 2 })})</span></>
+                                        {totalCostEur > 0 ? (
+                                            <>€{totalCostEur.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
                                         ) : (
-                                            formatCurrency(totalCostTry, 'TRY')
+                                            '-'
                                         )}
                                     </span>
                                 </div>
@@ -228,11 +225,11 @@ const CostInformationModal = ({ service, onClose }) => {
                                     <div className="profit-info">
                                         <div className="profit-item">
                                             <span>Net Kâr:</span>
-                                            <span className={`profit-amount ${netProfit >= 0 ? 'positive' : 'negative'}`}>
-                                                {eurRate > 0 ? (
-                                                    <>€{(netProfit / eurRate).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}<span style={{ fontSize: '12px', marginLeft: '8px', opacity: 0.9 }}>(₺{netProfit.toLocaleString('tr-TR', { minimumFractionDigits: 2 })})</span></>
+                                            <span className={`profit-amount ${(netProfitEur ?? 0) >= 0 ? 'positive' : 'negative'}`}>
+                                                {netProfitEur != null && !isNaN(netProfitEur) ? (
+                                                    <>€{netProfitEur.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
                                                 ) : (
-                                                    formatCurrency(netProfit, 'TRY')
+                                                    '-'
                                                 )}
                                             </span>
                                         </div>

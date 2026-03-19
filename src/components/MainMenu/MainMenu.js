@@ -22,6 +22,8 @@ import ServiceDetailsModal from '../ServiceReceipt/ServiceDetailsModal';
 import SendOfferModal from '../ServiceReceipt/SendOfferModal';
 import SearchBar from '../ServiceReceipt/SearchBar';
 import FilterPanel from '../ServiceReceipt/FilterPanel';
+import Pagination from '../shared/Pagination';
+import FilterChips from '../shared/FilterChips';
 import projectService from '../../services/projectService';
 import { normalizeProjectCard } from '../../utils/projectNormalizer';
 import './MainMenu.css';
@@ -47,7 +49,11 @@ const MainMenu = () => {
   const [isFiltering, setIsFiltering] = useState(false);
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
-  const projectsPerPage = 6;
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+    try {
+      return parseInt(localStorage.getItem('mainMenu_pageSize') || '6', 10);
+    } catch { return 6; }
+  });
 
   // Fetch all data on component mount (single effect to prevent double rendering)
   useEffect(() => {
@@ -208,9 +214,9 @@ const MainMenu = () => {
   };
 
   // Pagination logic
-  const totalPages = Math.ceil(projects.length / projectsPerPage);
-  const startIndex = (currentPage - 1) * projectsPerPage;
-  const endIndex = startIndex + projectsPerPage;
+  const totalPages = Math.ceil(projects.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
   const currentProjects = projects.slice(startIndex, endIndex);
 
   // Transform API data to match the expected format for the cards (use normalizer for canonical fields)
@@ -264,6 +270,21 @@ const MainMenu = () => {
   // Pagination handlers
   const handlePageChange = (page) => {
     setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (val) => {
+    setItemsPerPage(val);
+    setCurrentPage(1);
+    try {
+      localStorage.setItem('mainMenu_pageSize', String(val));
+    } catch (_) {}
+  };
+
+  const handleFilterRemove = (fieldKey) => {
+    const next = { ...activeFilters };
+    delete next[fieldKey];
+    setActiveFilters(next);
+    handleFilter(next);
   };
 
   const handleInfoClick = (service) => {
@@ -465,6 +486,21 @@ const MainMenu = () => {
           onClear={handleClearFilters}
         />
 
+        <FilterChips
+          activeFilters={activeFilters}
+          onRemove={handleFilterRemove}
+          onClearAll={handleClearFilters}
+          fieldLabels={{
+            projectCode: 'Proje Kodu',
+            machineName: 'Marka',
+            model: 'Model',
+            make: 'Marka',
+            yearMin: 'Yıl (Min)',
+            yearMax: 'Yıl (Max)',
+            conveyor: 'Konveyör'
+          }}
+        />
+
         {(loading || isSearching || isFiltering) && (
           <div className="page-loading">
             <AiOutlineLoading3Quarters className="page-loading-spinner" />
@@ -578,28 +614,16 @@ const MainMenu = () => {
               ))}
             </div>
 
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-              <div className="pagination-controls">
-                <button
-                  className="pagination-btn"
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                >
-                  Önceki
-                </button>
-                <span className="pagination-info">
-                  Sayfa {currentPage} / {totalPages}
-                </span>
-                <button
-                  className="pagination-btn"
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                >
-                  Sonraki
-                </button>
-              </div>
-            )}
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={projects.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={handlePageChange}
+              onItemsPerPageChange={handleItemsPerPageChange}
+              storageKey="mainMenu_pageSize"
+              label="proje"
+            />
           </>
         )}
       </div>

@@ -3,6 +3,7 @@ import ServiceDetailsModal from './ServiceDetailsModal';
 import ProfitAnalysisModal from './ProfitAnalysisModal';
 import SendOfferModal from './SendOfferModal';
 import ViewOfferModal from './ViewOfferModal';
+import OfferPdfPreviewModal from '../shared/OfferPdfPreviewModal';
 import API_BASE_URL from '../../config';
 import projectService from '../../services/projectService';
 import authService from '../../services/authService';
@@ -10,16 +11,15 @@ import { normalizeProjectDetail } from '../../utils/projectNormalizer';
 import { extractFilenameFromResponse } from '../../utils/apiUtils';
 import {
   AiOutlineInfoCircle,
-  AiOutlineEdit,
   AiOutlineCalendar,
   AiOutlineSetting,
   AiOutlineEuro,
-  AiOutlineEye,
-  AiOutlineDownload,
-  AiOutlineClose
+  AiOutlineDownload
 } from 'react-icons/ai';
-import { FaChartLine, FaPaperPlane } from 'react-icons/fa';
-import offerService from '../../services/offerService';
+import { FaPaperPlane } from 'react-icons/fa';
+import Pagination from '../shared/Pagination';
+import ViewToggle from '../shared/ViewToggle';
+import SearchBar from './SearchBar';
 import './AllServices.css';
 import './ProposalInformationModal.css'; // For offer form styles
 
@@ -32,9 +32,19 @@ const QuotesSent = ({ onEditService }) => {
   const [isViewOfferModalOpen, setIsViewOfferModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showOfferForm, setShowOfferForm] = useState(false);
-  const [selectedOfferData, setSelectedOfferData] = useState(null);
   const [downloadingOfferId, setDownloadingOfferId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+    try {
+      return parseInt(localStorage.getItem('quotesSent_pageSize') || '12', 10);
+    } catch { return 12; }
+  });
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem('quotesSent_viewMode') || 'card';
+    } catch { return 'card'; }
+  });
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Map API status to Turkish display text
   const getStatusDisplayText = (status) => {
@@ -165,10 +175,6 @@ const QuotesSent = ({ onEditService }) => {
     setIsSendOfferModalOpen(true);
   };
 
-  const handleViewOfferClick = (service) => {
-    setSelectedService(service);
-    setIsViewOfferModalOpen(true);
-  };
 
   const handleCostDetailClick = (service) => {
     setSelectedService(service);
@@ -238,67 +244,33 @@ const QuotesSent = ({ onEditService }) => {
     }
   };
 
-  const formatCurrency = (amount, currency = 'EUR') => {
-    if (currency === 'TRY') {
-      return `₺${amount.toLocaleString('tr-TR')}`;
-    }
-    return `€${amount.toLocaleString('de-DE')}`;
-  };
-
   // Clean machine name by removing project code
   const cleanMachineName = (name) => {
     if (!name) return name;
     return name.replace(/\s*\(AVEMAK-\d+\)\s*$/, '').trim();
   };
 
-  // Format number with dots
-  const formatNumberWithDots = (number) => {
-    if (number === null || number === undefined || isNaN(number)) {
-      return '0.00';
-    }
-    const numStr = Math.abs(number).toString();
-    const parts = numStr.split('.');
-    const integerPart = parts[0];
-    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    const decimalPart = parts.length > 1 ? parts[1].padEnd(2, '0').substring(0, 2) : '00';
-    return `${formattedInteger}.${decimalPart}`;
+  const [showOfferPdfId, setShowOfferPdfId] = useState(null);
+
+  const handleCardClick = (service) => {
+    setSelectedService(service);
+    setShowOfferPdfId(service.offerId);
   };
 
-  const formatCurrencyDetailed = (amount) => {
-    return `€${formatNumberWithDots(amount)}`;
-  };
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredServices = normalizedSearch
+    ? services.filter((s) => {
+        const fields = [s.projectCode, s.machineName, s.clientCompanyName, s.year, s.serialNumber].filter(Boolean);
+        return fields.some((f) => String(f).toLowerCase().includes(normalizedSearch));
+      })
+    : services;
+  const totalPages = Math.ceil(filteredServices.length / itemsPerPage);
+  const startIdx = (currentPage - 1) * itemsPerPage;
+  const paginatedServices = filteredServices.slice(startIdx, startIdx + itemsPerPage);
 
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('tr-TR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const handleCardClick = async (service) => {
-    try {
-      // Fetch offer details
-      const offers = await offerService.getOffersByProject(service.projectId);
-      if (offers && offers.length > 0) {
-        // Use the offer that matches the clicked card (by offerId), not always the first one
-        const selectedOffer = offers.find((o) => o.id === service.offerId) || offers[0];
-        setSelectedOfferData(selectedOffer);
-        setSelectedService(service);
-        setShowOfferForm(true);
-      }
-    } catch (err) {
-      console.error('Error fetching offer details:', err);
-      alert('Teklif bilgileri yüklenirken bir hata oluştu');
-    }
-  };
-
-  const handleCloseForm = () => {
-    setShowOfferForm(false);
-    setSelectedOfferData(null);
+  const handleSearch = (q) => {
+    setSearchTerm(q);
+    setCurrentPage(1);
   };
 
   return (
@@ -326,9 +298,75 @@ const QuotesSent = ({ onEditService }) => {
         </div>
       )}
 
-      {!loading && !error && services.length > 0 && (
+      {!loading && !error && services.length > 0 && filteredServices.length === 0 && (
+        <div className="empty-state">
+          <p>Arama kriterlerinize uygun teklif bulunamadı.</p>
+        </div>
+      )}
+
+      {!loading && !error && services.length > 0 && filteredServices.length > 0 && (
+        <>
+          <div className="quotes-sent-toolbar">
+            <SearchBar
+              onSearch={handleSearch}
+              placeholder="Proje kodu, makine, müşteri, yıl veya seri no ile ara..."
+            />
+            <ViewToggle
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              storageKey="quotesSent_viewMode"
+            />
+            <Pagination
+              inline
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredServices.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={(v) => {
+                setItemsPerPage(v);
+                setCurrentPage(1);
+                try { localStorage.setItem('quotesSent_pageSize', String(v)); } catch (_) {}
+              }}
+              storageKey="quotesSent_pageSize"
+              label="teklif"
+            />
+          </div>
+          {viewMode === 'table' ? (
+            <div className="quotes-sent-table-wrapper">
+              <table className="quotes-sent-table">
+                <thead>
+                  <tr>
+                    <th>Proje Kodu</th>
+                    <th>Makine</th>
+                    <th>Müşteri</th>
+                    <th>Gönderen</th>
+                    <th>Tarih</th>
+                    <th>Durum</th>
+                    <th>İşlemler</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedServices.map((service) => (
+                    <tr key={`${service.projectId}-${service.offerId}`} onClick={() => handleCardClick(service)}>
+                      <td>{service.projectCode}</td>
+                      <td>{cleanMachineName(service.machineTitle)}</td>
+                      <td>{service.clientCompanyName || '-'}</td>
+                      <td>{service.senderUserName || '-'}</td>
+                      <td>{service.createdDate}</td>
+                      <td><span className={`status-badge ${getStatusClass(service.status)}`}>{service.status}</span></td>
+                      <td>
+                        <button className="operation-btn info-btn-enhanced" onClick={(e) => { e.stopPropagation(); handleInfoClick(service); }}><AiOutlineInfoCircle /></button>
+                        <button className="operation-btn submit-btn-enhanced" onClick={(e) => { e.stopPropagation(); handleEditClick(service); }}><FaPaperPlane /></button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
         <div className="services-grid">
-          {services.map((service) => (
+          {paginatedServices.map((service) => (
             <div
               key={`${service.projectId}-${service.offerId}`}
               className="service-card clickable-card"
@@ -410,6 +448,8 @@ const QuotesSent = ({ onEditService }) => {
             </div>
           ))}
         </div>
+          )}
+        </>
       )}
 
       {isModalOpen && selectedService && (
@@ -443,106 +483,12 @@ const QuotesSent = ({ onEditService }) => {
         />
       )}
 
-      {/* Offer Form Modal */}
-      {showOfferForm && selectedOfferData && selectedService && (
-        <div className="proposal-form-overlay" onClick={handleCloseForm}>
-          <div className="proposal-form-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="form-modal-header">
-              <h2>Teklif Formu</h2>
-              <button className="close-button" onClick={handleCloseForm}>
-                <AiOutlineClose />
-              </button>
-            </div>
-
-            <div className="form-modal-content">
-              <div className="offer-document">
-                {/* Document Header */}
-                <div className="document-header">
-                  <div className="left-column">
-                    <div className="info-row">
-                      <strong>Şirket Adı:</strong>
-                      <span className="info-value">{selectedOfferData.clientCompanyName || 'N/A'}</span>
-                    </div>
-                    <div className="info-row">
-                      <strong>Proje Kodu:</strong>
-                      <span className="info-value">{selectedOfferData.projectCode || 'N/A'}</span>
-                    </div>
-                    <div className="info-row">
-                      <strong>Belge Tarihi:</strong>
-                      <span className="info-value">{formatDate(selectedOfferData.sentAt)}</span>
-                    </div>
-                  </div>
-
-                  <div className="right-column">
-                    <div className="company-name">Avitech Metal Teknolojileri Anonim Şirketi</div>
-                    <div className="info-row">
-                      <strong>Adres:</strong> Rüzgarlıbahçe, K Plaza 34805 Beykoz/Istanbul, Turkey
-                    </div>
-                    <div className="info-row">
-                      <strong>Telefon:</strong> +90 541 563 49 90
-                    </div>
-                    <div className="info-row">
-                      <strong>İletişim Kişisi:</strong> Bora Urçar
-                    </div>
-                    <div className="info-row">
-                      <strong>E-Mail:</strong> bora.urcar@avitech.com.tr
-                    </div>
-                  </div>
-                </div>
-
-                {/* Offer Title */}
-                <div className="offer-title">
-                  <h3>TEKLİF</h3>
-                </div>
-
-                {/* Machine Details */}
-                <div className="machine-details">
-                  <table className="machine-table">
-                    <thead>
-                      <tr>
-                        <th>Pos.</th>
-                        <th>Item Description</th>
-                        <th>Quantity</th>
-                        <th>Price</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td className="position">1</td>
-                        <td className="machine-name">{cleanMachineName(selectedService?.machineTitle || 'Makine Adı')}</td>
-                        <td className="quantity">1</td>
-                        <td className="machine-price">{formatCurrencyDetailed(selectedOfferData.price || 0)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Offer Footer */}
-                <div className="offer-footer">
-                  <div className="total-section">
-                    <div className="total-row">
-                      <span>TOPLAM:</span>
-                      <span className="total-price">{formatCurrencyDetailed(selectedOfferData.price || 0)}</span>
-                    </div>
-                  </div>
-
-                  {/* Description Section */}
-                  {selectedOfferData.description && (
-                    <div className="description-section">
-                      <div className="description-header">
-                        <strong>Açıklama:</strong>
-                      </div>
-                      <div className="description-content">
-                        {selectedOfferData.description}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Teklif PDF Önizleme - Müşteriye gönderilen teklifin PDF'i */}
+      <OfferPdfPreviewModal
+        isOpen={!!showOfferPdfId}
+        onClose={() => setShowOfferPdfId(null)}
+        offerId={showOfferPdfId}
+      />
     </div>
   );
 };
