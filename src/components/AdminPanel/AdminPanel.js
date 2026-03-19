@@ -448,7 +448,7 @@ const AdminPanel = () => {
               <tr>
                 <th>PROJE KODU</th>
                 <th>MARKA MODEL</th>
-                <th>MODEL</th>
+                <th>MODEL YILI</th>
                 <th>ALIŞ TARİHİ</th>
                 <th>SATIŞ TARİHİ</th>
                 <th>Alım-Satım Gün</th>
