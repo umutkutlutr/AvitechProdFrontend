@@ -1,13 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AiOutlineSearch, AiOutlineClear } from 'react-icons/ai';
 import './SearchBar.css';
 
 const SearchBar = ({ onSearch, placeholder = "Projelerde ara..." }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const isInitialMount = useRef(true);
 
-  // Debounce search to avoid too many API calls
+  // Debounce search - skip initial mount to prevent double fetch on page load
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
     const timeoutId = setTimeout(() => {
       if (searchTerm.trim()) {
         setIsSearching(true);
