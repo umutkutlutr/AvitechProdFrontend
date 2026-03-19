@@ -135,9 +135,9 @@
   cursor: pointer;
 }
 
-/* İşletim Sistemi + Anahtar Bilgisi + El Çarkı: yan yana sığdırma */
+/* İşletim Sistemi + Anahtar Bilgisi: yan yana */
 .form-row.os-key-el-row {
-  grid-template-columns: minmax(140px, 200px) 1fr auto;
+  grid-template-columns: minmax(140px, 200px) 1fr;
   gap: 16px;
   align-items: flex-end;
 }
@@ -507,7 +507,7 @@
 
 .measurement-row {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 15px;
 }
 

@@ -1644,33 +1644,6 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
               </span>
             </div>
           </div>
-          <div className="form-group">
-            <label>El Çarkı</label>
-            <div className="radio-group-vertical">
-              <label className="radio-option">
-                <input
-                  type="radio"
-                  name="elCarki"
-                  value="Var"
-                  checked={formData.elCarki === 'Var'}
-                  onChange={(e) => handleInputChange('elCarki', e.target.value)}
-                />
-                <span className="radio-dot"></span>
-                Var
-              </label>
-              <label className="radio-option">
-                <input
-                  type="radio"
-                  name="elCarki"
-                  value="Yok"
-                  checked={formData.elCarki === 'Yok'}
-                  onChange={(e) => handleInputChange('elCarki', e.target.value)}
-                />
-                <span className="radio-dot"></span>
-                Yok
-              </label>
-            </div>
-          </div>
         </div>
 
         {/* Measurement Probes Section */}
@@ -1809,6 +1782,34 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
                     value="Yok"
                     checked={formData.paperFilter === 'Yok'}
                     onChange={(e) => handleInputChange('paperFilter', e.target.value)}
+                  />
+                  <span className="radio-dot"></span>
+                  Yok
+                </label>
+              </div>
+            </div>
+
+            <div className="measurement-group">
+              <span className="measurement-label">El Çarkı</span>
+              <div className="radio-group-vertical">
+                <label className="radio-option">
+                  <input
+                    type="radio"
+                    name="elCarki"
+                    value="Var"
+                    checked={formData.elCarki === 'Var'}
+                    onChange={(e) => handleInputChange('elCarki', e.target.value)}
+                  />
+                  <span className="radio-dot"></span>
+                  Var
+                </label>
+                <label className="radio-option">
+                  <input
+                    type="radio"
+                    name="elCarki"
+                    value="Yok"
+                    checked={formData.elCarki === 'Yok'}
+                    onChange={(e) => handleInputChange('elCarki', e.target.value)}
                   />
                   <span className="radio-dot"></span>
                   Yok
