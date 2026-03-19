@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { AiOutlineUser, AiOutlineEdit, AiOutlineDelete, AiOutlineLoading3Quarters } from 'react-icons/ai';
-import Pagination from '../shared/Pagination';
-import SearchBar from '../ServiceReceipt/SearchBar';
 import userService from '../../services/userService';
 import './UserManagement.css';
 
@@ -80,13 +78,6 @@ const UserManagement = () => {
   const [currentUserProfile, setCurrentUserProfile] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [passwordMismatch, setPasswordMismatch] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(() => {
-    try {
-      return parseInt(localStorage.getItem('userManagement_pageSize') || '25', 10);
-    } catch { return 25; }
-  });
 
   // Helper function to translate role values to Turkish
   const getRoleDisplayName = (role) => {
@@ -370,12 +361,6 @@ const UserManagement = () => {
 
       {!loading && !error && (
         <div className="table-wrapper">
-          {users.length > 0 && (
-            <SearchBar
-              onSearch={(q) => { setSearchTerm(q); setCurrentPage(1); }}
-              placeholder="Ad, soyad, e-posta veya pozisyon ile ara..."
-            />
-          )}
           <table className="user-table">
             <thead>
               <tr>
@@ -390,17 +375,7 @@ const UserManagement = () => {
               </tr>
             </thead>
             <tbody>
-              {(() => {
-                const normalizedSearch = searchTerm.trim().toLowerCase();
-                const filteredUsers = normalizedSearch
-                  ? users.filter((u) => {
-                      const fields = [u.firstName, u.lastName, u.email, u.position, u.username].filter(Boolean);
-                      return fields.some((f) => String(f).toLowerCase().includes(normalizedSearch));
-                    })
-                  : users;
-                const startIdx = (currentPage - 1) * itemsPerPage;
-                const paginatedUsers = filteredUsers.slice(startIdx, startIdx + itemsPerPage);
-                return paginatedUsers.map(u => (
+              {users.map(u => (
                 <tr key={u.id}>
                   <td data-label="Ad">{u.firstName}</td>
                   <td data-label="Soyad">{u.lastName}</td>
@@ -434,31 +409,10 @@ const UserManagement = () => {
                     </div>
                   </td>
                 </tr>
-              ));
-              })()}
+              ))}
             </tbody>
           </table>
           {users.length === 0 && <div className="info">Gösterilecek kullanıcı bulunamadı.</div>}
-          {users.length > 0 && (() => {
-            const n = searchTerm.trim().toLowerCase();
-            const filteredUsers = n ? users.filter((u) => [u.firstName, u.lastName, u.email, u.position, u.username].filter(Boolean).some((x) => String(x).toLowerCase().includes(n))) : users;
-            return (
-            <Pagination
-              currentPage={currentPage}
-              totalPages={Math.ceil(filteredUsers.length / itemsPerPage)}
-              totalItems={filteredUsers.length}
-              itemsPerPage={itemsPerPage}
-              onPageChange={setCurrentPage}
-              onItemsPerPageChange={(v) => {
-                setItemsPerPage(v);
-                setCurrentPage(1);
-                try { localStorage.setItem('userManagement_pageSize', String(v)); } catch (_) {}
-              }}
-              storageKey="userManagement_pageSize"
-              label="kullanıcı"
-            />
-            );
-          })()}
         </div>
       )}
 

@@ -191,9 +191,14 @@
   border: 1px solid var(--color-border, #e2e8f0);
   border-radius: var(--radius-md, 8px);
   font-size: var(--font-size-base, 14px);
+  line-height: 1.5;
   width: 100%;
   background: var(--color-surface, #ffffff);
   transition: border-color 0.15s ease;
+}
+
+.search-input::placeholder {
+  line-height: 1.5;
 }
 
 .search-input:focus {

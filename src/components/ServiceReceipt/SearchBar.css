@@ -35,13 +35,16 @@
   border: none;
   outline: none;
   font-size: 14px;
+  line-height: 1.5;
   color: var(--color-text);
   background: transparent;
+  min-height: 22px;
 }
 
 .search-input::placeholder {
   color: var(--color-text-light);
   font-style: normal;
+  line-height: 1.5;
 }
 
 .clear-button {

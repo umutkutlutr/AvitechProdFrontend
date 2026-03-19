@@ -72,12 +72,14 @@
   border: 1px solid #dee2e6;
   border-radius: 6px;
   font-size: 14px;
+  line-height: 1.5;
   min-width: 320px;
 }
 
 .bank-search-input::placeholder {
   color: #6c757d;
   font-style: normal;
+  line-height: 1.5;
 }
 
 .banks-content {

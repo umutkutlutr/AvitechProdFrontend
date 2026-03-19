@@ -1,6 +1,6 @@
-/* Ana Sidebar Konteyneri */
+  /* Ana Sidebar Konteyneri */
 .sidebar {
-    width: 248px;
+    width: 240px;
     background: var(--color-surface, #ffffff);
     height: calc(100vh - 24px);
     position: fixed;
