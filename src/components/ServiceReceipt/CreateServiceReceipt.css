@@ -517,6 +517,19 @@
   gap: 10px;
 }
 
+/* Var/Yok boşken kırmızı çerçeve */
+.measurement-group.required-empty {
+  padding: 10px;
+  border: 2px solid #dc2626;
+  border-radius: 8px;
+  background: rgba(220, 38, 38, 0.04);
+}
+
+.measurement-group.required-empty .measurement-label {
+  color: #dc2626;
+  font-weight: 600;
+}
+
 /* Photo Upload Styles */
 .photo-upload-container {
   display: flex;

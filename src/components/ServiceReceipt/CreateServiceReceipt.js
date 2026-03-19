@@ -28,15 +28,15 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
     operatingSystem: 'Heidenhain',
     customOperatingSystem: '', // Custom OS input when "Other" is selected
 
-    // Measurement Probes
-    teamMeasurementProbe: 'Var',
-    partMeasurementProbe: 'Var',
-    insideWaterGiving: 'Yok',
+    // Measurement Probes (boş başlar, kullanıcı seçene kadar kırmızı)
+    teamMeasurementProbe: '',
+    partMeasurementProbe: '',
+    insideWaterGiving: '',
 
     // New Features
-    conveyor: 'Yok',
-    paperFilter: 'Yok',
-    elCarki: 'Yok',
+    conveyor: '',
+    paperFilter: '',
+    elCarki: '',
 
     // Movement Fields
     xMovement: '',
@@ -263,12 +263,12 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
         additionalWeight: formatWithUnit(editingService.additionalWeight, 'kg'),
         operatingSystem: isCustomOS ? 'Other' : (editingService.operatingSystem || 'Heidenhain'),
         customOperatingSystem: isCustomOS ? osValue : (editingService.customOperatingSystem || ''),
-        teamMeasurementProbe: editingService.teamMeasurementProbe || 'Var',
-        partMeasurementProbe: editingService.partMeasurementProbe || 'Var',
-        insideWaterGiving: editingService.insideWaterGiving || 'Yok',
+        teamMeasurementProbe: (editingService.takimOlcmeProbu || editingService.teamMeasurementProbe === 'Var') ? 'Var' : 'Yok',
+        partMeasurementProbe: (editingService.parcaOlcmeProbu || editingService.partMeasurementProbe === 'Var') ? 'Var' : 'Yok',
+        insideWaterGiving: (editingService.ictenSuVerme || editingService.insideWaterGiving === 'Var') ? 'Var' : 'Yok',
         conveyor: (editingService.konveyor || editingService.conveyor) ? 'Var' : 'Yok',
         paperFilter: (editingService.kagitFiltre || editingService.paperFilter) ? 'Var' : 'Yok',
-        elCarki: editingService.elCarki ? 'Var' : 'Yok',
+        elCarki: (editingService.elCarki || editingService.elCarki === 'Var') ? 'Var' : 'Yok',
         xMovement: editingService.xmovement || editingService.xMovement || '',
         yMovement: editingService.ymovement || editingService.yMovement || '',
         zMovement: editingService.zmovement || editingService.zMovement || '',
@@ -1008,6 +1008,21 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
   const handleSave = async () => {
     if (isSaving) return; // Prevent multiple submissions
 
+    // Var/Yok alanları zorunlu
+    const varYokFields = [
+      { key: 'teamMeasurementProbe', label: 'Takım Ölçme Probu' },
+      { key: 'partMeasurementProbe', label: 'Parça Ölçme Probu' },
+      { key: 'insideWaterGiving', label: 'İçten Su Verme' },
+      { key: 'conveyor', label: 'Konveyör' },
+      { key: 'paperFilter', label: 'Kağıt Filtre' },
+      { key: 'elCarki', label: 'El Çarkı' }
+    ];
+    const emptyField = varYokFields.find(f => !formData[f.key]);
+    if (emptyField) {
+      alert(`Lütfen "${emptyField.label}" alanını Var veya Yok olarak seçin.`);
+      return;
+    }
+
     // Validate custom operating system before saving
     if (formData.operatingSystem === 'Other' && formData.customOperatingSystem && formData.customOperatingSystem.trim()) {
       const customOSName = formData.customOperatingSystem.trim();
@@ -1088,12 +1103,12 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
           machineType: '',
           condition: '',
           operatingSystem: 'Heidenhain',
-          teamMeasurementProbe: 'Var',
-          partMeasurementProbe: 'Var',
-          insideWaterGiving: 'Yok',
-          conveyor: 'Yok',
-          paperFilter: 'Yok',
-          elCarki: 'Yok',
+          teamMeasurementProbe: '',
+          partMeasurementProbe: '',
+          insideWaterGiving: '',
+          conveyor: '',
+          paperFilter: '',
+          elCarki: '',
           xMovement: '',
           yMovement: '',
           zMovement: '',
@@ -1649,7 +1664,7 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
         {/* Measurement Probes Section */}
         <div className="measurement-section">
           <div className="measurement-row">
-            <div className="measurement-group">
+            <div className={`measurement-group ${!formData.teamMeasurementProbe ? 'required-empty' : ''}`}>
               <span className="measurement-label">Takım Ölçme Probu</span>
               <div className="radio-group-vertical">
                 <label className="radio-option">
@@ -1677,7 +1692,7 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
               </div>
             </div>
 
-            <div className="measurement-group">
+            <div className={`measurement-group ${!formData.partMeasurementProbe ? 'required-empty' : ''}`}>
               <span className="measurement-label">Parça Ölçme Probu</span>
               <div className="radio-group-vertical">
                 <label className="radio-option">
@@ -1705,7 +1720,7 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
               </div>
             </div>
 
-            <div className="measurement-group">
+            <div className={`measurement-group ${!formData.insideWaterGiving ? 'required-empty' : ''}`}>
               <span className="measurement-label">İçten Su Verme</span>
               <div className="radio-group-vertical">
                 <label className="radio-option">
@@ -1733,7 +1748,7 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
               </div>
             </div>
 
-            <div className="measurement-group">
+            <div className={`measurement-group ${!formData.conveyor ? 'required-empty' : ''}`}>
               <span className="measurement-label">Konveyör</span>
               <div className="radio-group-vertical">
                 <label className="radio-option">
@@ -1761,7 +1776,7 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
               </div>
             </div>
 
-            <div className="measurement-group">
+            <div className={`measurement-group ${!formData.paperFilter ? 'required-empty' : ''}`}>
               <span className="measurement-label">Kağıt Filtre</span>
               <div className="radio-group-vertical">
                 <label className="radio-option">
@@ -1789,7 +1804,7 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
               </div>
             </div>
 
-            <div className="measurement-group">
+            <div className={`measurement-group ${!formData.elCarki ? 'required-empty' : ''}`}>
               <span className="measurement-label">El Çarkı</span>
               <div className="radio-group-vertical">
                 <label className="radio-option">
