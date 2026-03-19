@@ -924,6 +924,11 @@
   box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
 }
 
+.custom-dropdown-search-input::placeholder {
+  color: #6c757d;
+  font-style: normal;
+}
+
 .custom-dropdown-list {
   overflow-y: auto;
   max-height: 320px;

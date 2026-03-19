@@ -41,6 +41,7 @@
 
 .search-input::placeholder {
   color: var(--color-text-light);
+  font-style: normal;
 }
 
 .clear-button {

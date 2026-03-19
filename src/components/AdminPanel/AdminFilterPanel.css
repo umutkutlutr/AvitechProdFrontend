@@ -150,6 +150,7 @@
 
 .admin-filter-field input::placeholder {
     color: #adb5bd;
+    font-style: normal;
 }
 
 .admin-filter-field select option:first-child {
@@ -307,6 +308,7 @@
 
 .admin-filter-search-input::placeholder {
     color: #adb5bd;
+    font-style: normal;
 }
 
 .admin-filter-dropdown-list {

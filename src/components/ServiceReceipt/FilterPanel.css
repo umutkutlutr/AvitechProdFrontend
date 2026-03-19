@@ -161,6 +161,7 @@
 
 .filter-field input::placeholder {
   color: #adb5bd;
+  font-style: normal;
 }
 
 .filter-field select option:first-child {
@@ -271,6 +272,7 @@
 
 .filter-search-input::placeholder {
   color: #adb5bd;
+  font-style: normal;
 }
 
 .filter-dropdown-list {
