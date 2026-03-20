@@ -4,11 +4,18 @@ import { FaHandshake } from 'react-icons/fa';
 import saleService from '../../services/saleService';
 import projectService from '../../services/projectService';
 import OfferPdfPreviewModal from '../shared/OfferPdfPreviewModal';
+import { parseFormattedNumber, formatNumberForInput } from '../../utils/numberFormat';
 import './CreateSaleModal.css';
 import './ProposalInformationModal.css';
 
+/** Parse display string to a positive EUR amount (2 decimal places max for API). */
+function parseSalePriceEur(display) {
+  const n = parseFormattedNumber(display);
+  if (n === '' || typeof n !== 'number' || Number.isNaN(n)) return null;
+  return Math.round(n * 100) / 100;
+}
+
 const CreateSaleModal = ({ offer, onClose, onSaleComplete }) => {
-  const [salePrice, setSalePrice] = useState('');
   const [salePriceDisplay, setSalePriceDisplay] = useState('');
   const [saleNotes, setSaleNotes] = useState('');
   const [saleDate, setSaleDate] = useState('');
@@ -20,14 +27,6 @@ const CreateSaleModal = ({ offer, onClose, onSaleComplete }) => {
   const [showOfferPdfId, setShowOfferPdfId] = useState(null);
   const [projectDetails, setProjectDetails] = useState(null);
 
-
-
-  // Helper function to format number with periods as thousand separators
-  const formatNumberWithPeriods = (num) => {
-    if (!num && num !== 0) return '';
-    const numStr = num.toString().replace(/\./g, '');
-    return numStr.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  };
 
 
   const toDateTimeLocalValue = (value) => {
@@ -48,10 +47,10 @@ const CreateSaleModal = ({ offer, onClose, onSaleComplete }) => {
   // Set initial price and store original description from offer when modal opens
   useEffect(() => {
     setSaleDate(toDateTimeLocalValue());
-    if (offer?.price) {
-      const priceValue = offer.price.toString();
-      setSalePrice(priceValue);
-      setSalePriceDisplay(formatNumberWithPeriods(offer.price));
+    if (offer?.price != null && offer.price !== '') {
+      setSalePriceDisplay(formatNumberForInput(offer.price));
+    } else {
+      setSalePriceDisplay('');
     }
 
     // Fetch project details
@@ -75,35 +74,31 @@ const CreateSaleModal = ({ offer, onClose, onSaleComplete }) => {
   }, [projectDetails, saleDate, financingDaysTouched]);
 
   const handlePriceChange = (e) => {
-    const inputValue = e.target.value;
-    // Remove all periods and check if remaining is numeric
-    const numericOnly = inputValue.replace(/\./g, '');
-
-    // Only allow empty string or numeric values
-    if (numericOnly === '' || /^\d+$/.test(numericOnly)) {
-      if (numericOnly === '') {
-        setSalePriceDisplay('');
-        setSalePrice('');
-      } else {
-        const num = parseInt(numericOnly, 10);
-        if (!isNaN(num)) {
-          // Store numeric value as string
-          setSalePrice(num.toString());
-          // Display formatted with periods
-          setSalePriceDisplay(formatNumberWithPeriods(num));
-        }
-      }
+    const raw = e.target.value.replace(/\s/g, '');
+    if (raw === '' || /^[\d.,]*$/.test(raw)) {
+      setSalePriceDisplay(raw);
     }
+  };
+
+  const handlePriceBlur = () => {
+    const n = parseSalePriceEur(salePriceDisplay);
+    if (n === null || n < 0) {
+      setSalePriceDisplay('');
+      return;
+    }
+    if (n === 0) {
+      setSalePriceDisplay('');
+      return;
+    }
+    setSalePriceDisplay(formatNumberForInput(n));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // salePrice already contains the numeric value as string, parse it to int
-    const numericPrice = salePrice ? parseInt(salePrice, 10) : 0;
-
-    if (!numericPrice || numericPrice <= 0) {
-      setError('Geçerli bir satış fiyatı giriniz');
+    const numericPrice = parseSalePriceEur(salePriceDisplay);
+    if (numericPrice === null || numericPrice <= 0) {
+      setError('Geçerli bir satış fiyatı giriniz (EUR, ondalık için virgül veya nokta kullanabilirsiniz)');
       return;
     }
 
@@ -149,7 +144,6 @@ const CreateSaleModal = ({ offer, onClose, onSaleComplete }) => {
   };
 
   const handleClose = () => {
-    setSalePrice('');
     setSalePriceDisplay('');
     setSaleNotes('');
     setSaleDate('');
@@ -251,7 +245,7 @@ const CreateSaleModal = ({ offer, onClose, onSaleComplete }) => {
               <div className="form-group">
                 <label htmlFor="salePrice">
                   <AiOutlineDollar className="label-icon" />
-                  Satış Fiyatı {offer?.price && `(${formatNumberWithPeriods(offer.price)} EUR)`} *
+                  Satış Fiyatı {offer?.price != null && offer.price !== '' && `(${formatNumberForInput(offer.price)} EUR)`} *
                 </label>
                 <div className="price-input-wrapper">
                   <input
@@ -259,9 +253,10 @@ const CreateSaleModal = ({ offer, onClose, onSaleComplete }) => {
                     id="salePrice"
                     value={salePriceDisplay}
                     onChange={handlePriceChange}
-                    placeholder={offer?.price ? `${formatNumberWithPeriods(offer.price)}` : "Satış fiyatını giriniz"}
+                    onBlur={handlePriceBlur}
+                    placeholder={offer?.price != null && offer.price !== '' ? formatNumberForInput(offer.price) : 'Satış fiyatını giriniz'}
                     required
-                    inputMode="numeric"
+                    inputMode="decimal"
                   />
                   <span className="currency-label">EUR</span>
                 </div>
@@ -361,7 +356,7 @@ const CreateSaleModal = ({ offer, onClose, onSaleComplete }) => {
               </div>
               <h3>Satış Başarıyla Oluşturuldu!</h3>
               <p>Satış kaydı başarıyla oluşturuldu.</p>
-              <p className="success-detail">Satış Fiyatı: {salePriceDisplay || formatNumberWithPeriods(salePrice)} EUR</p>
+              <p className="success-detail">Satış Fiyatı: {formatNumberForInput(parseSalePriceEur(salePriceDisplay) ?? 0)} EUR</p>
               {!financingDaysTouched && projectDetails?.createdAt && saleDate && (
                 <p className="success-detail" style={{ fontSize: '12px', color: '#64748b', marginTop: '6px' }}>
                   Finansman gün sayısı proje açılış ve satış tarihi arasından otomatik hesaplandı.

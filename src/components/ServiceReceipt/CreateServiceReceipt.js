@@ -1055,30 +1055,14 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
       // After successful project creation, create new operating system if needed
       await createNewOperatingSystem();
 
-      // Create service object for local storage (for backward compatibility)
       const serviceData = {
         id: response.id || generateServiceId(),
         ...formData,
         keyInformation: keyInformation,
         createdDate: new Date().toLocaleDateString('tr-TR'),
         status: 'TEMPLATE',
-        apiId: response.id // Store API ID for future reference
+        apiId: response.id
       };
-
-      // Get existing services from localStorage
-      const existingServices = JSON.parse(localStorage.getItem('serviceReceipts') || '[]');
-
-      if (editingService) {
-        // Update existing service
-        const updatedServices = existingServices.map(service =>
-          service.id === editingService.id ? serviceData : service
-        );
-        localStorage.setItem('serviceReceipts', JSON.stringify(updatedServices));
-      } else {
-        // Add new service
-        const updatedServices = [...existingServices, serviceData];
-        localStorage.setItem('serviceReceipts', JSON.stringify(updatedServices));
-      }
 
       // Call the callback if provided
       if (onSaveComplete) {

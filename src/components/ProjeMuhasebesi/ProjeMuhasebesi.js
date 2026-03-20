@@ -22,11 +22,39 @@ import {
 } from 'react-icons/ai';
 import { parseFormattedNumber, formatNumberForInput } from '../../utils/numberFormat';
 import { normalizeProjectCard, getProjectSearchText } from '../../utils/projectNormalizer';
+import { getStatusLabel } from '../../utils/statusDateDictionary';
+import { getProjectStatusBadgeClass } from '../../utils/projectStatusUi';
 import './ProjeMuhasebesi.css';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 const CURRENCIES = ['EUR', 'USD', 'TRY'];
+
+/** Girdi sırasında rakam, nokta (binlik) ve tek virgül (ondalık) */
+function sanitizeDecimalTyping(raw) {
+  let s = String(raw).replace(/[^\d.,]/g, '');
+  const ci = s.indexOf(',');
+  if (ci !== -1) {
+    s = s.slice(0, ci + 1) + s.slice(ci + 1).replace(/,/g, '');
+  }
+  return s;
+}
+
+/** Formdaki tutar alanları: "1.234,56" vb. */
+function parseFormMoney(v) {
+  if (v === '' || v == null) return null;
+  const n = parseFormattedNumber(v);
+  if (typeof n === 'number' && !isNaN(n)) return n;
+  const f = parseFloat(String(v).replace(/\./g, '').replace(',', '.'));
+  return isNaN(f) ? null : f;
+}
+
+/** Kur / faiz: ondalık virgül veya nokta (TCMB 38.1234) */
+function parseFormRate(v) {
+  if (v === '' || v == null) return null;
+  const f = parseFloat(String(v).trim().replace(',', '.'));
+  return isNaN(f) ? null : f;
+}
 
 const SECTION_LABELS = {
   machinePurchase: '1a. Makine Alım Maliyeti',
@@ -361,39 +389,59 @@ const StatusBadge = ({ status }) => {
 };
 
 const CurrencyInput = ({ label, amountField, currencyField, rateField, tryField, section, form, onChange, rates, required }) => {
+  const [amountDraft, setAmountDraft] = useState(null);
   const amount = form[section][amountField] || '';
   const currency = form[section][currencyField] || 'EUR';
   const rate = form[section][rateField] || '';
-  const tryVal = form[section][tryField] || '';
 
-  const handleAmountChange = (val) => {
-    const numVal = parseFormattedNumber(val);
-    const num = typeof numVal === 'number' ? numVal : parseFloat(String(numVal).replace(',', '.'));
-    const storedVal = (val === '' || val === null) ? '' : (!isNaN(num) ? String(num) : val);
-    let newRate = parseFloat(rate);
-    let newTry = '';
-    if (currency === 'TRY') {
-      newTry = !isNaN(num) ? num.toFixed(2) : '';
-    } else if (!isNaN(num) && !isNaN(newRate)) {
-      newTry = (num * newRate).toFixed(2);
+  const amountDisplay = amountDraft !== null ? amountDraft : formatNumberForInput(amount);
+  const amountForCalc = amountDraft !== null ? amountDraft : amount;
+
+  const parseAmountNumeric = (src) => {
+    const numVal = parseFormattedNumber(src);
+    return typeof numVal === 'number' ? numVal : parseFloat(String(numVal).replace(',', '.'));
+  };
+
+  const handleAmountFocus = () => {
+    setAmountDraft(amount === '' ? '' : formatNumberForInput(amount));
+  };
+
+  const handleAmountChange = (raw) => {
+    const val = sanitizeDecimalTyping(raw);
+    setAmountDraft(val);
+    const num = parseAmountNumeric(val);
+    const newRate = parseFormRate(rate) ?? NaN;
+    if (val === '') {
+      onChange(section, amountField, '');
+      if (tryField) onChange(section, tryField, '');
+      return;
     }
-    onChange(section, amountField, storedVal);
-    if (tryField) onChange(section, tryField, newTry);
+    if (!isNaN(num)) {
+      let newTry = '';
+      if (currency === 'TRY') {
+        newTry = num.toFixed(2);
+      } else if (!isNaN(newRate)) {
+        newTry = (num * newRate).toFixed(2);
+      }
+      if (tryField) onChange(section, tryField, newTry);
+    }
   };
 
   const handleAmountBlur = () => {
-    const numVal = parseFormattedNumber(amount);
-    const num = typeof numVal === 'number' ? numVal : parseFloat(String(numVal).replace(',', '.'));
-    if (!isNaN(num) && amount !== '') {
+    const src = amountDraft !== null ? amountDraft : amount;
+    const num = parseAmountNumeric(src);
+    if (src === '' || src == null) {
+      onChange(section, amountField, '');
+    } else if (!isNaN(num)) {
       onChange(section, amountField, String(num));
     }
+    setAmountDraft(null);
   };
 
   const handleRateChange = (val) => {
     onChange(section, rateField, val);
-    const numVal = parseFormattedNumber(amount);
-    const num = typeof numVal === 'number' ? numVal : parseFloat(String(numVal).replace(',', '.'));
-    const numRate = parseFloat(String(val).replace(',', '.'));
+    const num = parseAmountNumeric(amountForCalc);
+    const numRate = parseFormRate(val) ?? NaN;
     if (currency === 'TRY') {
       if (!isNaN(num)) onChange(section, tryField, num.toFixed(2));
     } else if (!isNaN(num) && !isNaN(numRate)) {
@@ -402,19 +450,18 @@ const CurrencyInput = ({ label, amountField, currencyField, rateField, tryField,
   };
 
   const handleCurrencyChange = (val) => {
-    const numVal = parseFormattedNumber(amount);
-    const num = typeof numVal === 'number' ? numVal : parseFloat(String(numVal).replace(',', '.'));
-    const currentRate = parseFloat(rate) || 1;
+    const num = parseAmountNumeric(amountForCalc);
+    const currentRate = parseFormRate(rate) || 1;
     onChange(section, currencyField, val);
     if (val === 'TRY') {
       const eurRate = rates?.EUR ?? currentRate;
-      const newRate = parseFloat(eurRate) || 1;
+      const newRate = parseFormRate(eurRate) || 1;
       if (rateField) onChange(section, rateField, String(newRate));
       if (!isNaN(num)) onChange(section, tryField, num.toFixed(2));
-      else if (tryField) onChange(section, tryField, amount);
+      else if (tryField) onChange(section, tryField, amountForCalc);
     } else {
       const newRate = rates?.[val] ?? currentRate;
-      const r = parseFloat(newRate) || 1;
+      const r = parseFormRate(newRate) || 1;
       if (rateField) onChange(section, rateField, r.toFixed(4));
       if (!isNaN(num)) {
         const amountInOrig = currency === 'TRY' ? num / currentRate : num;
@@ -436,7 +483,8 @@ const CurrencyInput = ({ label, amountField, currencyField, rateField, tryField,
           inputMode="decimal"
           className="input-field amount-field"
           placeholder="0,00"
-          value={formatNumberForInput(amount)}
+          value={amountDisplay}
+          onFocus={handleAmountFocus}
           onChange={(e) => handleAmountChange(e.target.value)}
           onBlur={handleAmountBlur}
         />
@@ -524,13 +572,26 @@ const FileUploadField = ({ label, fieldKey, section, currentKey, projectId, onUp
 };
 
 const AdditionalCostRow = ({ item, index, section, projectId, onChange, onRemove, onUploaded, onError, rates }) => {
+  const [amountDraft, setAmountDraft] = useState(null);
+  const amountDisplay = amountDraft !== null ? amountDraft : formatNumberForInput(item.amount);
+  const amountForCalc = amountDraft !== null ? amountDraft : item.amount;
+
+  const parseAmountNumeric = (src) => {
+    const numVal = parseFormattedNumber(src);
+    return typeof numVal === 'number' ? numVal : parseFloat(String(numVal).replace(',', '.'));
+  };
+
+  const handleAmountFocus = () => {
+    setAmountDraft(item.amount === '' || item.amount == null ? '' : formatNumberForInput(item.amount));
+  };
+
   const handleCurrencyChange = (val) => {
     onChange(section, index, 'currency', val);
     if (rates && val !== 'TRY') {
       const newRate = rates[val] || '';
       if (newRate) {
         onChange(section, index, 'exchangeRate', parseFloat(newRate).toFixed(4));
-        const numVal = parseFormattedNumber(item.amount);
+        const numVal = parseFormattedNumber(amountForCalc);
         const num = typeof numVal === 'number' ? numVal : parseFloat(String(numVal).replace(',', '.'));
         if (!isNaN(num)) {
           onChange(section, index, 'amountTry', (num * newRate).toFixed(2));
@@ -538,34 +599,40 @@ const AdditionalCostRow = ({ item, index, section, projectId, onChange, onRemove
       }
     } else if (val === 'TRY') {
       onChange(section, index, 'exchangeRate', '1');
-      onChange(section, index, 'amountTry', item.amount);
+      onChange(section, index, 'amountTry', amountForCalc);
     }
   };
 
-  const handleAmountChange = (val) => {
-    const numVal = parseFormattedNumber(val);
-    const num = typeof numVal === 'number' ? numVal : parseFloat(String(numVal).replace(',', '.'));
-    const storedVal = (val === '' || val === null) ? '' : (!isNaN(num) ? String(num) : val);
-    onChange(section, index, 'amount', storedVal);
-    const numRate = parseFloat(item.exchangeRate);
+  const handleAmountChange = (raw) => {
+    const val = sanitizeDecimalTyping(raw);
+    setAmountDraft(val);
+    const num = parseAmountNumeric(val);
+    const numRate = parseFormRate(item.exchangeRate) ?? NaN;
+    if (val === '') {
+      onChange(section, index, 'amount', '');
+      onChange(section, index, 'amountTry', '');
+      return;
+    }
     if (!isNaN(num) && !isNaN(numRate)) {
       onChange(section, index, 'amountTry', (num * numRate).toFixed(2));
     }
   };
 
   const handleAmountBlur = () => {
-    const numVal = parseFormattedNumber(item.amount);
-    const num = typeof numVal === 'number' ? numVal : parseFloat(String(numVal).replace(',', '.'));
-    if (!isNaN(num) && item.amount !== '') {
+    const src = amountDraft !== null ? amountDraft : item.amount;
+    const num = parseAmountNumeric(src);
+    if (src === '' || src == null) {
+      onChange(section, index, 'amount', '');
+    } else if (!isNaN(num)) {
       onChange(section, index, 'amount', String(num));
     }
+    setAmountDraft(null);
   };
 
   const handleRateChange = (val) => {
     onChange(section, index, 'exchangeRate', val);
-    const numVal = parseFormattedNumber(item.amount);
-    const num = typeof numVal === 'number' ? numVal : parseFloat(String(numVal).replace(',', '.'));
-    const numRate = parseFloat(String(val).replace(',', '.'));
+    const num = parseAmountNumeric(amountForCalc);
+    const numRate = parseFormRate(val) ?? NaN;
     if (!isNaN(num) && !isNaN(numRate)) {
       onChange(section, index, 'amountTry', (num * numRate).toFixed(2));
     }
@@ -586,7 +653,8 @@ const AdditionalCostRow = ({ item, index, section, projectId, onChange, onRemove
           inputMode="decimal"
           className="input-field amount-field"
           placeholder="Tutar"
-          value={formatNumberForInput(item.amount)}
+          value={amountDisplay}
+          onFocus={handleAmountFocus}
           onChange={(e) => handleAmountChange(e.target.value)}
           onBlur={handleAmountBlur}
         />
@@ -833,8 +901,8 @@ const ProjeMuhasebesi = () => {
             if (newRate) {
               sectionForm[rateField] = parseFloat(newRate).toFixed(4);
               // Also auto-compute TRY amount if there's an amount
-              const numAmount = parseFloat(sectionForm[amountField]);
-              if (!isNaN(numAmount) && tryField && !sectionForm[tryField]) {
+              const numAmount = parseFormMoney(sectionForm[amountField]);
+              if (numAmount != null && tryField && !sectionForm[tryField]) {
                 sectionForm[tryField] = (numAmount * newRate).toFixed(2);
               }
             }
@@ -999,7 +1067,7 @@ const ProjeMuhasebesi = () => {
 
   // Fatura zorunluluğu: Maliyet kaleminde tutar girilmişse fatura zorunludur (şirketten fatura olmadan para çıkmaz)
   const validateInvoiceRequired = (sectionsToValidate) => {
-    const num = (v) => (v === '' || v == null ? 0 : parseFloat(v));
+    const num = (v) => parseFormMoney(v) ?? 0;
     const hasInvoice = (invoiceKey) => invoiceKey && String(invoiceKey).trim() !== '';
     const errs = [];
     const check = (amount, invoiceKey, label) => {
@@ -1064,8 +1132,8 @@ const ProjeMuhasebesi = () => {
 
   const buildSectionPayload = (section) => {
     const s = form[section];
-    // Convert numeric strings to numbers for backend, leave nulls for empty
-    const num = (v) => (v === '' || v == null ? null : parseFloat(v));
+    const numMoney = (v) => parseFormMoney(v);
+    const numRate = (v) => parseFormRate(v);
     const int = (v) => (v === '' || v == null ? null : parseInt(v, 10));
     const str = (v) => (v === '' || v == null ? null : v);
 
@@ -1074,10 +1142,10 @@ const ProjeMuhasebesi = () => {
         id: ac.id || null,
         sectionType: sectionTypeMap[section],
         itemName: str(ac.itemName),
-        amount: num(ac.amount),
+        amount: numMoney(ac.amount),
         currency: str(ac.currency),
-        amountTry: num(ac.amountTry),
-        exchangeRate: num(ac.exchangeRate),
+        amountTry: numMoney(ac.amountTry),
+        exchangeRate: numRate(ac.exchangeRate),
         invoiceKey: str(ac.invoiceKey),
         sortOrder: idx,
       }));
@@ -1085,18 +1153,18 @@ const ProjeMuhasebesi = () => {
     switch (section) {
       case 'machinePurchase':
         return {
-          purchasePrice: num(s.purchasePrice),
+          purchasePrice: numMoney(s.purchasePrice),
           purchaseCurrency: str(s.purchaseCurrency),
-          purchasePriceTry: num(s.purchasePriceTry),
-          purchaseExchangeRate: num(s.purchaseExchangeRate),
-          externalCommission: num(s.externalCommission),
+          purchasePriceTry: numMoney(s.purchasePriceTry),
+          purchaseExchangeRate: numRate(s.purchaseExchangeRate),
+          externalCommission: numMoney(s.externalCommission),
           externalCommissionCurrency: str(s.externalCommissionCurrency),
-          externalCommissionTry: num(s.externalCommissionTry),
-          externalCommissionRate: num(s.externalCommissionRate),
+          externalCommissionTry: numMoney(s.externalCommissionTry),
+          externalCommissionRate: numRate(s.externalCommissionRate),
           machineCondition: str(s.machineCondition),
-          equityAmount: num(s.equityAmount),
-          creditAmount: num(s.creditAmount),
-          creditInterestRate: num(s.creditInterestRate),
+          equityAmount: numMoney(s.equityAmount),
+          creditAmount: numMoney(s.creditAmount),
+          creditInterestRate: numRate(s.creditInterestRate),
           purchaseInvoiceKey: str(s.purchaseInvoiceKey),
           externalCommissionInvoiceKey: str(s.externalCommissionInvoiceKey),
           additionalCosts: mapAdditional(s.additionalCosts),
@@ -1104,25 +1172,25 @@ const ProjeMuhasebesi = () => {
       case 'machineVisit':
         return {
           visited: !!s.visited,
-          flightCost: num(s.flightCost),
+          flightCost: numMoney(s.flightCost),
           flightCurrency: str(s.flightCurrency),
-          flightExchangeRate: num(s.flightExchangeRate),
-          flightCostTry: num(s.flightCostTry),
+          flightExchangeRate: numRate(s.flightExchangeRate),
+          flightCostTry: numMoney(s.flightCostTry),
           flightInvoiceKey: str(s.flightInvoiceKey),
-          hotelCost: num(s.hotelCost),
+          hotelCost: numMoney(s.hotelCost),
           hotelCurrency: str(s.hotelCurrency),
-          hotelExchangeRate: num(s.hotelExchangeRate),
-          hotelCostTry: num(s.hotelCostTry),
+          hotelExchangeRate: numRate(s.hotelExchangeRate),
+          hotelCostTry: numMoney(s.hotelCostTry),
           hotelInvoiceKey: str(s.hotelInvoiceKey),
-          carRentalCost: num(s.carRentalCost),
+          carRentalCost: numMoney(s.carRentalCost),
           carRentalCurrency: str(s.carRentalCurrency),
-          carRentalExchangeRate: num(s.carRentalExchangeRate),
-          carRentalCostTry: num(s.carRentalCostTry),
+          carRentalExchangeRate: numRate(s.carRentalExchangeRate),
+          carRentalCostTry: numMoney(s.carRentalCostTry),
           carRentalInvoiceKey: str(s.carRentalInvoiceKey),
-          additionalExpense: num(s.additionalExpenseCost),
+          additionalExpense: numMoney(s.additionalExpenseCost),
           additionalExpenseCurrency: str(s.additionalExpenseCurrency),
-          additionalExpenseRate: num(s.additionalExpenseExchangeRate),
-          additionalExpenseTry: num(s.additionalExpenseCostTry),
+          additionalExpenseRate: numRate(s.additionalExpenseExchangeRate),
+          additionalExpenseTry: numMoney(s.additionalExpenseCostTry),
           additionalExpenseInvoiceKey: str(s.additionalExpenseInvoiceKey),
           additionalCosts: mapAdditional(s.additionalCosts),
         };
@@ -1130,20 +1198,20 @@ const ProjeMuhasebesi = () => {
         return {
           agreedCompany: str(s.agreedCompany),
           vehiclePlate: str(s.vehiclePlate),
-          freightCost: num(s.freightCost),
+          freightCost: numMoney(s.freightCost),
           freightCurrency: str(s.freightCurrency),
-          freightExchangeRate: num(s.freightExchangeRate),
-          freightCostTry: num(s.freightCostTry),
+          freightExchangeRate: numRate(s.freightExchangeRate),
+          freightCostTry: numMoney(s.freightCostTry),
           freightInvoiceKey: str(s.freightInvoiceKey),
-          additionalLogisticsCost: num(s.additionalLogisticsCost),
+          additionalLogisticsCost: numMoney(s.additionalLogisticsCost),
           additionalLogisticsCurrency: str(s.additionalLogisticsCurrency),
-          additionalLogisticsRate: num(s.additionalLogisticsExchangeRate),
-          additionalLogisticsTry: num(s.additionalLogisticsCostTry),
+          additionalLogisticsRate: numRate(s.additionalLogisticsExchangeRate),
+          additionalLogisticsTry: numMoney(s.additionalLogisticsCostTry),
           additionalLogisticsInvoiceKey: str(s.additionalLogisticsInvoiceKey),
-          brandingCost: num(s.brandingCost),
+          brandingCost: numMoney(s.brandingCost),
           brandingCurrency: str(s.brandingCurrency),
-          brandingExchangeRate: num(s.brandingExchangeRate),
-          brandingCostTry: num(s.brandingCostTry),
+          brandingExchangeRate: numRate(s.brandingExchangeRate),
+          brandingCostTry: numMoney(s.brandingCostTry),
           brandingInvoiceKey: str(s.brandingInvoiceKey),
           hasEx1Document: !!s.hasEx1,
           hasT1t2Document: !!s.hasT1T2,
@@ -1156,43 +1224,43 @@ const ProjeMuhasebesi = () => {
           atrDocumentKey: str(s.atrDocumentKey),
           packingListDocumentKey: str(s.packingListDocumentKey),
           insuranceDone: !!s.insuranceDone,
-          insuranceCost: num(s.insuranceCost),
+          insuranceCost: numMoney(s.insuranceCost),
           insuranceCurrency: str(s.insuranceCurrency),
-          insuranceExchangeRate: num(s.insuranceExchangeRate),
-          insuranceCostTry: num(s.insuranceCostTry),
+          insuranceExchangeRate: numRate(s.insuranceExchangeRate),
+          insuranceCostTry: numMoney(s.insuranceCostTry),
           insuranceDocumentKey: str(s.insuranceDocumentKey),
           additionalCosts: mapAdditional(s.additionalCosts),
         };
       case 'customs':
         return {
-          entryCustomsCost: num(s.entryCustomsCost),
+          entryCustomsCost: numMoney(s.entryCustomsCost),
           entryCustomsCurrency: str(s.entryCustomsCurrency),
-          entryCustomsExchangeRate: num(s.entryCustomsExchangeRate),
-          entryCustomsCostTry: num(s.entryCustomsCostTry),
+          entryCustomsExchangeRate: numRate(s.entryCustomsExchangeRate),
+          entryCustomsCostTry: numMoney(s.entryCustomsCostTry),
           entryCustomsInvoiceKey: str(s.entryCustomsInvoiceKey),
           hasDeclarationDocument: !!s.hasDeclarationDocument,
           declarationDocumentKey: str(s.declarationDocumentKey),
           hasCountReportDocument: !!s.hasCountReportDocument,
           countReportDocumentKey: str(s.countReportDocumentKey),
-          warehouseUnloadingCost: num(s.warehouseUnloadingCost),
+          warehouseUnloadingCost: numMoney(s.warehouseUnloadingCost),
           warehouseUnloadingCurrency: str(s.warehouseUnloadingCurrency),
-          warehouseUnloadingRate: num(s.warehouseUnloadingExchangeRate),
-          warehouseUnloadingTry: num(s.warehouseUnloadingCostTry),
+          warehouseUnloadingRate: numRate(s.warehouseUnloadingExchangeRate),
+          warehouseUnloadingTry: numMoney(s.warehouseUnloadingCostTry),
           warehouseUnloadingInvoiceKey: str(s.warehouseUnloadingInvoiceKey),
-          storageCost: num(s.storageCost),
+          storageCost: numMoney(s.storageCost),
           storageCurrency: str(s.storageCurrency),
-          storageExchangeRate: num(s.storageExchangeRate),
-          storageCostTry: num(s.storageCostTry),
+          storageExchangeRate: numRate(s.storageExchangeRate),
+          storageCostTry: numMoney(s.storageCostTry),
           storageInvoiceKey: str(s.storageInvoiceKey),
           warehousePaidByBuyer: !!s.warehousePaidByBuyer,
           additionalCosts: mapAdditional(s.additionalCosts),
         };
       case 'transfer':
         return {
-          transferCost: num(s.transferCost),
+          transferCost: numMoney(s.transferCost),
           transferCurrency: str(s.transferCurrency),
-          transferExchangeRate: num(s.transferExchangeRate),
-          transferCostTry: num(s.transferCostTry),
+          transferExchangeRate: numRate(s.transferExchangeRate),
+          transferCostTry: numMoney(s.transferCostTry),
           transferInvoiceKey: str(s.transferInvoiceKey),
           hasTransferDeclaration: !!s.hasTransferDeclaration,
           transferDeclarationKey: str(s.transferDeclarationKey),
@@ -1202,15 +1270,15 @@ const ProjeMuhasebesi = () => {
         };
       case 'generalCosts':
         return {
-          installationCost: num(s.installationCost),
+          installationCost: numMoney(s.installationCost),
           installationCurrency: str(s.installationCurrency),
-          installationExchangeRate: num(s.installationExchangeRate),
-          installationCostTry: num(s.installationCostTry),
+          installationExchangeRate: numRate(s.installationExchangeRate),
+          installationCostTry: numMoney(s.installationCostTry),
           installationInvoiceKey: str(s.installationInvoiceKey),
-          salesPrice: num(s.salesPrice),
+          salesPrice: numMoney(s.salesPrice),
           salesCurrency: str(s.salesCurrency),
-          salesExchangeRate: num(s.salesExchangeRate),
-          salesPriceTry: num(s.salesPriceTry),
+          salesExchangeRate: numRate(s.salesExchangeRate),
+          salesPriceTry: numMoney(s.salesPriceTry),
           financingDays: int(s.financingDays),
           hasSalesInvoice: !!s.hasSalesInvoice,
           salesInvoiceKey: str(s.salesInvoiceKey),
@@ -1285,16 +1353,17 @@ const ProjeMuhasebesi = () => {
 
   // ── Compute total costs from all sections (EUR bazlı) ──
   const computeTotalCosts = () => {
-    const num = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
-    const eurRate = num(rates?.EUR) || 38.5;
+    const nMoney = (v) => parseFormMoney(v) ?? 0;
+    const nRate = (v) => parseFormRate(v) ?? 0;
+    const eurRate = nRate(rates?.EUR) || 38.5;
     const sumAdditionalEur = (items) => {
       if (!eurRate || eurRate <= 0) return 0;
-      return (items || []).reduce((acc, ac) => acc + (num(ac.amountTry) / eurRate), 0);
+      return (items || []).reduce((acc, ac) => acc + (nMoney(ac.amountTry) / eurRate), 0);
     };
-    const financingDays = Math.max(num(form.generalCosts.financingDays), 0);
-    const purchaseRate = num(form.machinePurchase.purchaseExchangeRate) || num(rates?.EUR);
-    const creditAmount = num(form.machinePurchase.creditAmount);
-    const creditInterestRate = num(form.machinePurchase.creditInterestRate);
+    const financingDays = Math.max(parseInt(String(form.generalCosts.financingDays || ''), 10) || 0, 0);
+    const purchaseRate = nRate(form.machinePurchase.purchaseExchangeRate) || nRate(rates?.EUR);
+    const creditAmount = nMoney(form.machinePurchase.creditAmount);
+    const creditInterestRate = nRate(form.machinePurchase.creditInterestRate);
     const financingCostEur = creditAmount > 0 && creditInterestRate > 0 && financingDays > 0
       ? (creditAmount * creditInterestRate / 100) * (financingDays / 365)
       : 0;
@@ -1305,8 +1374,8 @@ const ProjeMuhasebesi = () => {
       {
         key: 'machinePurchase', label: '1a. Makine Alım',
         items: [
-          { label: 'Makine Alım Bedeli', try: num(form.machinePurchase.purchasePriceTry), eur: toEur(num(form.machinePurchase.purchasePriceTry)), currency: form.machinePurchase.purchaseCurrency, amount: num(form.machinePurchase.purchasePrice) },
-          { label: 'Dış Komisyon', try: num(form.machinePurchase.externalCommissionTry), eur: toEur(num(form.machinePurchase.externalCommissionTry)), currency: form.machinePurchase.externalCommissionCurrency, amount: num(form.machinePurchase.externalCommission) },
+          { label: 'Makine Alım Bedeli', try: nMoney(form.machinePurchase.purchasePriceTry), eur: toEur(nMoney(form.machinePurchase.purchasePriceTry)), currency: form.machinePurchase.purchaseCurrency, amount: nMoney(form.machinePurchase.purchasePrice) },
+          { label: 'Dış Komisyon', try: nMoney(form.machinePurchase.externalCommissionTry), eur: toEur(nMoney(form.machinePurchase.externalCommissionTry)), currency: form.machinePurchase.externalCommissionCurrency, amount: nMoney(form.machinePurchase.externalCommission) },
           { label: 'Finansman Maliyeti', try: financingCostTry, eur: financingCostEur, currency: 'EUR', amount: financingCostEur },
         ],
         additionalEur: sumAdditionalEur(form.machinePurchase.additionalCosts),
@@ -1314,43 +1383,43 @@ const ProjeMuhasebesi = () => {
       {
         key: 'machineVisit', label: '1b. Makine Ziyareti',
         items: [
-          { label: 'Uçak', try: num(form.machineVisit.flightCostTry), eur: toEur(num(form.machineVisit.flightCostTry)), currency: form.machineVisit.flightCurrency, amount: num(form.machineVisit.flightCost) },
-          { label: 'Otel', try: num(form.machineVisit.hotelCostTry), eur: toEur(num(form.machineVisit.hotelCostTry)), currency: form.machineVisit.hotelCurrency, amount: num(form.machineVisit.hotelCost) },
-          { label: 'Araç Kiralama', try: num(form.machineVisit.carRentalCostTry), eur: toEur(num(form.machineVisit.carRentalCostTry)), currency: form.machineVisit.carRentalCurrency, amount: num(form.machineVisit.carRentalCost) },
-          { label: 'Ek Masraf', try: num(form.machineVisit.additionalExpenseCostTry), eur: toEur(num(form.machineVisit.additionalExpenseCostTry)), currency: form.machineVisit.additionalExpenseCurrency, amount: num(form.machineVisit.additionalExpenseCost) },
+          { label: 'Uçak', try: nMoney(form.machineVisit.flightCostTry), eur: toEur(nMoney(form.machineVisit.flightCostTry)), currency: form.machineVisit.flightCurrency, amount: nMoney(form.machineVisit.flightCost) },
+          { label: 'Otel', try: nMoney(form.machineVisit.hotelCostTry), eur: toEur(nMoney(form.machineVisit.hotelCostTry)), currency: form.machineVisit.hotelCurrency, amount: nMoney(form.machineVisit.hotelCost) },
+          { label: 'Araç Kiralama', try: nMoney(form.machineVisit.carRentalCostTry), eur: toEur(nMoney(form.machineVisit.carRentalCostTry)), currency: form.machineVisit.carRentalCurrency, amount: nMoney(form.machineVisit.carRentalCost) },
+          { label: 'Ek Masraf', try: nMoney(form.machineVisit.additionalExpenseCostTry), eur: toEur(nMoney(form.machineVisit.additionalExpenseCostTry)), currency: form.machineVisit.additionalExpenseCurrency, amount: nMoney(form.machineVisit.additionalExpenseCost) },
         ],
         additionalEur: sumAdditionalEur(form.machineVisit.additionalCosts),
       },
       {
         key: 'logistics', label: '2. Lojistik',
         items: [
-          { label: 'Nakliye', try: num(form.logistics.freightCostTry), eur: toEur(num(form.logistics.freightCostTry)), currency: form.logistics.freightCurrency, amount: num(form.logistics.freightCost) },
-          { label: 'Ek Lojistik', try: num(form.logistics.additionalLogisticsCostTry), eur: toEur(num(form.logistics.additionalLogisticsCostTry)), currency: form.logistics.additionalLogisticsCurrency, amount: num(form.logistics.additionalLogisticsCost) },
-          { label: 'Brandalama', try: num(form.logistics.brandingCostTry), eur: toEur(num(form.logistics.brandingCostTry)), currency: form.logistics.brandingCurrency, amount: num(form.logistics.brandingCost) },
-          { label: 'Sigorta', try: num(form.logistics.insuranceCostTry), eur: toEur(num(form.logistics.insuranceCostTry)), currency: form.logistics.insuranceCurrency, amount: num(form.logistics.insuranceCost) },
+          { label: 'Nakliye', try: nMoney(form.logistics.freightCostTry), eur: toEur(nMoney(form.logistics.freightCostTry)), currency: form.logistics.freightCurrency, amount: nMoney(form.logistics.freightCost) },
+          { label: 'Ek Lojistik', try: nMoney(form.logistics.additionalLogisticsCostTry), eur: toEur(nMoney(form.logistics.additionalLogisticsCostTry)), currency: form.logistics.additionalLogisticsCurrency, amount: nMoney(form.logistics.additionalLogisticsCost) },
+          { label: 'Brandalama', try: nMoney(form.logistics.brandingCostTry), eur: toEur(nMoney(form.logistics.brandingCostTry)), currency: form.logistics.brandingCurrency, amount: nMoney(form.logistics.brandingCost) },
+          { label: 'Sigorta', try: nMoney(form.logistics.insuranceCostTry), eur: toEur(nMoney(form.logistics.insuranceCostTry)), currency: form.logistics.insuranceCurrency, amount: nMoney(form.logistics.insuranceCost) },
         ],
         additionalEur: sumAdditionalEur(form.logistics.additionalCosts),
       },
       {
         key: 'customs', label: '3. Gümrük',
         items: [
-          { label: 'Gümrükçü bedeli', try: num(form.customs.entryCustomsCostTry), eur: toEur(num(form.customs.entryCustomsCostTry)), currency: form.customs.entryCustomsCurrency, amount: num(form.customs.entryCustomsCost) },
-          { label: 'Antrepo indirme vinç maliyeti', try: form.customs.warehousePaidByBuyer ? 0 : num(form.customs.warehouseUnloadingCostTry), eur: toEur(form.customs.warehousePaidByBuyer ? 0 : num(form.customs.warehouseUnloadingCostTry)), currency: form.customs.warehouseUnloadingCurrency, amount: num(form.customs.warehouseUnloadingCost) },
-          { label: 'Ardiye', try: form.customs.warehousePaidByBuyer ? 0 : num(form.customs.storageCostTry), eur: toEur(form.customs.warehousePaidByBuyer ? 0 : num(form.customs.storageCostTry)), currency: form.customs.storageCurrency, amount: num(form.customs.storageCost) },
+          { label: 'Gümrükçü bedeli', try: nMoney(form.customs.entryCustomsCostTry), eur: toEur(nMoney(form.customs.entryCustomsCostTry)), currency: form.customs.entryCustomsCurrency, amount: nMoney(form.customs.entryCustomsCost) },
+          { label: 'Antrepo indirme vinç maliyeti', try: form.customs.warehousePaidByBuyer ? 0 : nMoney(form.customs.warehouseUnloadingCostTry), eur: toEur(form.customs.warehousePaidByBuyer ? 0 : nMoney(form.customs.warehouseUnloadingCostTry)), currency: form.customs.warehouseUnloadingCurrency, amount: nMoney(form.customs.warehouseUnloadingCost) },
+          { label: 'Ardiye', try: form.customs.warehousePaidByBuyer ? 0 : nMoney(form.customs.storageCostTry), eur: toEur(form.customs.warehousePaidByBuyer ? 0 : nMoney(form.customs.storageCostTry)), currency: form.customs.storageCurrency, amount: nMoney(form.customs.storageCost) },
         ],
         additionalEur: sumAdditionalEur(form.customs.additionalCosts),
       },
       {
         key: 'transfer', label: '4. Devir İşlemleri',
         items: [
-          { label: 'Gümrükçü Devir Bedeli', try: num(form.transfer.transferCostTry), eur: toEur(num(form.transfer.transferCostTry)), currency: form.transfer.transferCurrency, amount: num(form.transfer.transferCost) },
+          { label: 'Gümrükçü Devir Bedeli', try: nMoney(form.transfer.transferCostTry), eur: toEur(nMoney(form.transfer.transferCostTry)), currency: form.transfer.transferCurrency, amount: nMoney(form.transfer.transferCost) },
         ],
         additionalEur: sumAdditionalEur(form.transfer.additionalCosts),
       },
       {
         key: 'generalCosts', label: '5. Genel Maliyetler',
         items: [
-          { label: 'Kurulum', try: num(form.generalCosts.installationCostTry), eur: toEur(num(form.generalCosts.installationCostTry)), currency: form.generalCosts.installationCurrency, amount: num(form.generalCosts.installationCost) },
+          { label: 'Kurulum', try: nMoney(form.generalCosts.installationCostTry), eur: toEur(nMoney(form.generalCosts.installationCostTry)), currency: form.generalCosts.installationCurrency, amount: nMoney(form.generalCosts.installationCost) },
         ],
         additionalEur: sumAdditionalEur(form.generalCosts.additionalCosts),
       },
@@ -1384,10 +1453,10 @@ const ProjeMuhasebesi = () => {
   const renderCostSummary = () => {
     const { sections, grandTotalEur, eurRate } = computeTotalCosts();
     const gc = form.generalCosts;
-    const salesPrice = parseFloat(gc.salesPrice) || 0;
+    const salesPrice = parseFormMoney(gc.salesPrice) ?? 0;
     const salesCurrency = gc.salesCurrency || 'EUR';
-    const salesExchangeRate = parseFloat(gc.salesExchangeRate) || eurRate;
-    const labelPriceEur = salesCurrency === 'EUR' ? salesPrice : (parseFloat(gc.salesPriceTry) || 0) / (salesExchangeRate || eurRate);
+    const salesExchangeRate = parseFormRate(gc.salesExchangeRate) || eurRate;
+    const labelPriceEur = salesCurrency === 'EUR' ? salesPrice : (parseFormMoney(gc.salesPriceTry) ?? 0) / (salesExchangeRate || eurRate);
     const profitEur = labelPriceEur - grandTotalEur;
     const margin = labelPriceEur > 0 ? ((profitEur / labelPriceEur) * 100) : 0;
     const fmtEur = (v) => `€${v.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -2089,8 +2158,8 @@ const ProjeMuhasebesi = () => {
                         <AiOutlineWarning style={{ fontSize: '11px' }} /> {missingCount}
                       </span>
                     )}
-                    <span className={`project-status-badge status-${(project.status || '').toLowerCase()}`}>
-                      {project.status}
+                    <span className={`project-status-badge ${getProjectStatusBadgeClass(project.status)}`}>
+                      {getStatusLabel(project.status)}
                     </span>
                   </div>
                 </div>

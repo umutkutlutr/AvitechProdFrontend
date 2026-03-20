@@ -26,6 +26,9 @@ const ProfitAnalysisModal = ({ service, onClose, showSalesPrice = false }) => {
       try {
         setLoading(true);
         setError(null);
+        setCostSummary(null);
+        setOfferPrice(null);
+        setBidPriceFromOffer(null);
 
         // Fetch offer details from the offers endpoint to extract salePrice and price
         const offerData = await offerService.getOffersByProject(service.id);
@@ -62,7 +65,7 @@ const ProfitAnalysisModal = ({ service, onClose, showSalesPrice = false }) => {
     };
 
     fetchData();
-  }, [service?.id, service?.offerId, service?.originalStatus]);
+  }, [service?.id, service?.offerId, service?.originalStatus, service?.offerStatus, service?.status, service?.rawStatus]);
 
   const formatCurrency = (amount, currency = 'TRY') => {
     if (amount == null || isNaN(amount)) return '₺0';
@@ -88,7 +91,16 @@ const ProfitAnalysisModal = ({ service, onClose, showSalesPrice = false }) => {
   const totalCostEur = costSummary?.totalCostEur ?? 0;
   const labelPriceOriginal = costSummary?.labelPriceOriginal;
   const bidPrice = bidPriceFromOffer ?? 0;
-  const isSold = service?.status === 'SOLD' || service?.rawStatus === 'SOLD' || service?.rawStatus === 'COMPLETED' || service?.originalStatus === 'COMPLETED' || offerPrice != null;
+  // Satıldı: proje durumu, tamamlanmış teklif satırı veya muhasebe özetinde gerçek satış tutarı
+  const projectSold = service?.status === 'SOLD' || service?.rawStatus === 'SOLD';
+  const offerRowCompleted =
+    service?.offerStatus === 'COMPLETED' || service?.originalStatus === 'COMPLETED';
+  const hasActualSaleInSummary =
+    costSummary != null &&
+    costSummary.actualSalePriceOriginal != null &&
+    String(costSummary.actualSalePriceOriginal).trim() !== '' &&
+    !Number.isNaN(parseFloat(String(costSummary.actualSalePriceOriginal)));
+  const isSold = projectSold || offerRowCompleted || hasActualSaleInSummary;
   const actualSalePriceFromCost = costSummary?.actualSalePriceOriginal != null ? parseFloat(costSummary.actualSalePriceOriginal) : null;
   const salesPriceFromCost = costSummary?.salesPriceOriginal != null ? parseFloat(costSummary.salesPriceOriginal) : null;
   const salesPrice = actualSalePriceFromCost ?? offerPrice ?? (isSold ? salesPriceFromCost : null);
