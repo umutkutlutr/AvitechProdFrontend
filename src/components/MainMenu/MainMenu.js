@@ -26,6 +26,8 @@ import Pagination from '../shared/Pagination';
 import FilterChips from '../shared/FilterChips';
 import projectService from '../../services/projectService';
 import { normalizeProjectCard } from '../../utils/projectNormalizer';
+import { getStatusLabel } from '../../utils/statusDateDictionary';
+import { getProjectStatusBadgeClass } from '../../utils/projectStatusUi';
 import './MainMenu.css';
 
 const MainMenu = () => {
@@ -372,47 +374,19 @@ const MainMenu = () => {
     }
   };
 
-  const getStatusClass = (status) => {
-    switch (status) {
-      case 'TAMAMLANMIŞ':
-      case 'SOLD':
-        return 'status-approved';
-      case 'TEKLİF GÖNDERİLECEK':
-      case 'TEMPLATE':
-        return 'status-draft';
-      case 'EXCHANGE CIHAZ TEKLİFİ':
-      case 'OFFER_SENT':
-        return 'status-sent';
-      case 'BOUGHT':
-        return 'status-sold';
-      case 'CANCELLED':
-        return 'status-cancelled';
-      default:
-        return 'status-default';
-    }
+  /** Legacy dashboard labels → same badge class as API enum */
+  const projectBadgeClass = (status) => {
+    if (status === 'TAMAMLANMIŞ') return getProjectStatusBadgeClass('SOLD');
+    if (status === 'TEKLİF GÖNDERİLECEK') return getProjectStatusBadgeClass('TEMPLATE');
+    if (status === 'EXCHANGE CIHAZ TEKLİFİ') return getProjectStatusBadgeClass('OFFER_SENT');
+    return getProjectStatusBadgeClass(status);
   };
 
-  const getDisplayStatus = (status) => {
-    switch (status) {
-      case 'TAMAMLANMIŞ':
-        return 'TAMAMLANMIŞ';
-      case 'TEKLİF GÖNDERİLECEK':
-        return 'TEKLİF GÖNDERİLECEK';
-      case 'EXCHANGE CIHAZ TEKLİFİ':
-        return 'EXCHANGE CIHAZ TEKLİFİ';
-      case 'SOLD':
-        return 'TAMAMLANDI';
-      case 'OFFER_SENT':
-        return 'TEKLİF GÖNDERİLDİ';
-      case 'TEMPLATE':
-        return 'AKTİF';
-      case 'BOUGHT':
-        return 'SATIN ALINDI';
-      case 'CANCELLED':
-        return 'İPTAL EDİLDİ';
-      default:
-        return status;
-    }
+  const projectStatusText = (status) => {
+    if (status === 'TAMAMLANMIŞ') return 'TAMAMLANMIŞ';
+    if (status === 'TEKLİF GÖNDERİLECEK') return 'TEKLİF GÖNDERİLECEK';
+    if (status === 'EXCHANGE CIHAZ TEKLİFİ') return 'EXCHANGE CIHAZ TEKLİFİ';
+    return getStatusLabel(status);
   };
 
   const formatCurrency = (amount, currency = 'EUR') => {
@@ -548,8 +522,8 @@ const MainMenu = () => {
                 >
                   <div className="card-header">
                     <h3 className="machine-name">{service.projectCode}</h3>
-                    <div className={`status-badge ${getStatusClass(service.status)}`}>
-                      {getDisplayStatus(service.status)}
+                    <div className={`status-badge ${projectBadgeClass(service.status)}`}>
+                      {projectStatusText(service.status)}
                     </div>
                   </div>
 

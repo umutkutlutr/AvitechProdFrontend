@@ -305,9 +305,8 @@ const AllServices = ({ onEditService }) => {
   };
 
   const handleSellProposal = (service) => {
-    // Update the project status to 'Satıldı' (Sold)
-    const updatedProjects = projects.map(p =>
-      p.id === service.id ? { ...p, status: 'Satıldı' } : p
+    const updatedProjects = projects.map((p) =>
+      p.id === service.id ? { ...p, status: 'SOLD' } : p
     );
     setProjects(updatedProjects);
   };
@@ -365,21 +364,6 @@ const AllServices = ({ onEditService }) => {
     setSelectedProjectForOffers(null);
     // Refresh the projects list after successful sale
     loadProjects();
-  };
-
-  const getStatusClass = (status) => {
-    switch (status) {
-      case 'Gönderildi':
-        return 'status-sent';
-      case 'Taslak':
-        return 'status-draft';
-      case 'Onaylandı':
-        return 'status-approved';
-      case 'Satıldı':
-        return 'status-sold';
-      default:
-        return 'status-default';
-    }
   };
 
   const formatCurrency = (amount, currency = 'EUR') => {

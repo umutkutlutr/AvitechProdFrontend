@@ -232,6 +232,11 @@
   color: #6c757d;
 }
 
+.status-cancelled {
+  background-color: #6c757d;
+  color: #fff;
+}
+
 .sender-info {
   display: flex;
   align-items: center;

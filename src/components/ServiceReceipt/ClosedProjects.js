@@ -4,6 +4,8 @@ import ProposalInformationModal from './ProposalInformationModal';
 import CostInformationModal from './CostInformationModal';
 import projectService from '../../services/projectService';
 import { normalizeProjectCard } from '../../utils/projectNormalizer';
+import { getStatusLabel } from '../../utils/statusDateDictionary';
+import { getProjectStatusBadgeClass } from '../../utils/projectStatusUi';
 import Pagination from '../shared/Pagination';
 import ViewToggle from '../shared/ViewToggle';
 import SearchBar from './SearchBar';
@@ -66,7 +68,7 @@ const ClosedProjects = ({ onEditService }) => {
             year: year != null ? String(year) : 'N/A',
             serialNumber: n.serialNumber || project.serialNumber,
             createdDate: project.createdAt ? new Date(project.createdAt).toLocaleDateString('tr-TR') : '-',
-            status: 'ONAYLANDI',
+            status: project.status || 'SOLD',
             rawStatus: project.status || 'SOLD',
             workingHours: project.hoursOperated || '-',
             repairHours: project.repairHours || '-',
@@ -109,21 +111,6 @@ const ClosedProjects = ({ onEditService }) => {
   const handleCostInfoClick = (service) => {
     setSelectedService(service);
     setIsCostModalOpen(true);
-  };
-
-  const getStatusClass = (status) => {
-    switch (status) {
-      case 'Gönderildi':
-        return 'status-sent';
-      case 'Taslak':
-        return 'status-draft';
-      case 'Onaylandı':
-        return 'status-approved';
-      case 'ONAYLANDI':
-        return 'status-sold';
-      default:
-        return 'status-default';
-    }
   };
 
   const formatCurrency = (amount, currency = 'EUR') => {
@@ -238,8 +225,8 @@ const ClosedProjects = ({ onEditService }) => {
               <div key={service.id} className="service-card">
                 <div className="card-header">
                   <h3 className="machine-name">{service.machineName}</h3>
-                  <div className={`status-badge ${getStatusClass(service.status)}`}>
-                    {service.status}
+                  <div className={`status-badge ${getProjectStatusBadgeClass(service.status)}`}>
+                    {getStatusLabel(service.status)}
                   </div>
                 </div>
 

@@ -22,6 +22,8 @@ import {
 } from 'react-icons/ai';
 import { parseFormattedNumber, formatNumberForInput } from '../../utils/numberFormat';
 import { normalizeProjectCard, getProjectSearchText } from '../../utils/projectNormalizer';
+import { getStatusLabel } from '../../utils/statusDateDictionary';
+import { getProjectStatusBadgeClass } from '../../utils/projectStatusUi';
 import './ProjeMuhasebesi.css';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -2089,8 +2091,8 @@ const ProjeMuhasebesi = () => {
                         <AiOutlineWarning style={{ fontSize: '11px' }} /> {missingCount}
                       </span>
                     )}
-                    <span className={`project-status-badge status-${(project.status || '').toLowerCase()}`}>
-                      {project.status}
+                    <span className={`project-status-badge ${getProjectStatusBadgeClass(project.status)}`}>
+                      {getStatusLabel(project.status)}
                     </span>
                   </div>
                 </div>

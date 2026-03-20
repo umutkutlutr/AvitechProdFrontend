@@ -8,6 +8,7 @@ import API_BASE_URL from '../../config';
 import projectService from '../../services/projectService';
 import authService from '../../services/authService';
 import { normalizeProjectDetail } from '../../utils/projectNormalizer';
+import { getOfferStatusBadgeClass, getOfferStatusLabel } from '../../utils/projectStatusUi';
 import { extractFilenameFromResponse } from '../../utils/apiUtils';
 import {
   AiOutlineInfoCircle,
@@ -46,20 +47,6 @@ const QuotesSent = ({ onEditService }) => {
   });
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Map API status to Turkish display text
-  const getStatusDisplayText = (status) => {
-    switch (status) {
-      case 'COMPLETED':
-        return 'ONAYLANDI';
-      case 'CLOSED':
-        return 'KAPALI';
-      case 'OFFER_SENT':
-        return 'ONAY BEKLİYOR';
-      default:
-        return 'ONAY BEKLİYOR';
-    }
-  };
-
   // Fetch offers from the new API endpoint
   useEffect(() => {
     const fetchQuotesSentProjects = async () => {
@@ -97,8 +84,8 @@ const QuotesSent = ({ onEditService }) => {
               year: derivedYear != null ? String(derivedYear) : '-',
               serialNumber: n.serialNumber || projectDetails.serialNumber || '-',
               createdDate: offer.sentAt ? new Date(offer.sentAt).toLocaleDateString('tr-TR') : '-',
-              originalStatus: offer.status, // Keep original API status for conditional logic
-              status: getStatusDisplayText(offer.status),
+              originalStatus: offer.status,
+              offerStatus: offer.status,
               rawStatus: projectDetails?.status || offer.status,
               totalCost: projectDetails.totalCost || 0,
               salesPrice: projectDetails.salesPrice || 0,
@@ -135,8 +122,8 @@ const QuotesSent = ({ onEditService }) => {
               year: '-',
               serialNumber: '-',
               createdDate: offer.sentAt ? new Date(offer.sentAt).toLocaleDateString('tr-TR') : '-',
-              originalStatus: offer.status, // Keep original API status for conditional logic
-              status: getStatusDisplayText(offer.status),
+              originalStatus: offer.status,
+              offerStatus: offer.status,
               rawStatus: offer.status,
               totalCost: 0,
               salesPrice: 0,
@@ -222,25 +209,6 @@ const QuotesSent = ({ onEditService }) => {
       alert(err.message || 'PDF indirilirken bir hata oluştu');
     } finally {
       setDownloadingOfferId(null);
-    }
-  };
-
-  const getStatusClass = (status) => {
-    switch (status) {
-      case 'ONAY BEKLİYOR':
-        return 'status-sent';
-      case 'ONAYLANDI':
-        return 'status-sold'; // Green badge for approved
-      case 'KAPALI':
-        return 'status-closed'; // Red badge for closed
-      case 'Taslak':
-        return 'status-draft';
-      case 'Onaylandı':
-        return 'status-approved';
-      case 'Satıldı':
-        return 'status-sold';
-      default:
-        return 'status-default';
     }
   };
 
@@ -354,7 +322,7 @@ const QuotesSent = ({ onEditService }) => {
                       <td>{service.clientCompanyName || '-'}</td>
                       <td>{service.senderUserName || '-'}</td>
                       <td>{service.createdDate}</td>
-                      <td><span className={`status-badge ${getStatusClass(service.status)}`}>{service.status}</span></td>
+                      <td><span className={`status-badge ${getOfferStatusBadgeClass(service.offerStatus)}`}>{getOfferStatusLabel(service.offerStatus)}</span></td>
                       <td>
                         <button className="operation-btn info-btn-enhanced" onClick={(e) => { e.stopPropagation(); handleInfoClick(service); }}><AiOutlineInfoCircle /></button>
                         <button className="operation-btn submit-btn-enhanced" onClick={(e) => { e.stopPropagation(); handleEditClick(service); }}><FaPaperPlane /></button>
@@ -375,8 +343,8 @@ const QuotesSent = ({ onEditService }) => {
             >
               <div className="card-header">
                 <h3 className="machine-name">{service.projectCode}</h3>
-                <div className={`status-badge ${getStatusClass(service.status)}`}>
-                  {service.status}
+                <div className={`status-badge ${getOfferStatusBadgeClass(service.offerStatus)}`}>
+                  {getOfferStatusLabel(service.offerStatus)}
                 </div>
               </div>
 

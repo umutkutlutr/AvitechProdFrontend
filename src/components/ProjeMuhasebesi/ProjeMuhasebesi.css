@@ -299,6 +299,13 @@
 .status-completed { background: #e0e7ff; color: #3730a3; }
 .status-cancelled { background: #fee2e2; color: #991b1b; }
 
+/* API project status + shared badge modifiers (see projectStatusUi.js) */
+.project-status-badge.status-sent { background: #1f2937; color: #fff; }
+.project-status-badge.status-approved { background: #1f2937; color: #fff; }
+.project-status-badge.status-sold { background: #28a745; color: #fff; }
+.project-status-badge.status-closed { background: #dc3545; color: #fff; }
+.project-status-badge.status-default { background: #f8f9fa; color: #6c757d; }
+
 .project-card-body {
   margin-bottom: 10px;
 }

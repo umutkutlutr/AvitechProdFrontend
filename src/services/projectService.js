@@ -1,5 +1,10 @@
 import authService from './authService';
-import { fetchWithAuth, handleApiResponse, extractFilenameFromResponse } from '../utils/apiUtils';
+import {
+  fetchWithAuth,
+  handleApiResponse,
+  extractFilenameFromResponse,
+  handleProjectMultipartAuthResponse,
+} from '../utils/apiUtils';
 
 import API_BASE_URL from '../config';
 
@@ -86,64 +91,17 @@ class ProjectService {
       console.log('Status Text:', response.statusText);
       console.log('Headers:', Object.fromEntries(response.headers.entries()));
 
-      // Check for authentication errors first (401)
-      if (response.status === 401) {
-        console.warn('Authentication expired - clearing auth data and redirecting to login');
-        authService.logout();
-        alert('Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.');
-        window.location.href = '/login';
-        throw new Error('Oturum süresi doldu. Lütfen tekrar giriş yapın.');
-      }
+      await handleProjectMultipartAuthResponse(response);
 
-      // Check for 403 Forbidden - use the same detailed algorithm from apiUtils.js
-      if (response.status === 403) {
-        const errorData = await response.json();
-        const errorMessage = errorData.message || '';
-
-        console.log('403 Error received:', errorMessage);
-
-        // Check if this is specifically a PERMISSION error
-        const isPermissionError =
-          errorMessage.toLowerCase().includes('permission') ||
-          errorMessage.toLowerCase().includes('access denied') ||
-          errorMessage.toLowerCase().includes('yetkisiz') ||
-          errorMessage.toLowerCase().includes('yetki') ||
-          errorMessage.toLowerCase().includes('izin') ||
-          errorMessage.toLowerCase().includes('forbidden');
-
-        if (isPermissionError) {
-          // This is a permission error, not token expiration
-          console.log('Permission error detected - not logging out');
-          const error = new Error(errorMessage || 'Bu işlemi gerçekleştirmek için yetkiniz yok.');
-          error.response = {
-            status: response.status,
-            statusText: response.statusText,
-            data: errorData
-          };
-          throw error;
-        } else {
-          // Token is expired - logout and redirect
-          console.warn('403 without permission keywords - assuming token expired');
-          authService.logout();
-          alert('Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.');
-          window.location.href = '/login';
-          throw new Error('Oturum süresi doldu. Lütfen tekrar giriş yapın.');
-        }
-      }
-
-      // Check if response is not OK (other errors like 400, 500, etc.)
       if (!response.ok) {
         const errorData = await response.json();
         console.log('Error Response Data:', errorData);
-
-        // Create a custom error with the full error data (including validationErrors)
         const error = new Error(errorData.message || 'Request failed');
         error.response = {
           status: response.status,
           statusText: response.statusText,
-          data: errorData
+          data: errorData,
         };
-
         throw error;
       }
 
@@ -214,64 +172,17 @@ class ProjectService {
       console.log('Status Text:', response.statusText);
       console.log('Headers:', Object.fromEntries(response.headers.entries()));
 
-      // Check for authentication errors first (401)
-      if (response.status === 401) {
-        console.warn('Authentication expired - clearing auth data and redirecting to login');
-        authService.logout();
-        alert('Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.');
-        window.location.href = '/login';
-        throw new Error('Oturum süresi doldu. Lütfen tekrar giriş yapın.');
-      }
+      await handleProjectMultipartAuthResponse(response);
 
-      // Check for 403 Forbidden - use the same detailed algorithm from apiUtils.js
-      if (response.status === 403) {
-        const errorData = await response.json();
-        const errorMessage = errorData.message || '';
-
-        console.log('403 Error received:', errorMessage);
-
-        // Check if this is specifically a PERMISSION error
-        const isPermissionError =
-          errorMessage.toLowerCase().includes('permission') ||
-          errorMessage.toLowerCase().includes('access denied') ||
-          errorMessage.toLowerCase().includes('yetkisiz') ||
-          errorMessage.toLowerCase().includes('yetki') ||
-          errorMessage.toLowerCase().includes('izin') ||
-          errorMessage.toLowerCase().includes('forbidden');
-
-        if (isPermissionError) {
-          // This is a permission error, not token expiration
-          console.log('Permission error detected - not logging out');
-          const error = new Error(errorMessage || 'Bu işlemi gerçekleştirmek için yetkiniz yok.');
-          error.response = {
-            status: response.status,
-            statusText: response.statusText,
-            data: errorData
-          };
-          throw error;
-        } else {
-          // Token is expired - logout and redirect
-          console.warn('403 without permission keywords - assuming token expired');
-          authService.logout();
-          alert('Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.');
-          window.location.href = '/login';
-          throw new Error('Oturum süresi doldu. Lütfen tekrar giriş yapın.');
-        }
-      }
-
-      // Check if response is not OK (other errors like 400, 500, etc.)
       if (!response.ok) {
         const errorData = await response.json();
         console.log('Error Response Data:', errorData);
-
-        // Create a custom error with the full error data (including validationErrors)
         const error = new Error(errorData.message || 'Request failed');
         error.response = {
           status: response.status,
           statusText: response.statusText,
-          data: errorData
+          data: errorData,
         };
-
         throw error;
       }
 
@@ -539,37 +450,18 @@ class ProjectService {
     }
   }
 
-  // Utility function to get the next AVEMAK project code with duplicate prevention
+  /**
+   * Next AVEMAK-* display hint from API project list only (single source of truth; no localStorage).
+   */
   async getNextAvemakProjectCodeSafe() {
     try {
-      console.log('=== SAFE AVEMAK PROJECT CODE GENERATION ===');
-
-      // Get projects from both API and localStorage
       let apiProjects = [];
-      let localStorageProjects = [];
-
       try {
         apiProjects = await this.getProjects();
-        console.log('API projects for safe numbering:', apiProjects);
       } catch (apiError) {
         console.warn('Could not fetch projects from API for safe numbering:', apiError);
       }
-
-      // Check localStorage as well
-      const existingServices = JSON.parse(localStorage.getItem('serviceReceipts') || '[]');
-      console.log('LocalStorage projects for safe numbering:', existingServices);
-      localStorageProjects = existingServices;
-
-      // Combine both sources
-      const allProjects = [...apiProjects, ...localStorageProjects];
-      console.log('All projects for safe numbering:', allProjects);
-
-      // Get the next code
-      const nextCode = this.getNextAvemakProjectCode(allProjects);
-      console.log('Safe next AVEMAK code:', nextCode);
-      console.log('==========================================');
-
-      return nextCode;
+      return this.getNextAvemakProjectCode(apiProjects);
     } catch (error) {
       console.error('Error in safe AVEMAK project code generation:', error);
       return 'AVEMAK-001';
