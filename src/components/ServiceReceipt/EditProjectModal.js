@@ -793,6 +793,9 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
     return validateAndCleanData(apiData);
   };
 
+  const isPersistedPhotoUrl = (url) =>
+    typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'));
+
   const handleSave = async () => {
     if (isSaving) return; // Prevent multiple submissions
 
@@ -811,13 +814,13 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
       const seen = new Set();
       customerPhotoOrder.slice(0, 10).forEach(item => {
         const url = photoById[item.photoId];
-        if (url && !seen.has(url)) {
+        if (url && isPersistedPhotoUrl(url) && !seen.has(url)) {
           orderedUrls.push(url);
           seen.add(url);
         }
       });
       formData.photos.forEach(photo => {
-        if (photo.existing && photo.url && !seen.has(photo.url)) {
+        if (photo.existing && photo.url && isPersistedPhotoUrl(photo.url) && !seen.has(photo.url)) {
           orderedUrls.push(photo.url);
           seen.add(photo.url);
         }
@@ -826,8 +829,14 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
         ? orderedUrls
         : originalExistingPhotoUrls;
 
-      // Filter photos to only include new ones (those with file property)
-      const newPhotos = formData.photos.filter(photo => photo.file);
+      const newFileKeys = new Set();
+      const newPhotos = formData.photos.filter(photo => {
+        if (!photo.file) return false;
+        const k = `${photo.file.name}-${photo.file.size}-${photo.file.lastModified}`;
+        if (newFileKeys.has(k)) return false;
+        newFileKeys.add(k);
+        return true;
+      });
 
       // Log the data being sent to API
       console.log('=== API UPDATE REQUEST DATA ===');
@@ -1062,7 +1071,7 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Makine Tipi</label>
+                    <label>Ticari Tanımı</label>
                     <AutocompleteInput
                       value={formData.machineType}
                       onChange={(e) => handleInputChange('machineType', e.target.value)}
@@ -1289,38 +1298,38 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
                       </span>
                     </div>
                   </div>
-                  <div className="form-group">
-                    <label>El Çarkı</label>
-                    <div className="radio-group-vertical">
-                      <label className="radio-option">
-                        <input
-                          type="radio"
-                          name="elCarki"
-                          value="Var"
-                          checked={formData.elCarki === 'Var'}
-                          onChange={(e) => handleInputChange('elCarki', e.target.value)}
-                        />
-                        <span className="radio-dot"></span>
-                        Var
-                      </label>
-                      <label className="radio-option">
-                        <input
-                          type="radio"
-                          name="elCarki"
-                          value="Yok"
-                          checked={formData.elCarki === 'Yok'}
-                          onChange={(e) => handleInputChange('elCarki', e.target.value)}
-                        />
-                        <span className="radio-dot"></span>
-                        Yok
-                      </label>
-                    </div>
-                  </div>
                 </div>
 
                 {/* Measurement Probes Section */}
                 <div className="measurement-section">
                   <div className="measurement-row">
+                    <div className={`measurement-group ${!formData.elCarki ? 'required-empty' : ''}`}>
+                      <span className="measurement-label">El Çarkı</span>
+                      <div className="radio-group-vertical">
+                        <label className="radio-option">
+                          <input
+                            type="radio"
+                            name="elCarki"
+                            value="Var"
+                            checked={formData.elCarki === 'Var'}
+                            onChange={(e) => handleInputChange('elCarki', e.target.value)}
+                          />
+                          <span className="radio-dot"></span>
+                          Var
+                        </label>
+                        <label className="radio-option">
+                          <input
+                            type="radio"
+                            name="elCarki"
+                            value="Yok"
+                            checked={formData.elCarki === 'Yok'}
+                            onChange={(e) => handleInputChange('elCarki', e.target.value)}
+                          />
+                          <span className="radio-dot"></span>
+                          Yok
+                        </label>
+                      </div>
+                    </div>
                     <div className="measurement-group">
                       <span className="measurement-label">Takım Ölçme Probu</span>
                       <div className="radio-group-vertical">

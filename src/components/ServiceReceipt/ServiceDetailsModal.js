@@ -493,7 +493,7 @@ const ServiceDetailsModal = ({ service, onClose, isCompletedProject = false }) =
                   </div>
 
                   <div className="spec-row">
-                    <span className="spec-label">Makine Tipi:</span>
+                    <span className="spec-label">Ticari Tanımı:</span>
                     <span className="spec-value">{projectDetails.type || '-'}</span>
                   </div>
 

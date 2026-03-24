@@ -141,19 +141,33 @@ const SendOfferModal = ({ service, onClose }) => {
   // Initialize machine fields from service (PDF layout)
   useEffect(() => {
     if (service) {
+      const formatConditionForOffer = (display) => {
+        const t = (display || '').trim();
+        if (!t) return '2. El kullanılmıştır';
+        if (/kullanılmıştır/i.test(t)) return t;
+        const isSecondHand =
+          /2\.?\s*el/i.test(t) ||
+          /^(USED|VERY_GOOD|GOOD|POOR)$/i.test(t);
+        if (isSecondHand) {
+          const base = /^(USED|VERY_GOOD|GOOD|POOR)$/i.test(t) ? '2. El' : t.replace(/\s+$/u, '');
+          return `${base} kullanılmıştır`;
+        }
+        return t;
+      };
       const make = service.make || service.machineMake || service.brand || '';
       const model = service.model || service.machineModel || '';
       const machineModel = [make, model].filter(Boolean).join(' / ') || service.machineName || service.title || '';
       const machineType = service.type || 'CNC machining centre';
       const year = service.year ?? service.machineYear ?? null;
       const cond = service.condition;
-      const conditionDisplay = typeof cond === 'string' ? cond : (cond?.displayName || cond);
+      let conditionDisplay = typeof cond === 'string' ? cond : (cond?.displayName ?? cond?.name ?? cond);
+      if (conditionDisplay != null) conditionDisplay = String(conditionDisplay).trim();
       setMachineFields({
         machineModel: machineModel || '',
         machineType: machineType || '',
         manufacturingYear: year != null ? String(year) : '',
         stockNumber: service.id ? String(service.id) : '',
-        condition: conditionDisplay || '2. El'
+        condition: formatConditionForOffer(conditionDisplay || '2. El')
       });
     }
   }, [service]);
@@ -1094,7 +1108,7 @@ const SendOfferModal = ({ service, onClose }) => {
                       <td>
                         <div className="desc-main-title">{machineFields.machineModel || '-'}</div>
                         <div className="desc-sub">
-                          Tip: <span className="desc-value">{machineFields.machineType || '-'}</span>
+                          Ticari Tanımı: <span className="desc-value">{machineFields.machineType || '-'}</span>
                           <br />
                           Model: <span className="desc-value">{machineFields.machineModel || '-'}</span>
                           <br />

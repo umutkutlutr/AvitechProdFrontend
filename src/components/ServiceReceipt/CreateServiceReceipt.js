@@ -1296,7 +1296,7 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
 
         <div className="form-row three-col">
           <div className="form-group">
-            <label>Makine Tipi</label>
+            <label>Ticari Tanımı</label>
             <AutocompleteInput
               value={formData.machineType}
               onChange={(e) => handleInputChange('machineType', e.target.value)}

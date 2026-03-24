@@ -4,16 +4,24 @@ import proformaService from '../../services/proformaService';
 import bankService from '../../services/bankService';
 import './CreateProformaModal.css';
 
+const GTIP_FIVE_AXIS = '8457.10.90.00.12';
+const GTIP_THREE_AXIS = '8457.10.90.00.11';
+
+const DEFAULT_EXTRA_NOTES = [
+  'Çalışması için zorunlu olanlar dışında aksam ve aksesuar bulunmamaktadır.',
+  'TRT BANDROL ÜCRETİNE TABİ CİHAZ YOKTUR.',
+];
+
 const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
   const [price, setPrice] = useState('');
-  const [gtipCode, setGtipCode] = useState('');
+  const [gtipCode, setGtipCode] = useState(GTIP_FIVE_AXIS);
   const [gtipOption, setGtipOption] = useState('eu');
   const [terms, setTerms] = useState({
     deliveryTerms: 'EXW',
-    paymentTerms: 'Proforma fatura tarihinden itibaren 30 gün',
-    deliveryDate: 'Ödeme sonrası 4-6 hafta',
+    paymentTerms: 'Antrepo devir öncesi peşin ödeme.',
+    deliveryDate: 'Ödeme onayına istinaden.',
   });
-  const [extraNotes, setExtraNotes] = useState([]);
+  const [extraNotes, setExtraNotes] = useState(() => [...DEFAULT_EXTRA_NOTES]);
   const [newNoteInput, setNewNoteInput] = useState('');
 
   const [includeBankProforma, setIncludeBankProforma] = useState(false);
@@ -22,16 +30,13 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
   const [showNewBankForm, setShowNewBankForm] = useState(false);
   const [newBank, setNewBank] = useState({ companyName: '', address: '', taxOffice: '', taxNumber: '' });
   const [saveNewBank, setSaveNewBank] = useState(true);
+  const [vatIncluded, setVatIncluded] = useState(false);
 
   const [isSending, setIsSending] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successInfo, setSuccessInfo] = useState(null);
   const [error, setError] = useState('');
-
-  const GTIP_ROOT = '8457.10.';
-  const GTIP_EU_SUFFIX = '10';
-  const GTIP_OTHER_SUFFIX = '90';
 
   useEffect(() => {
     if (offer?.price != null) {
@@ -42,8 +47,28 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
   }, [offer]);
 
   useEffect(() => {
-    if (gtipOption !== 'custom') {
-      setGtipCode(GTIP_ROOT + (gtipOption === 'eu' ? GTIP_EU_SUFFIX : GTIP_OTHER_SUFFIX));
+    if (!offer?.id) return;
+    setGtipOption('eu');
+    setGtipCode(GTIP_FIVE_AXIS);
+    setTerms({
+      deliveryTerms: 'EXW',
+      paymentTerms: 'Antrepo devir öncesi peşin ödeme.',
+      deliveryDate: 'Ödeme onayına istinaden.',
+    });
+    setExtraNotes([...DEFAULT_EXTRA_NOTES]);
+    setIncludeBankProforma(false);
+    setVatIncluded(false);
+    setSelectedBankId('');
+    setShowNewBankForm(false);
+    setNewBank({ companyName: '', address: '', taxOffice: '', taxNumber: '' });
+    setError('');
+  }, [offer?.id]);
+
+  useEffect(() => {
+    if (gtipOption === 'eu') {
+      setGtipCode(GTIP_FIVE_AXIS);
+    } else if (gtipOption === 'other') {
+      setGtipCode(GTIP_THREE_AXIS);
     }
   }, [gtipOption]);
 
@@ -121,6 +146,7 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
         gtipCode: gtipCode,
         terms: buildTermsString(),
         extraNotes: extraNotes.length > 0 ? extraNotes.join('\n') : null,
+        vatIncluded,
       };
 
       if (includeBankProforma) {
@@ -196,11 +222,11 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
             <div className="gtip-radio-group">
               <label>
                 <input type="radio" name="gtip" value="eu" checked={gtipOption === 'eu'} onChange={() => setGtipOption('eu')} />
-                AB Ülkeleri ({GTIP_ROOT}{GTIP_EU_SUFFIX})
+                5 eksen ({GTIP_FIVE_AXIS})
               </label>
               <label>
                 <input type="radio" name="gtip" value="other" checked={gtipOption === 'other'} onChange={() => setGtipOption('other')} />
-                Diğer ({GTIP_ROOT}{GTIP_OTHER_SUFFIX})
+                3 eksen ({GTIP_THREE_AXIS})
               </label>
               <label>
                 <input type="radio" name="gtip" value="custom" checked={gtipOption === 'custom'} onChange={() => setGtipOption('custom')} />
@@ -212,8 +238,8 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
                 type="text"
                 value={gtipCode}
                 onChange={(e) => setGtipCode(e.target.value)}
-                placeholder="Örn: 8457.10.10"
-                style={{ marginTop: '8px', padding: '8px 12px', width: '100%', maxWidth: '200px' }}
+                placeholder="Örn: 8457.10.90.00.11"
+                style={{ marginTop: '8px', padding: '8px 12px', width: '100%', maxWidth: '280px' }}
               />
             )}
           </div>
@@ -235,11 +261,11 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
             </div>
           </div>
 
-          {/* Ek Notlar - 3 şart sonrası madde madde */}
+          {/* Ek Notlar */}
           <div className="proforma-section">
             <h3>Ek Notlar</h3>
             <p className="proforma-hint" style={{ fontSize: '12px', color: '#666', marginBottom: '10px' }}>
-              TRT ve çalışması harici ek parça yoktu notlarından sonra eklemek istediğiniz maddeleri aşağıya ekleyin.
+              Varsayılan iki madde aşağıdadır; istemezseniz çöp kutusu ile kaldırabilirsiniz. İsterseniz yeni madde ekleyin.
             </p>
             <div className="extra-notes-list">
               {extraNotes.map((note, idx) => (
@@ -277,6 +303,17 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
                 />
                 <span className="switch-slider"></span>
                 <span className="switch-text">Banka proforması da oluştur</span>
+              </label>
+            </div>
+            <div className="bank-proforma-switch-row" style={{ marginTop: '10px' }}>
+              <label className="switch-label">
+                <input
+                  type="checkbox"
+                  checked={vatIncluded}
+                  onChange={(e) => setVatIncluded(e.target.checked)}
+                />
+                <span className="switch-slider"></span>
+                <span className="switch-text">KDV dahil (%20 satırı ve toplam)</span>
               </label>
             </div>
             {includeBankProforma && (

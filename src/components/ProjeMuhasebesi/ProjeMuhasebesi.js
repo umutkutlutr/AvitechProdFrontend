@@ -56,6 +56,57 @@ function parseFormRate(v) {
   return isNaN(f) ? null : f;
 }
 
+function formatMoneyTrLocalized(n) {
+  if (typeof n !== 'number' || isNaN(n)) return '';
+  return n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/**
+ * Yeşil önizleme: EUR/USD tutarı → ₺ karşılığı (amountTry); TRY tutarı → € karşılığı (kur: 1 EUR = rate TRY).
+ * Gösterimde her zaman formdaki kur alanı kullanılır.
+ */
+function CurrencyEquivalentHint({ currency, amountStr, amountTryStr, rateStr }) {
+  const amt = parseFormMoney(amountStr);
+  const tryAm = parseFormMoney(amountTryStr);
+  const r = parseFormRate(rateStr);
+
+  if (currency === 'TRY') {
+    if (amt != null && r != null && r > 0) {
+      const eur = amt / r;
+      return (
+        <div className="try-equivalent currency-equivalent-hint">
+          ≃ <strong>€{formatMoneyTrLocalized(eur)}</strong>
+        </div>
+      );
+    }
+    return null;
+  }
+
+  if (currency === 'EUR' || currency === 'USD') {
+    if (tryAm != null && r != null && r > 0) {
+      return (
+        <div className="try-equivalent currency-equivalent-hint">
+          ≃ <strong>₺{formatMoneyTrLocalized(tryAm)}</strong>
+        </div>
+      );
+    }
+  }
+  return null;
+}
+
+/** Sabit EUR alanları (öz kaynak / kredi): Makine alım kuruna göre ₺ önizlemesi */
+function EurToTryHint({ eurAmountStr, tryPerEurRateStr, label }) {
+  const eur = parseFloat(String(eurAmountStr ?? '').replace(',', '.'));
+  const r = parseFormRate(tryPerEurRateStr);
+  if (isNaN(eur) || eur === 0 || r == null || r <= 0) return null;
+  return (
+    <div className="try-equivalent currency-equivalent-hint" style={{ marginTop: '6px' }}>
+      ≃ <strong>₺{formatMoneyTrLocalized(eur * r)}</strong>
+      {label ? <span style={{ marginLeft: '6px', fontSize: '11px', color: '#047857', opacity: 0.9 }}>{label}</span> : null}
+    </div>
+  );
+}
+
 const SECTION_LABELS = {
   machinePurchase: '1a. Makine Alım Maliyeti',
   machineVisit: '1b. Makine Ziyareti',
@@ -509,6 +560,14 @@ const CurrencyInput = ({ label, amountField, currencyField, rateField, tryField,
           />
           <span className="field-label-small">TRY</span>
         </div>
+        {tryField ? (
+          <CurrencyEquivalentHint
+            currency={currency}
+            amountStr={amountForCalc}
+            amountTryStr={form[section][tryField]}
+            rateStr={rate}
+          />
+        ) : null}
       </div>
     </div>
   );
@@ -571,7 +630,7 @@ const FileUploadField = ({ label, fieldKey, section, currentKey, projectId, onUp
   );
 };
 
-const AdditionalCostRow = ({ item, index, section, projectId, onChange, onRemove, onUploaded, onError, rates }) => {
+const AdditionalCostRow = ({ item, index, section, projectId, onChange, onPatch, onRemove, onUploaded, onError, rates }) => {
   const [amountDraft, setAmountDraft] = useState(null);
   const amountDisplay = amountDraft !== null ? amountDraft : formatNumberForInput(item.amount);
   const amountForCalc = amountDraft !== null ? amountDraft : item.amount;
@@ -586,20 +645,56 @@ const AdditionalCostRow = ({ item, index, section, projectId, onChange, onRemove
   };
 
   const handleCurrencyChange = (val) => {
+    const num = parseAmountNumeric(amountForCalc);
+    const oldCurrency = item.currency;
+    const oldRate = parseFormRate(item.exchangeRate);
+    const oldR = oldRate != null && oldRate > 0 ? oldRate : 1;
+
+    if (onPatch) {
+      if (val === 'TRY') {
+        const eurRateRaw = rates?.EUR ?? item.exchangeRate;
+        const er = parseFormRate(eurRateRaw) || 1;
+        const patch = { currency: val, exchangeRate: er.toFixed(4) };
+        if (!isNaN(num)) {
+          const tryTotal = oldCurrency === 'TRY' ? num : num * oldR;
+          patch.amount = tryTotal.toFixed(2);
+          patch.amountTry = tryTotal.toFixed(2);
+        }
+        onPatch(section, index, patch);
+        return;
+      }
+      const newRateRaw = rates?.[val] ?? item.exchangeRate;
+      const r = parseFormRate(newRateRaw) || 1;
+      const patch = { currency: val, exchangeRate: r.toFixed(4) };
+      if (!isNaN(num) && r > 0) {
+        const tryTotal = oldCurrency === 'TRY' ? num : num * oldR;
+        patch.amount = (tryTotal / r).toFixed(2);
+        patch.amountTry = tryTotal.toFixed(2);
+      }
+      onPatch(section, index, patch);
+      return;
+    }
+
     onChange(section, index, 'currency', val);
     if (rates && val !== 'TRY') {
       const newRate = rates[val] || '';
       if (newRate) {
         onChange(section, index, 'exchangeRate', parseFloat(newRate).toFixed(4));
         const numVal = parseFormattedNumber(amountForCalc);
-        const num = typeof numVal === 'number' ? numVal : parseFloat(String(numVal).replace(',', '.'));
-        if (!isNaN(num)) {
-          onChange(section, index, 'amountTry', (num * newRate).toFixed(2));
+        const n = typeof numVal === 'number' ? numVal : parseFloat(String(numVal).replace(',', '.'));
+        if (!isNaN(n)) {
+          onChange(section, index, 'amountTry', (n * newRate).toFixed(2));
         }
       }
     } else if (val === 'TRY') {
-      onChange(section, index, 'exchangeRate', '1');
-      onChange(section, index, 'amountTry', amountForCalc);
+      const er = parseFormRate(rates?.EUR) || 1;
+      onChange(section, index, 'exchangeRate', er.toFixed(4));
+      const n = parseAmountNumeric(amountForCalc);
+      if (!isNaN(n)) {
+        const tryTotal = oldCurrency === 'TRY' ? n : n * oldR;
+        onChange(section, index, 'amount', tryTotal.toFixed(2));
+        onChange(section, index, 'amountTry', tryTotal.toFixed(2));
+      }
     }
   };
 
@@ -613,8 +708,12 @@ const AdditionalCostRow = ({ item, index, section, projectId, onChange, onRemove
       onChange(section, index, 'amountTry', '');
       return;
     }
-    if (!isNaN(num) && !isNaN(numRate)) {
-      onChange(section, index, 'amountTry', (num * numRate).toFixed(2));
+    if (!isNaN(num)) {
+      if (item.currency === 'TRY') {
+        onChange(section, index, 'amountTry', num.toFixed(2));
+      } else if (!isNaN(numRate)) {
+        onChange(section, index, 'amountTry', (num * numRate).toFixed(2));
+      }
     }
   };
 
@@ -633,8 +732,12 @@ const AdditionalCostRow = ({ item, index, section, projectId, onChange, onRemove
     onChange(section, index, 'exchangeRate', val);
     const num = parseAmountNumeric(amountForCalc);
     const numRate = parseFormRate(val) ?? NaN;
-    if (!isNaN(num) && !isNaN(numRate)) {
-      onChange(section, index, 'amountTry', (num * numRate).toFixed(2));
+    if (!isNaN(num)) {
+      if (item.currency === 'TRY') {
+        onChange(section, index, 'amountTry', num.toFixed(2));
+      } else if (!isNaN(numRate)) {
+        onChange(section, index, 'amountTry', (num * numRate).toFixed(2));
+      }
     }
   };
 
@@ -669,27 +772,26 @@ const AdditionalCostRow = ({ item, index, section, projectId, onChange, onRemove
           <AiOutlineDelete />
         </button>
       </div>
-      {item.currency !== 'TRY' && (
-        <div className="exchange-row additional-cost-exchange">
-          <div className="exchange-rate-group">
-            <label className="field-label-small">1 {item.currency} = </label>
-            <input
-              type="text"
-              inputMode="decimal"
-              className="input-field rate-field"
-              placeholder="Kur"
-              value={item.exchangeRate ?? ''}
-              onChange={(e) => handleRateChange(e.target.value)}
-            />
-            <span className="field-label-small">TRY</span>
-          </div>
-          {item.amountTry && item.exchangeRate && parseFloat(item.exchangeRate) > 0 && (
-            <div className="try-equivalent">
-              ≈ <strong>€{(parseFloat(item.amountTry) / parseFloat(item.exchangeRate)).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
-            </div>
-          )}
+      <div className="exchange-row additional-cost-exchange">
+        <div className="exchange-rate-group">
+          <label className="field-label-small">1 {item.currency === 'TRY' ? 'EUR' : item.currency} = </label>
+          <input
+            type="text"
+            inputMode="decimal"
+            className="input-field rate-field"
+            placeholder="Kur"
+            value={item.exchangeRate ?? ''}
+            onChange={(e) => handleRateChange(e.target.value)}
+          />
+          <span className="field-label-small">TRY</span>
         </div>
-      )}
+        <CurrencyEquivalentHint
+          currency={item.currency}
+          amountStr={amountForCalc}
+          amountTryStr={item.amountTry}
+          rateStr={item.exchangeRate}
+        />
+      </div>
       <div className="additional-cost-upload-row">
         <FileUploadField label="Fatura" fieldKey="invoiceKey" section={section} currentKey={item.invoiceKey || ''} projectId={projectId} onUploaded={(sec, field, key) => onChange(section, index, 'invoiceKey', key)} onRemoved={() => onChange(section, index, 'invoiceKey', '')} onError={onError} />
       </div>
@@ -738,9 +840,9 @@ const ProjeMuhasebesi = () => {
   // Determine if the current form is editable
   const isEditable = () => {
     if (!canEdit()) return false;
-    // Lock editing if project has status OFFER_SENT or SOLD
+    // Lock editing only when project is sold (completed sale)
     const projectStatus = selectedProject?.status;
-    if (projectStatus === 'OFFER_SENT' || projectStatus === 'SOLD') return false;
+    if (projectStatus === 'SOLD') return false;
     // If draft is completed, only admin can edit (with override)
     if (draft?.draftStatus === 'COMPLETED') {
       return isAdmin() && adminEditMode;
@@ -965,6 +1067,15 @@ const ProjeMuhasebesi = () => {
     setForm(prev => {
       const items = [...(prev[section].additionalCosts || [])];
       items[index] = { ...items[index], [field]: value };
+      return { ...prev, [section]: { ...prev[section], additionalCosts: items } };
+    });
+  };
+
+  const patchAdditionalCost = (section, index, patch) => {
+    setForm(prev => {
+      const items = [...(prev[section].additionalCosts || [])];
+      if (!items[index]) return prev;
+      items[index] = { ...items[index], ...patch };
       return { ...prev, [section]: { ...prev[section], additionalCosts: items } };
     });
   };
@@ -1643,10 +1754,12 @@ const ProjeMuhasebesi = () => {
               <div className="form-field">
                 <label className="field-label">Öz Kaynak Tutarı (EUR)</label>
                 <input type="number" className="input-field full-width" placeholder="0.00" value={f.equityAmount} onChange={(e) => handleChange(s, 'equityAmount', e.target.value)} step="0.01" min="0" />
+                <EurToTryHint eurAmountStr={f.equityAmount} tryPerEurRateStr={f.purchaseExchangeRate} label="(Makine alım kuru)" />
               </div>
               <div className="form-field">
                 <label className="field-label">Kredi Tutarı (EUR)</label>
                 <input type="number" className="input-field full-width" placeholder="0.00" value={f.creditAmount} onChange={(e) => handleChange(s, 'creditAmount', e.target.value)} step="0.01" min="0" />
+                <EurToTryHint eurAmountStr={f.creditAmount} tryPerEurRateStr={f.purchaseExchangeRate} label="(Makine alım kuru)" />
               </div>
             </div>
 
@@ -1659,6 +1772,11 @@ const ProjeMuhasebesi = () => {
                 <label className="field-label">Kontrol Toplamı</label>
                 <div style={{ padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '13px', color: '#334155' }}>
                   {(parseFloat(f.equityAmount || 0) + parseFloat(f.creditAmount || 0)).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR
+                  <EurToTryHint
+                    eurAmountStr={String(parseFloat(f.equityAmount || 0) + parseFloat(f.creditAmount || 0))}
+                    tryPerEurRateStr={f.purchaseExchangeRate}
+                    label="(Makine alım kuru)"
+                  />
                 </div>
               </div>
             </div>
@@ -1668,7 +1786,7 @@ const ProjeMuhasebesi = () => {
               <FileUploadField label="Dış Komisyon Faturası" fieldKey="externalCommissionInvoiceKey" section={s} currentKey={f.externalCommissionInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
             </div>
 
-            <AdditionalCosts section={s} items={f.additionalCosts} projectId={selectedProject?.id} onAdd={addAdditionalCost} onChange={updateAdditionalCost} onRemove={removeAdditionalCost} onUploaded={handleDocUploaded} onError={handleUploadError} rates={rates} />
+            <AdditionalCosts section={s} items={f.additionalCosts} projectId={selectedProject?.id} onAdd={addAdditionalCost} onChange={updateAdditionalCost} onPatch={patchAdditionalCost} onRemove={removeAdditionalCost} onUploaded={handleDocUploaded} onError={handleUploadError} rates={rates} />
             {isEditable() && (
               <div className="section-save-actions">
                 <button className="btn-save" onClick={() => saveSection(s)} disabled={saving[s] || savingAll}>
@@ -1714,7 +1832,7 @@ const ProjeMuhasebesi = () => {
                 </div>
               </>
             )}
-            <AdditionalCosts section={s} items={f.additionalCosts} projectId={selectedProject?.id} onAdd={addAdditionalCost} onChange={updateAdditionalCost} onRemove={removeAdditionalCost} onUploaded={handleDocUploaded} onError={handleUploadError} rates={rates} />
+            <AdditionalCosts section={s} items={f.additionalCosts} projectId={selectedProject?.id} onAdd={addAdditionalCost} onChange={updateAdditionalCost} onPatch={patchAdditionalCost} onRemove={removeAdditionalCost} onUploaded={handleDocUploaded} onError={handleUploadError} rates={rates} />
             {isEditable() && (
               <div className="section-save-actions">
                 <button className="btn-save" onClick={() => saveSection(s)} disabled={saving[s] || savingAll}>
@@ -1782,7 +1900,7 @@ const ProjeMuhasebesi = () => {
               <FileUploadField label="Ek Lojistik Faturası" fieldKey="additionalLogisticsInvoiceKey" section={s} currentKey={f.additionalLogisticsInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
             </div>
 
-            <AdditionalCosts section={s} items={f.additionalCosts} projectId={selectedProject?.id} onAdd={addAdditionalCost} onChange={updateAdditionalCost} onRemove={removeAdditionalCost} onUploaded={handleDocUploaded} onError={handleUploadError} rates={rates} />
+            <AdditionalCosts section={s} items={f.additionalCosts} projectId={selectedProject?.id} onAdd={addAdditionalCost} onChange={updateAdditionalCost} onPatch={patchAdditionalCost} onRemove={removeAdditionalCost} onUploaded={handleDocUploaded} onError={handleUploadError} rates={rates} />
             {isEditable() && (
               <div className="section-save-actions">
                 <button className="btn-save" onClick={() => saveSection(s)} disabled={saving[s] || savingAll}>
@@ -1843,7 +1961,7 @@ const ProjeMuhasebesi = () => {
               </>
             )}
 
-            <AdditionalCosts section={s} items={f.additionalCosts} projectId={selectedProject?.id} onAdd={addAdditionalCost} onChange={updateAdditionalCost} onRemove={removeAdditionalCost} onUploaded={handleDocUploaded} onError={handleUploadError} rates={rates} />
+            <AdditionalCosts section={s} items={f.additionalCosts} projectId={selectedProject?.id} onAdd={addAdditionalCost} onChange={updateAdditionalCost} onPatch={patchAdditionalCost} onRemove={removeAdditionalCost} onUploaded={handleDocUploaded} onError={handleUploadError} rates={rates} />
             {isEditable() && (
               <div className="section-save-actions">
                 <button className="btn-save" onClick={() => saveSection(s)} disabled={saving[s] || savingAll}>
@@ -1882,7 +2000,7 @@ const ProjeMuhasebesi = () => {
               </div>
             </div>
 
-            <AdditionalCosts section={s} items={f.additionalCosts} projectId={selectedProject?.id} onAdd={addAdditionalCost} onChange={updateAdditionalCost} onRemove={removeAdditionalCost} onUploaded={handleDocUploaded} onError={handleUploadError} rates={rates} />
+            <AdditionalCosts section={s} items={f.additionalCosts} projectId={selectedProject?.id} onAdd={addAdditionalCost} onChange={updateAdditionalCost} onPatch={patchAdditionalCost} onRemove={removeAdditionalCost} onUploaded={handleDocUploaded} onError={handleUploadError} rates={rates} />
             {isEditable() && (
               <div className="section-save-actions">
                 <button className="btn-save" onClick={() => saveSection(s)} disabled={saving[s] || savingAll}>
@@ -1904,7 +2022,7 @@ const ProjeMuhasebesi = () => {
               <FileUploadField label="Kurulum Faturası" fieldKey="installationInvoiceKey" section={s} currentKey={f.installationInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
             </div>
 
-            <AdditionalCosts section={s} items={f.additionalCosts} projectId={selectedProject?.id} onAdd={addAdditionalCost} onChange={updateAdditionalCost} onRemove={removeAdditionalCost} onUploaded={handleDocUploaded} onError={handleUploadError} rates={rates} />
+            <AdditionalCosts section={s} items={f.additionalCosts} projectId={selectedProject?.id} onAdd={addAdditionalCost} onChange={updateAdditionalCost} onPatch={patchAdditionalCost} onRemove={removeAdditionalCost} onUploaded={handleDocUploaded} onError={handleUploadError} rates={rates} />
             {isEditable() && (
               <div className="section-save-actions">
                 <button className="btn-save" onClick={() => saveSection(s)} disabled={saving[s] || savingAll}>
@@ -2297,11 +2415,6 @@ const ProjeMuhasebesi = () => {
               )}
             </>
           )}
-          {selectedProject?.status === 'OFFER_SENT' && (
-            <span style={{ color: '#e53e3e', fontSize: '13px', marginLeft: '8px' }}>
-              (Teklif gönderildi — düzenleme kapalı)
-            </span>
-          )}
         </div>
       </div>
 
@@ -2346,7 +2459,7 @@ const ProjeMuhasebesi = () => {
 
 // ─── AdditionalCosts sub-component ────────────────────────────────────────────
 
-const AdditionalCosts = ({ section, items, projectId, onAdd, onChange, onRemove, onUploaded, onError, rates }) => {
+const AdditionalCosts = ({ section, items, projectId, onAdd, onChange, onPatch, onRemove, onUploaded, onError, rates }) => {
   const [expanded, setExpanded] = useState(false);
   return (
     <div className="additional-costs-block">
@@ -2364,6 +2477,7 @@ const AdditionalCosts = ({ section, items, projectId, onAdd, onChange, onRemove,
               section={section}
               projectId={projectId}
               onChange={onChange}
+              onPatch={onPatch}
               onRemove={onRemove}
               onUploaded={onUploaded}
               onError={onError}

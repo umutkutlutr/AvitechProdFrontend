@@ -97,7 +97,7 @@ const FilterPanel = ({ onFilter, onClear }) => {
     { key: 'machineName', label: 'Makine Markası', type: 'select-or-text', placeholder: 'Marka seçin veya girin', options: () => getUniqueValues('machineName'), group: 'temel' },
     { key: 'make', label: 'Marka (Make)', type: 'select-or-text', placeholder: 'Marka seçin veya girin', options: () => getUniqueValues('make'), group: 'temel' },
     { key: 'model', label: 'Makine Modeli', type: 'select-or-text', placeholder: 'Model seçin veya girin', options: () => getUniqueValues('model'), group: 'temel' },
-    { key: 'machineType', label: 'Makine Tipi', type: 'select-or-text', placeholder: 'Tip seçin veya girin', options: () => getUniqueValues('machineType'), group: 'temel' },
+    { key: 'machineType', label: 'Ticari Tanımı', type: 'select-or-text', placeholder: 'Ticari tanım seçin veya girin', options: () => getUniqueValues('machineType'), group: 'temel' },
     { key: 'condition', label: 'Kullanım Durumu', type: 'select', placeholder: 'Seçin', options: () => ['Sıfır', '2. El'], group: 'temel' },
     { key: 'yearMin', label: 'Yıl (En Düşük)', type: 'number', placeholder: 'Örn: 2018', min: '1900', max: '2030', group: 'temel' },
     { key: 'yearMax', label: 'Yıl (En Yüksek)', type: 'number', placeholder: 'Örn: 2024', min: '1900', max: '2030', group: 'temel' },
