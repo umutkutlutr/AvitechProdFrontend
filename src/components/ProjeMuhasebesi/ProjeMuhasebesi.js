@@ -1277,15 +1277,26 @@ const ProjeMuhasebesi = () => {
 
     const sections = sectionsToValidate || sectionKeys;
     sections.forEach((section) => {
-      const s = sourceForm[section];
+      const s = section === 'costSummary' ? sourceForm.generalCosts : sourceForm[section];
       if (!s) return;
       switch (section) {
         case 'machinePurchase':
           if (isBlank(s.purchasePrice)) addErr('Makine alım bedeli');
           if (isBlank(s.externalCommission)) addErr('Dış komisyon');
+          if (isBlank(s.machineCondition)) addErr('Makine durumu');
           if (isBlank(s.equityAmount)) addErr('Öz kaynak tutarı');
           if (isBlank(s.creditAmount)) addErr('Kredi tutarı');
           if (isBlank(s.creditInterestRate)) addErr('Kredi faiz oranı');
+          {
+            const purchase = parseFormMoney(s.purchasePrice) ?? 0;
+            const equity = parseFormMoney(s.equityAmount) ?? 0;
+            const credit = parseFormMoney(s.creditAmount) ?? 0;
+            const totalFunding = equity + credit;
+            if (purchase > 0 && totalFunding < purchase) {
+              const shortfall = (purchase - totalFunding).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              errs.push(`1a finansman yetersiz: Öz kaynak + kredi, makine alım bedelini karşılamıyor (eksik ${shortfall} EUR).`);
+            }
+          }
           break;
         case 'machineVisit':
           if (s.visited) {
@@ -1323,6 +1334,8 @@ const ProjeMuhasebesi = () => {
         case 'generalCosts':
           if (isBlank(s.installationCost)) addErr('Kurulum maliyeti');
           if (isBlank(s.salesPrice)) addErr('Satış fiyatı');
+          break;
+        case 'costSummary':
           if (isBlank(s.salesInvoiceKey)) addErr('Satış faturası');
           if (isBlank(s.contractKey)) addErr('Sözleşme');
           break;
@@ -1330,11 +1343,13 @@ const ProjeMuhasebesi = () => {
           break;
       }
 
-      (s.additionalCosts || []).forEach((ac, i) => {
-        if (isBlank(ac.amount)) {
-          addErr(`${SECTION_LABELS[section]} - Ek maliyet "${ac.itemName || `Kalem ${i + 1}`}"`);
-        }
-      });
+      if (section !== 'costSummary') {
+        (s.additionalCosts || []).forEach((ac, i) => {
+          if (isBlank(ac.amount)) {
+            addErr(`${SECTION_LABELS[section]} - Ek maliyet "${ac.itemName || `Kalem ${i + 1}`}"`);
+          }
+        });
+      }
     });
 
     return errs.length > 0 ? errs : null;
@@ -1680,12 +1695,17 @@ const ProjeMuhasebesi = () => {
   const sectionKeys = Object.keys(SECTION_LABELS);
   const liveBlockingErrors = useMemo(() => validateRequiredCostEntries(undefined, form) || [], [form]);
   const liveInvoiceWarnings = useMemo(() => validateInvoiceRequired(undefined, form) || [], [form]);
+  const backendOnlyBlocking = useMemo(() => {
+    const backend = validationReport?.blockingErrors || [];
+    if (!backend.length) return [];
+    const liveSet = new Set(liveBlockingErrors);
+    return backend.filter((msg) => msg && !liveSet.has(msg));
+  }, [validationReport, liveBlockingErrors]);
 
   const getSectionStatus = (sectionKey) => {
     if (!draft) return 'NOT_STARTED';
     if (sectionKey === 'costSummary') {
-      // Cost summary is "completed" if label price is set
-      return form.generalCosts.salesPrice ? 'COMPLETED' : 'NOT_STARTED';
+      return draft.sectionCostSummaryStatus || 'NOT_STARTED';
     }
     const statusMap = {
       machinePurchase: draft.sectionMachinePurchaseStatus,
@@ -2708,6 +2728,12 @@ const ProjeMuhasebesi = () => {
               <strong>Fatura Uyarısı:</strong> {liveInvoiceWarnings.length}
               {liveInvoiceWarnings.length > 0 ? ` · ${liveInvoiceWarnings.slice(0, 2).join(' · ')}` : ''}
             </div>
+              {backendOnlyBlocking.length > 0 && (
+                <div>
+                  <strong>Ek Kural:</strong> {backendOnlyBlocking.length}
+                  {` · ${backendOnlyBlocking.slice(0, 2).join(' · ')}`}
+                </div>
+              )}
           </div>
         </div>
       )}
