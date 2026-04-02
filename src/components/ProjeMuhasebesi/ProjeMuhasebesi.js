@@ -842,9 +842,6 @@ const ProjeMuhasebesi = () => {
   // Determine if the current form is editable
   const isEditable = () => {
     if (!canEdit()) return false;
-    // Lock editing only when project is sold (completed sale)
-    const projectStatus = selectedProject?.status;
-    if (projectStatus === 'SOLD') return false;
     // Completed drafts are editable only while explicit edit mode is on
     if (draft?.draftStatus === 'COMPLETED') {
       return completedEditMode;
@@ -1303,9 +1300,16 @@ const ProjeMuhasebesi = () => {
           if (isBlank(s.additionalLogisticsCost)) addErr('Ek lojistik');
           if (isBlank(s.brandingCost)) addErr('Brandalama');
           if (isBlank(s.insuranceCost)) addErr('Sigorta');
+          if (isBlank(s.ex1DocumentKey)) addErr('Ex-1 belgesi');
+          if (isBlank(s.t1t2DocumentKey)) addErr('T1/T2 belgesi');
+          if (isBlank(s.smrDocumentKey)) addErr('CMR belgesi');
+          if (isBlank(s.atrDocumentKey)) addErr('ATR belgesi');
+          if (isBlank(s.packingListDocumentKey)) addErr('Packing List');
           break;
         case 'customs':
           if (isBlank(s.entryCustomsCost)) addErr('Giriş gümrük bedeli');
+          if (isBlank(s.declarationDocumentKey)) addErr('Beyanname');
+          if (isBlank(s.countReportDocumentKey)) addErr('Sayım tutanağı');
           if (!s.warehousePaidByBuyer) {
             if (isBlank(s.warehouseUnloadingCost)) addErr('Antrepo indirme vinç maliyeti');
             if (isBlank(s.storageCost)) addErr('Ardiye');
@@ -1313,10 +1317,14 @@ const ProjeMuhasebesi = () => {
           break;
         case 'transfer':
           if (isBlank(s.transferCost)) addErr('Gümrükçü devir bedeli');
+          if (isBlank(s.transferDeclarationKey)) addErr('Devir beyannamesi');
+          if (isBlank(s.transferCountReportKey)) addErr('Devir sayım tutanağı');
           break;
         case 'generalCosts':
           if (isBlank(s.installationCost)) addErr('Kurulum maliyeti');
           if (isBlank(s.salesPrice)) addErr('Satış fiyatı');
+          if (isBlank(s.salesInvoiceKey)) addErr('Satış faturası');
+          if (isBlank(s.contractKey)) addErr('Sözleşme');
           break;
         default:
           break;
