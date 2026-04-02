@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AiOutlineClose, AiOutlineEuro } from 'react-icons/ai';
 import { FaCheck } from 'react-icons/fa';
+import { formatPhoneDisplayOrDash } from '../../utils/phoneFormat';
 import './ViewProposalsModal.css';
 
 const ViewProposalsModal = ({ service, onClose, onSell }) => {
@@ -125,7 +126,7 @@ const ViewProposalsModal = ({ service, onClose, onSell }) => {
                       <div className="contact-info">
                         <span>{proposal.contactPerson}</span>
                         <span>{proposal.email}</span>
-                        <span>{proposal.phone}</span>
+                        <span>{formatPhoneDisplayOrDash(proposal.phone)}</span>
                       </div>
                     </div>
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import clientService from '../../services/clientService';
+import { formatPhoneDisplayOrDash } from '../../utils/phoneFormat';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   AiOutlineReload,
@@ -265,7 +266,7 @@ const RegisteredCompanies = () => {
                     <AiOutlinePhone className="detail-icon" />
                     <div className="detail-content">
                       <span className="detail-label">Telefon</span>
-                      <span className="detail-value">{client.phone}</span>
+                      <span className="detail-value">{formatPhoneDisplayOrDash(client.phone)}</span>
                     </div>
                   </div>
 
@@ -274,7 +275,7 @@ const RegisteredCompanies = () => {
                       <AiOutlinePhone className="detail-icon" />
                       <div className="detail-content">
                         <span className="detail-label">İş Telefonu</span>
-                        <span className="detail-value">{client.businessPhone}</span>
+                        <span className="detail-value">{formatPhoneDisplayOrDash(client.businessPhone)}</span>
                       </div>
                     </div>
                   )}

@@ -224,7 +224,7 @@ const ClosedProjects = ({ onEditService }) => {
             {paginatedServices.map((service) => (
               <div key={service.id} className="service-card">
                 <div className="card-header">
-                  <h3 className="machine-name">{service.machineName}</h3>
+                  <h3 className="machine-name">{service.projectCode || service.machineName}</h3>
                   <div className={`status-badge ${getProjectStatusBadgeClass(service.status)}`}>
                     {getStatusLabel(service.status)}
                   </div>

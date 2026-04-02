@@ -41,20 +41,24 @@ class OfferService {
     });
   }
 
-  async previewOfferPdf(projectId, clientId, price, description, invalidTermKeys = []) {
+  async previewOfferPdf(projectId, clientId, price, description, invalidTermKeys = [], senderSignature = null) {
+    const body = {
+      projectId,
+      clientId,
+      price,
+      description,
+      invalidTermKeys,
+    };
+    if (senderSignature) {
+      body.senderSignature = senderSignature;
+    }
     const response = await fetchWithAuth(`${API_BASE_URL}/api/offers/preview-pdf`, {
       method: 'POST',
       headers: {
         ...authService.getAuthHeaders(),
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        projectId,
-        clientId,
-        price,
-        description,
-        invalidTermKeys,
-      }),
+      body: JSON.stringify(body),
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));

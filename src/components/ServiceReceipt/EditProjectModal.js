@@ -114,6 +114,15 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
   });
   const [isLoadingAutofill, setIsLoadingAutofill] = useState(false);
 
+  const getPhotoId = (photo, fallbackIndex = 0) => {
+    if (!photo) return `photo-${fallbackIndex}`;
+    if (photo.id) return photo.id;
+    if (photo.originalUrl) return photo.originalUrl;
+    if (photo.url) return photo.url;
+    if (typeof photo === 'string') return photo;
+    return `photo-${fallbackIndex}`;
+  };
+
   // Fetch autofill data from API
   useEffect(() => {
     const fetchAutofillData = async () => {
@@ -566,6 +575,17 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
       // Insert it at the target position
       newPhotos.splice(adjustedIndex, 0, draggedPhoto);
 
+      const reorderedIds = newPhotos.map((photo, idx) => getPhotoId(photo, idx));
+      setCustomerPhotoOrder((prevOrder) => {
+        if (!prevOrder || prevOrder.length === 0) {
+          return reorderedIds.slice(0, 10).map((photoId, idx) => ({ photoId, index: idx }));
+        }
+        const prevMap = new Map(prevOrder.map((item, idx) => [item.photoId, { ...item, index: idx }]));
+        return reorderedIds
+          .slice(0, 10)
+          .map((photoId, idx) => prevMap.get(photoId) || { photoId, index: idx });
+      });
+
       return {
         ...prev,
         photos: newPhotos
@@ -652,7 +672,7 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
       if (customerPhotoOrder.length === 0) {
         // Initialize customer photo order only if empty
         const newOrder = formData.photos.slice(0, 10).map((photo, idx) => {
-          const photoId = photo.id || (typeof photo === 'string' ? photo : `photo-${idx}`);
+          const photoId = getPhotoId(photo, idx);
           return {
             photoId: photoId,
             index: idx
@@ -661,21 +681,20 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
         setCustomerPhotoOrder(newOrder);
       } else {
         // Update order to remove deleted photos and add new ones if needed
-        const currentOrderIds = customerPhotoOrder.map(item => item.photoId);
-        const allPhotoIds = formData.photos.map(p => p.id || (typeof p === 'string' ? p : `photo-${formData.photos.indexOf(p)}`));
+        const allPhotoIds = formData.photos.map((p, idx) => getPhotoId(p, idx));
         const validOrder = customerPhotoOrder.filter(item => allPhotoIds.includes(item.photoId));
 
         // Add new photos if we have less than 10
         if (validOrder.length < 10) {
           const missingPhotos = formData.photos.filter(p => {
-            const photoId = p.id || (typeof p === 'string' ? p : `photo-${formData.photos.indexOf(p)}`);
+            const photoId = getPhotoId(p, formData.photos.indexOf(p));
             return !validOrder.some(item => item.photoId === photoId);
           });
 
           const newOrder = [
             ...validOrder,
             ...missingPhotos.slice(0, 10 - validOrder.length).map((photo, idx) => {
-              const photoId = photo.id || (typeof photo === 'string' ? photo : `photo-${formData.photos.indexOf(photo)}`);
+              const photoId = getPhotoId(photo, formData.photos.indexOf(photo));
               return {
                 photoId: photoId,
                 index: validOrder.length + idx
@@ -807,7 +826,7 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
       // Build photo URL list: use customerPhotoOrder for first 10 (PDF order), then rest
       const photoById = {};
       formData.photos.forEach(p => {
-        const id = p.id || (typeof p === 'string' ? p : `photo-${formData.photos.indexOf(p)}`);
+        const id = getPhotoId(p, formData.photos.indexOf(p));
         if (p.url) photoById[id] = p.url;
       });
       const orderedUrls = [];
@@ -941,7 +960,7 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
                           {formData.photos.map((photo, index) => {
                             // Handle both existing photos (with url property) and new photos
                             const photoUrl = photo.url || photo;
-                            const photoId = photo.id || `photo-${index}`;
+                            const photoId = getPhotoId(photo, index);
                             return (
                               <div
                                 key={photoId}
@@ -1506,7 +1525,7 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
                     )}
                   </div>
                 ) : (
-                  <div className="cover-photo-placeholder">
+                  <div className="cover-photo-placeholder" onClick={openFileUpload} style={{ cursor: 'pointer' }} title="Fotoğraf eklemek için tıklayın">
                     <span>Fotoğraf ekleyin</span>
                   </div>
                 )}
@@ -1594,7 +1613,7 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
                       <p className="photo-help-text">İlk fotoğraf kapak fotoğrafıdır. Fotoğrafları yeniden sıralamak için sürükleyip bırakın.</p>
                       <div className="customer-photos-list">
                         {customerPhotoOrder.slice(0, 10).map((orderItem, index) => {
-                          const photo = formData.photos.find(p => (p.id || p) === orderItem.photoId);
+                          const photo = formData.photos.find((p, idx) => getPhotoId(p, idx) === orderItem.photoId);
                           if (!photo) return null;
                           const photoUrl = photo.url || photo;
                           return (
@@ -1625,7 +1644,7 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
                       <div className="all-photos-grid">
                         {formData.photos.map((photo, index) => {
                           const photoUrl = photo.url || photo;
-                          const photoId = photo.id || `photo-${index}`;
+                          const photoId = getPhotoId(photo, index);
                           const isCustomerPhoto = customerPhotoOrder.slice(0, 10).some(item => item.photoId === photoId);
                           return (
                             <div

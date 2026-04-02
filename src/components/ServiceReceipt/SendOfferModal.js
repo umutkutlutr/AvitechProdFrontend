@@ -1,10 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FaTimes, FaPaperPlane, FaPlus, FaTrash, FaPencilAlt, FaSearch, FaChevronDown, FaCheck } from 'react-icons/fa';
 import projectService from '../../services/projectService';
 import clientService from '../../services/clientService';
 import accountingService from '../../services/accountingService';
 import offerService from '../../services/offerService';
 import { getExchangeRates } from '../../services/currencyService';
+import {
+  formatPhoneDisplayOrDash
+} from '../../utils/phoneFormat';
+import CountryPhoneInput from '../shared/CountryPhoneInput';
 import './SendOfferModal.css';
 
 const SendOfferModal = ({ service, onClose }) => {
@@ -67,6 +71,13 @@ const SendOfferModal = ({ service, onClose }) => {
   const [showPdfPreviewModal, setShowPdfPreviewModal] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
   const [loadingPdfPreview, setLoadingPdfPreview] = useState(false);
+  const [previewUpdating, setPreviewUpdating] = useState(false);
+  const [signaturePngDataUrl, setSignaturePngDataUrl] = useState(null);
+  const signatureCanvasRef = useRef(null);
+  const pdfPreviewContextRef = useRef(null);
+  const signaturePreviewDebounceRef = useRef(null);
+  const isDrawingSignatureRef = useRef(false);
+  const signatureStrokeStartedRef = useRef(false);
   const [accountingData, setAccountingData] = useState(null);
   const [rates, setRates] = useState(null);
 
@@ -123,6 +134,136 @@ const SendOfferModal = ({ service, onClose }) => {
       return `${formattedInteger}.${decimalPart}`;
     }
     return formattedInteger;
+  };
+
+  const SIG_CANVAS_W = 440;
+  const SIG_CANVAS_H = 130;
+
+  const setupSignatureCanvas = useCallback(() => {
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = SIG_CANVAS_W * dpr;
+    canvas.height = SIG_CANVAS_H * dpr;
+    canvas.style.width = `${SIG_CANVAS_W}px`;
+    canvas.style.height = `${SIG_CANVAS_H}px`;
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, SIG_CANVAS_W, SIG_CANVAS_H);
+    ctx.strokeStyle = '#111827';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+  }, []);
+
+  useEffect(() => {
+    if (!showPdfPreviewModal) return;
+    const id = requestAnimationFrame(() => setupSignatureCanvas());
+    return () => cancelAnimationFrame(id);
+  }, [showPdfPreviewModal, setupSignatureCanvas]);
+
+  const getSignatureCanvasPoint = (e) => {
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return null;
+    const r = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: clientX - r.left, y: clientY - r.top };
+  };
+
+  const scheduleSignedPreviewRefresh = (dataUrl) => {
+    if (signaturePreviewDebounceRef.current) {
+      clearTimeout(signaturePreviewDebounceRef.current);
+    }
+    signaturePreviewDebounceRef.current = setTimeout(async () => {
+      const ctx = pdfPreviewContextRef.current;
+      if (!ctx || !dataUrl) return;
+      setPreviewUpdating(true);
+      setError(null);
+      try {
+        const blob = await offerService.previewOfferPdf(
+          ctx.projectId,
+          ctx.clientId,
+          ctx.price,
+          ctx.description,
+          ctx.invalidTermKeys,
+          dataUrl
+        );
+        const url = URL.createObjectURL(blob);
+        setPdfPreviewUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return url;
+        });
+        setSignaturePngDataUrl(dataUrl);
+      } catch (err) {
+        console.error('Signed preview error:', err);
+        setError(err.message || 'İmzalı PDF oluşturulamadı');
+      } finally {
+        setPreviewUpdating(false);
+      }
+    }, 450);
+  };
+
+  const startSignatureStroke = (e) => {
+    e.preventDefault();
+    const p = getSignatureCanvasPoint(e);
+    if (!p) return;
+    const ctx = signatureCanvasRef.current?.getContext('2d');
+    if (!ctx) return;
+    isDrawingSignatureRef.current = true;
+    signatureStrokeStartedRef.current = true;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+  };
+
+  const moveSignatureStroke = (e) => {
+    if (!isDrawingSignatureRef.current) return;
+    e.preventDefault();
+    const p = getSignatureCanvasPoint(e);
+    if (!p) return;
+    const ctx = signatureCanvasRef.current?.getContext('2d');
+    if (!ctx) return;
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  };
+
+  const endSignatureStroke = (e) => {
+    if (!isDrawingSignatureRef.current) return;
+    if (e.cancelable) e.preventDefault();
+    isDrawingSignatureRef.current = false;
+    const canvas = signatureCanvasRef.current;
+    if (canvas && signatureStrokeStartedRef.current) {
+      const dataUrl = canvas.toDataURL('image/png');
+      scheduleSignedPreviewRefresh(dataUrl);
+    }
+    signatureStrokeStartedRef.current = false;
+  };
+
+  const clearOfferSignature = () => {
+    if (signaturePreviewDebounceRef.current) {
+      clearTimeout(signaturePreviewDebounceRef.current);
+    }
+    setupSignatureCanvas();
+    setSignaturePngDataUrl(null);
+    const ctx = pdfPreviewContextRef.current;
+    if (!ctx) return;
+    setPreviewUpdating(true);
+    setError(null);
+    offerService
+      .previewOfferPdf(ctx.projectId, ctx.clientId, ctx.price, ctx.description, ctx.invalidTermKeys, null)
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        setPdfPreviewUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return url;
+        });
+      })
+      .catch((err) => {
+        setError(err.message || 'PDF önizleme yenilenemedi');
+      })
+      .finally(() => setPreviewUpdating(false));
   };
 
   // Update form data when service prop changes
@@ -305,11 +446,16 @@ const SendOfferModal = ({ service, onClose }) => {
   // Filter clients based on search query
   const filteredClients = availableClients.filter(client => {
     const searchLower = clientSearchQuery.toLowerCase();
+    const digitQuery = searchLower.replace(/\D/g, '');
+    const phoneDigits = (client.phone || '').replace(/\D/g, '');
+    const phoneMatch =
+      client.phone?.toLowerCase().includes(searchLower) ||
+      (digitQuery.length > 0 && phoneDigits.includes(digitQuery));
     return (
       client.companyName?.toLowerCase().includes(searchLower) ||
       client.contactName?.toLowerCase().includes(searchLower) ||
       client.email?.toLowerCase().includes(searchLower) ||
-      client.phone?.toLowerCase().includes(searchLower) ||
+      phoneMatch ||
       client.address?.toLowerCase().includes(searchLower)
     );
   });
@@ -401,23 +547,29 @@ const SendOfferModal = ({ service, onClose }) => {
   };
 
   const handleCompanyFieldChange = (field, value) => {
-    // Update editable texts
+    if (field === 'phone' || field === 'businessPhone') {
+      setEditableTexts(prev => ({
+        ...prev,
+        [field]: value
+      }));
+      setNewClientData(prev => ({
+        ...prev,
+        [field]: value
+      }));
+      return;
+    }
+
     setEditableTexts(prev => ({
       ...prev,
       [field]: value
     }));
 
-    // Update new client data based on field mapping
     if (field === 'companyName') {
       setNewClientData(prev => ({ ...prev, companyName: value }));
     } else if (field === 'contactPerson') {
       setNewClientData(prev => ({ ...prev, contactName: value }));
     } else if (field === 'email') {
       setNewClientData(prev => ({ ...prev, email: value }));
-    } else if (field === 'phone') {
-      setNewClientData(prev => ({ ...prev, phone: value }));
-    } else if (field === 'businessPhone') {
-      setNewClientData(prev => ({ ...prev, businessPhone: value }));
     } else if (field === 'address') {
       setNewClientData(prev => ({ ...prev, address: value }));
     } else if (field === 'vergiDairesi') {
@@ -426,7 +578,6 @@ const SendOfferModal = ({ service, onClose }) => {
       const numericValue = value.replace(/\D/g, '');
       setNewClientData(prev => ({ ...prev, vergiNo: numericValue }));
     }
-    // country: form-only, not in Client entity
   };
 
   const handleSaveNewClient = () => {
@@ -443,8 +594,8 @@ const SendOfferModal = ({ service, onClose }) => {
       setError('Lütfen e-posta adresini girin');
       return;
     }
-    if (!newClientData.phone.trim()) {
-      setError('Lütfen telefon numarasını girin');
+    if (!/^\+\d{8,15}$/.test(String(newClientData.phone || '').replace(/\s/g, ''))) {
+      setError('Lütfen geçerli bir telefon numarası girin');
       return;
     }
     if (!newClientData.address.trim()) {
@@ -586,7 +737,11 @@ const SendOfferModal = ({ service, onClose }) => {
     let clientToUse = selectedClient;
     if (newClientDataReady && !selectedClient) {
       try {
-        const createdClient = await clientService.createClient(newClientData);
+        const createdClient = await clientService.createClient({
+          ...newClientData,
+          phone: newClientData.phone ? newClientData.phone.trim() : '',
+          businessPhone: newClientData.businessPhone ? newClientData.businessPhone.trim() : ''
+        });
         clientToUse = createdClient;
         setSelectedClient(createdClient);
         setSelectedClientId(String(createdClient.id));
@@ -629,7 +784,19 @@ const SendOfferModal = ({ service, onClose }) => {
       setShowConditionsWarning(false);
     }
 
-    // Fetch PDF preview and show modal
+    pdfPreviewContextRef.current = {
+      projectId: service?.id || service?.projectId,
+      clientId: clientToUse.id,
+      price: priceToSend,
+      description,
+      invalidTermKeys,
+    };
+    setSignaturePngDataUrl(null);
+    if (signaturePreviewDebounceRef.current) {
+      clearTimeout(signaturePreviewDebounceRef.current);
+    }
+
+    // Fetch PDF preview and show modal (imzasız ilk sürüm; imza sonrası yenilenir)
     setLoadingPdfPreview(true);
     try {
       const blob = await offerService.previewOfferPdf(
@@ -637,7 +804,8 @@ const SendOfferModal = ({ service, onClose }) => {
         clientToUse.id,
         priceToSend,
         description,
-        invalidTermKeys
+        invalidTermKeys,
+        null
       );
       const url = URL.createObjectURL(blob);
       setPdfPreviewUrl(url);
@@ -652,6 +820,11 @@ const SendOfferModal = ({ service, onClose }) => {
 
   const handleConfirmSend = async () => {
     setError(null);
+    if (!signaturePngDataUrl) {
+      setError('Lütfen teklifi göndermeden önce aşağıdan imzanızı atınız.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -676,7 +849,8 @@ const SendOfferModal = ({ service, onClose }) => {
         [selectedClient.id],
         ccEmails,
         priceToSend,
-        description
+        description,
+        signaturePngDataUrl
       );
       const firstResult = Array.isArray(results) ? results[0] : results;
 
@@ -885,8 +1059,10 @@ const SendOfferModal = ({ service, onClose }) => {
                                 </div>
                                 {(client.phone || client.address || client.vergiDairesi || client.vergiNo) && (
                                   <div className="dropdown-item-extra">
-                                    {client.phone && <span>Tel: {client.phone}</span>}
-                                    {client.businessPhone && <span> • İş: {client.businessPhone}</span>}
+                                    {client.phone && <span>Tel: {formatPhoneDisplayOrDash(client.phone)}</span>}
+                                    {client.businessPhone && (
+                                      <span> • İş: {formatPhoneDisplayOrDash(client.businessPhone)}</span>
+                                    )}
                                     {client.address && <span> • {client.address}</span>}
                                     {(client.vergiDairesi || client.vergiNo) && (
                                       <span> • VD: {client.vergiDairesi || '-'} / VN: {client.vergiNo || '-'}</span>
@@ -1045,17 +1221,31 @@ const SendOfferModal = ({ service, onClose }) => {
                     <div className="customer-field-row">
                       <span className="meta-label">Telefon:</span>
                       {(isAddingNewClient || newClientDataReady) ? (
-                        <input type="text" value={editableTexts.phone} onChange={(e) => handleCompanyFieldChange('phone', e.target.value)} className="meta-input full-width" placeholder="Telefon" />
+                        <CountryPhoneInput
+                          value={editableTexts.phone}
+                          name="phone"
+                          onChange={(e) => handleCompanyFieldChange('phone', e.target.value)}
+                          placeholder="Telefon numarası"
+                        />
                       ) : (
-                        <span className="meta-value-readonly">{editableTexts.phone || '-'}</span>
+                        <span className="meta-value-readonly">
+                          {formatPhoneDisplayOrDash(editableTexts.phone)}
+                        </span>
                       )}
                     </div>
                     <div className="customer-field-row">
                       <span className="meta-label">İş Tel:</span>
                       {(isAddingNewClient || newClientDataReady) ? (
-                        <input type="text" value={editableTexts.businessPhone} onChange={(e) => handleCompanyFieldChange('businessPhone', e.target.value)} className="meta-input full-width" placeholder="İş telefonu" />
+                        <CountryPhoneInput
+                          value={editableTexts.businessPhone}
+                          name="businessPhone"
+                          onChange={(e) => handleCompanyFieldChange('businessPhone', e.target.value)}
+                          placeholder="İş telefonu"
+                        />
                       ) : (
-                        <span className="meta-value-readonly">{editableTexts.businessPhone || '-'}</span>
+                        <span className="meta-value-readonly">
+                          {formatPhoneDisplayOrDash(editableTexts.businessPhone)}
+                        </span>
                       )}
                     </div>
                     <div className="customer-field-row">
@@ -1309,6 +1499,10 @@ const SendOfferModal = ({ service, onClose }) => {
                   className="pdf-preview-close"
                   onClick={() => {
                     setShowPdfPreviewModal(false);
+                    setSignaturePngDataUrl(null);
+                    if (signaturePreviewDebounceRef.current) {
+                      clearTimeout(signaturePreviewDebounceRef.current);
+                    }
                     if (pdfPreviewUrl) {
                       URL.revokeObjectURL(pdfPreviewUrl);
                       setPdfPreviewUrl(null);
@@ -1327,12 +1521,39 @@ const SendOfferModal = ({ service, onClose }) => {
                   />
                 )}
               </div>
+              <div className="pdf-preview-signature-section">
+                <p className="pdf-preview-signature-title">Teklifi gönderen imza</p>
+                <p className="pdf-preview-signature-hint">
+                  İmzanız, yukarıdaki PDF önizlemesine birkaç saniye içinde yansır. Göndermeden önce imzalı PDF&apos;i kontrol edin.
+                </p>
+                <div className="pdf-preview-signature-row">
+                  <canvas
+                    ref={signatureCanvasRef}
+                    className="pdf-preview-signature-canvas"
+                    onMouseDown={startSignatureStroke}
+                    onMouseMove={moveSignatureStroke}
+                    onMouseUp={endSignatureStroke}
+                    onMouseLeave={endSignatureStroke}
+                    onTouchStart={startSignatureStroke}
+                    onTouchMove={moveSignatureStroke}
+                    onTouchEnd={endSignatureStroke}
+                  />
+                  <button type="button" className="btn-signature-clear" onClick={clearOfferSignature}>
+                    İmzayı temizle
+                  </button>
+                </div>
+                {previewUpdating && <p className="pdf-preview-updating">PDF güncelleniyor…</p>}
+              </div>
               <div className="pdf-preview-actions">
                 <button
                   type="button"
                   className="btn-confirmation-cancel"
                   onClick={() => {
                     setShowPdfPreviewModal(false);
+                    setSignaturePngDataUrl(null);
+                    if (signaturePreviewDebounceRef.current) {
+                      clearTimeout(signaturePreviewDebounceRef.current);
+                    }
                     if (pdfPreviewUrl) {
                       URL.revokeObjectURL(pdfPreviewUrl);
                       setPdfPreviewUrl(null);
@@ -1346,7 +1567,7 @@ const SendOfferModal = ({ service, onClose }) => {
                   type="button"
                   className="btn-confirmation-confirm"
                   onClick={handleConfirmSend}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || previewUpdating || !signaturePngDataUrl}
                 >
                   {isSubmitting ? 'Gönderiliyor...' : 'Onayla ve Gönder'}
                 </button>

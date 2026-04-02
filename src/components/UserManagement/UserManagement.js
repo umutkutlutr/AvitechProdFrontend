@@ -2,47 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { AiOutlineUser, AiOutlineEdit, AiOutlineDelete, AiOutlineLoading3Quarters } from 'react-icons/ai';
 import userService from '../../services/userService';
+import {
+  formatPhoneDisplayOrDash
+} from '../../utils/phoneFormat';
+import CountryPhoneInput from '../shared/CountryPhoneInput';
 import './UserManagement.css';
-
-// Phone number formatting utility - formats as +90 5XX XXX XX XX
-const formatPhoneNumber = (value) => {
-  // Remove all non-digit characters
-  const digits = value.replace(/\D/g, '');
-
-  // Remove leading 90 if user types it (since we show +90 prefix)
-  let cleanDigits = digits;
-  if (digits.startsWith('90') && digits.length > 2) {
-    cleanDigits = digits.slice(2);
-  }
-
-  // Limit to 10 digits (Turkish mobile number length)
-  const limitedDigits = cleanDigits.slice(0, 10);
-
-  // Format with spaces: 5XX XXX XX XX
-  let formatted = '';
-  for (let i = 0; i < limitedDigits.length; i++) {
-    if (i === 3 || i === 6 || i === 8) {
-      formatted += ' ';
-    }
-    formatted += limitedDigits[i];
-  }
-
-  return formatted;
-};
-
-// Get display value with +90 prefix
-const getPhoneDisplayValue = (value) => {
-  if (!value) return '+90 ';
-  const formatted = formatPhoneNumber(value);
-  return '+90 ' + formatted;
-};
-
-// Extract raw digits from formatted value (without +90)
-const extractPhoneDigits = (displayValue) => {
-  // Remove +90 prefix and all spaces
-  const withoutPrefix = displayValue.replace(/^\+90\s*/, '');
-  return withoutPrefix.replace(/\s/g, '');
-};
 
 const UserManagement = () => {
   const { user } = useAuth();
@@ -197,48 +161,13 @@ const UserManagement = () => {
     setEditForm(prev => ({ ...prev, [name]: value }));
   };
 
-  // Special handler for phone fields with formatting
+  // Country-aware phone input handler
   const handlePhoneChange = (e, formType = 'add') => {
     const { name, value } = e.target;
-    // Extract just the digits (excluding +90 prefix)
-    const rawDigits = extractPhoneDigits(value);
-
     if (formType === 'edit') {
-      setEditForm(prev => ({ ...prev, [name]: rawDigits }));
+      setEditForm(prev => ({ ...prev, [name]: value }));
     } else {
-      setForm(prev => ({ ...prev, [name]: rawDigits }));
-    }
-  };
-
-  // Handle cursor position to prevent jumping
-  const handlePhoneKeyDown = (e) => {
-    const input = e.target;
-    const cursorPos = input.selectionStart;
-    // Prevent deleting the +90 prefix
-    if (cursorPos <= 4 && (e.key === 'Backspace' || e.key === 'Delete')) {
-      e.preventDefault();
-    }
-    // Prevent cursor from going into the +90 prefix area
-    if (e.key === 'ArrowLeft' && cursorPos <= 4) {
-      e.preventDefault();
-    }
-  };
-
-  // Handle focus to set cursor after +90 prefix
-  const handlePhoneFocus = (e) => {
-    const input = e.target;
-    setTimeout(() => {
-      if (input.selectionStart < 4) {
-        input.setSelectionRange(4, 4);
-      }
-    }, 0);
-  };
-
-  // Handle click to prevent selecting the +90 prefix
-  const handlePhoneClick = (e) => {
-    const input = e.target;
-    if (input.selectionStart < 4) {
-      input.setSelectionRange(4, 4);
+      setForm(prev => ({ ...prev, [name]: value }));
     }
   };
 
@@ -269,8 +198,7 @@ const UserManagement = () => {
         ...userDataWithoutConfirm,
         username,
         role: form.role || 'VIEWER',
-        // Send formatted phone number (with +90 prefix and spaces)
-        telNo: form.telNo ? getPhoneDisplayValue(form.telNo).trim() : '',
+        telNo: form.telNo ? form.telNo.trim() : '',
         position: form.position || ''
       };
       const created = await userService.createUser(userData);
@@ -298,8 +226,7 @@ const UserManagement = () => {
         firstName: editForm.firstName,
         lastName: editForm.lastName,
         role: editForm.role || 'VIEWER',
-        // Send formatted phone number (with +90 prefix and spaces)
-        telNo: editForm.telNo ? getPhoneDisplayValue(editForm.telNo).trim() : '',
+        telNo: editForm.telNo ? editForm.telNo.trim() : '',
         position: editForm.position || ''
       };
 
@@ -380,7 +307,7 @@ const UserManagement = () => {
                   <td data-label="Ad">{u.firstName}</td>
                   <td data-label="Soyad">{u.lastName}</td>
                   <td data-label="E-posta">{u.email}</td>
-                  <td data-label="Telefon">{u.telNo || '-'}</td>
+                  <td data-label="Telefon">{formatPhoneDisplayOrDash(u.telNo)}</td>
                   <td data-label="Pozisyon">{u.position || '-'}</td>
                   <td data-label="Rol">{getRoleDisplayName(u.role)}</td>
                   <td data-label="Oluşturma Tarihi">{u.createdAt ? new Date(u.createdAt).toLocaleDateString('tr-TR', {
@@ -468,15 +395,11 @@ const UserManagement = () => {
               </div>
               <div className="form-row">
                 <label>Telefon Numarası</label>
-                <input
-                  type="tel"
+                <CountryPhoneInput
                   name="telNo"
-                  value={getPhoneDisplayValue(form.telNo)}
+                  value={form.telNo}
                   onChange={(e) => handlePhoneChange(e, 'add')}
-                  onKeyDown={handlePhoneKeyDown}
-                  onFocus={handlePhoneFocus}
-                  onClick={handlePhoneClick}
-                  placeholder="+90 5XX XXX XX XX"
+                  placeholder="Telefon numarası"
                 />
               </div>
               <div className="form-row">
@@ -580,15 +503,11 @@ const UserManagement = () => {
               </div>
               <div className="form-row">
                 <label>Telefon Numarası</label>
-                <input
-                  type="tel"
+                <CountryPhoneInput
                   name="telNo"
-                  value={getPhoneDisplayValue(editForm.telNo)}
+                  value={editForm.telNo}
                   onChange={(e) => handlePhoneChange(e, 'edit')}
-                  onKeyDown={handlePhoneKeyDown}
-                  onFocus={handlePhoneFocus}
-                  onClick={handlePhoneClick}
-                  placeholder="+90 5XX XXX XX XX"
+                  placeholder="Telefon numarası"
                 />
               </div>
               <div className="form-row">

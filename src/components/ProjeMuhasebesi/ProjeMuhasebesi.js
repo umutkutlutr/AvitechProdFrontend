@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import projectService from '../../services/projectService';
 import accountingService from '../../services/accountingService';
@@ -142,6 +142,7 @@ const emptyDraftForm = () => ({
     externalCommissionRate: '',
     externalCommissionTry: '',
     machineCondition: '',
+    paymentMethod: 'YEARLY_RATE',
     equityAmount: '',
     creditAmount: '',
     creditInterestRate: '',
@@ -293,6 +294,7 @@ const mapDraftToForm = (dto) => {
     externalCommissionRate: mp.externalCommissionRate != null ? String(mp.externalCommissionRate) : '',
     externalCommissionTry: mp.externalCommissionTry != null ? String(mp.externalCommissionTry) : '',
     machineCondition: mp.machineCondition || '',
+    paymentMethod: mp.paymentMethod || 'YEARLY_RATE',
     equityAmount: mp.equityAmount != null ? String(mp.equityAmount) : '',
     creditAmount: mp.creditAmount != null ? String(mp.creditAmount) : '',
     creditInterestRate: mp.creditInterestRate != null ? String(mp.creditInterestRate) : '',
@@ -802,7 +804,7 @@ const AdditionalCostRow = ({ item, index, section, projectId, onChange, onPatch,
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const ProjeMuhasebesi = () => {
-  const { canEdit, isAdmin } = useAuth();
+  const { canEdit } = useAuth();
 
   // Project list
   const [projects, setProjects] = useState([]);
@@ -834,8 +836,8 @@ const ProjeMuhasebesi = () => {
   // Pending section to navigate to after project selection
   const pendingSectionRef = useRef(null);
 
-  // Admin override for editing completed drafts
-  const [adminEditMode, setAdminEditMode] = useState(false);
+  // Completed drafts can be edited in explicit edit mode
+  const [completedEditMode, setCompletedEditMode] = useState(false);
 
   // Determine if the current form is editable
   const isEditable = () => {
@@ -843,9 +845,9 @@ const ProjeMuhasebesi = () => {
     // Lock editing only when project is sold (completed sale)
     const projectStatus = selectedProject?.status;
     if (projectStatus === 'SOLD') return false;
-    // If draft is completed, only admin can edit (with override)
+    // Completed drafts are editable only while explicit edit mode is on
     if (draft?.draftStatus === 'COMPLETED') {
-      return isAdmin() && adminEditMode;
+      return completedEditMode;
     }
     return true;
   };
@@ -866,6 +868,7 @@ const ProjeMuhasebesi = () => {
   const [notifications, setNotifications] = useState([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [validationReport, setValidationReport] = useState(null);
 
   // Accounting summaries for project cards
   const [accountingSummaries, setAccountingSummaries] = useState({});
@@ -914,6 +917,19 @@ const ProjeMuhasebesi = () => {
       .catch(() => {});
   }, []);
 
+  const refreshValidationReport = useCallback(async (projectId) => {
+    if (!projectId) {
+      setValidationReport(null);
+      return;
+    }
+    try {
+      const report = await accountingService.getValidationReport(projectId);
+      setValidationReport(report || null);
+    } catch (_e) {
+      setValidationReport(null);
+    }
+  }, []);
+
   // ── Load projects on mount ──
   useEffect(() => {
     loadProjects();
@@ -935,6 +951,8 @@ const ProjeMuhasebesi = () => {
   // ── When a project is selected, load its draft ──
   const handleSelectProject = useCallback(async (project) => {
     setSelectedProject(project);
+    setCompletedEditMode(false);
+    setValidationReport(null);
     setDraftLoading(true);
     setDraftError('');
     setDraft(null);
@@ -945,6 +963,7 @@ const ProjeMuhasebesi = () => {
       const dto = await accountingService.getDraft(project.id);
       setDraft(dto);
       setForm(mapDraftToForm(dto));
+      await refreshValidationReport(project.id);
       // If there's a pending section from notification click, navigate to it
       if (pendingSectionRef.current) {
         setActiveSection(pendingSectionRef.current);
@@ -955,7 +974,7 @@ const ProjeMuhasebesi = () => {
     } finally {
       setDraftLoading(false);
     }
-  }, []);
+  }, [refreshValidationReport]);
 
   // ── Auto-fill empty exchange rate fields when draft loads and rates are available ──
   useEffect(() => {
@@ -1018,10 +1037,38 @@ const ProjeMuhasebesi = () => {
 
   // ── Generic field change ──
   const handleChange = (section, field, value) => {
-    setForm(prev => ({
-      ...prev,
-      [section]: { ...prev[section], [field]: value },
-    }));
+    setForm(prev => {
+      const nextSection = { ...prev[section], [field]: value };
+
+      // If machine visit is disabled, clear its visit-related costs.
+      if (section === 'machineVisit' && field === 'visited' && value === false) {
+        Object.assign(nextSection, {
+          flightCost: '0',
+          flightCostTry: '0',
+          hotelCost: '0',
+          hotelCostTry: '0',
+          carRentalCost: '0',
+          carRentalCostTry: '0',
+          additionalExpenseCost: '0',
+          additionalExpenseCostTry: '0',
+        });
+      }
+
+      // If warehouse costs are paid by buyer, clear warehouse-related customs costs.
+      if (section === 'customs' && field === 'warehousePaidByBuyer' && value === true) {
+        Object.assign(nextSection, {
+          warehouseUnloadingCost: '0',
+          warehouseUnloadingCostTry: '0',
+          storageCost: '0',
+          storageCostTry: '0',
+        });
+      }
+
+      return {
+        ...prev,
+        [section]: nextSection,
+      };
+    });
   };
 
   // ── Document uploaded callback ──
@@ -1088,16 +1135,68 @@ const ProjeMuhasebesi = () => {
     });
   };
 
+  const applyAutoZeroToForm = (sourceForm) => {
+    const next = JSON.parse(JSON.stringify(sourceForm));
+    const isBlank = (v) => v == null || String(v).trim() === '';
+    const zeroIfBlank = (section, field) => {
+      if (isBlank(next[section][field])) next[section][field] = '0';
+      const tryField = `${field}Try`;
+      if (Object.prototype.hasOwnProperty.call(next[section], tryField) && isBlank(next[section][tryField])) {
+        next[section][tryField] = '0';
+      }
+    };
+
+    zeroIfBlank('machinePurchase', 'purchasePrice');
+    zeroIfBlank('machinePurchase', 'externalCommission');
+    zeroIfBlank('machinePurchase', 'equityAmount');
+    zeroIfBlank('machinePurchase', 'creditAmount');
+    if (isBlank(next.machinePurchase.creditInterestRate)) next.machinePurchase.creditInterestRate = '0';
+
+    if (next.machineVisit.visited) {
+      zeroIfBlank('machineVisit', 'flightCost');
+      zeroIfBlank('machineVisit', 'hotelCost');
+      zeroIfBlank('machineVisit', 'carRentalCost');
+      zeroIfBlank('machineVisit', 'additionalExpenseCost');
+    } else {
+      ['flightCost', 'flightCostTry', 'hotelCost', 'hotelCostTry', 'carRentalCost', 'carRentalCostTry', 'additionalExpenseCost', 'additionalExpenseCostTry']
+        .forEach((f) => { next.machineVisit[f] = '0'; });
+    }
+
+    zeroIfBlank('logistics', 'freightCost');
+    zeroIfBlank('logistics', 'additionalLogisticsCost');
+    zeroIfBlank('logistics', 'brandingCost');
+    zeroIfBlank('logistics', 'insuranceCost');
+
+    zeroIfBlank('customs', 'entryCustomsCost');
+    if (next.customs.warehousePaidByBuyer) {
+      next.customs.warehouseUnloadingCost = '0';
+      next.customs.warehouseUnloadingCostTry = '0';
+      next.customs.storageCost = '0';
+      next.customs.storageCostTry = '0';
+    } else {
+      zeroIfBlank('customs', 'warehouseUnloadingCost');
+      zeroIfBlank('customs', 'storageCost');
+    }
+
+    zeroIfBlank('transfer', 'transferCost');
+    zeroIfBlank('generalCosts', 'installationCost');
+    zeroIfBlank('generalCosts', 'salesPrice');
+
+    Object.keys(next).forEach((section) => {
+      (next[section].additionalCosts || []).forEach((ac) => {
+        if (isBlank(ac.amount)) ac.amount = '0';
+        if (isBlank(ac.amountTry)) ac.amountTry = '0';
+      });
+    });
+
+    return next;
+  };
+
   // ── Save section ──
   const saveSection = async (section) => {
     if (!selectedProject) return;
     // costSummary section saves generalCosts data (salesPrice lives in generalCosts)
     const actualSection = section === 'costSummary' ? 'generalCosts' : section;
-    const invoiceErrs = validateInvoiceRequired([actualSection]);
-    if (invoiceErrs) {
-      setSaveError(invoiceErrs.join(' '));
-      return;
-    }
     setSaving(prev => ({ ...prev, [section]: true }));
     setSaveError('');
     setSaveSuccess('');
@@ -1135,6 +1234,7 @@ const ProjeMuhasebesi = () => {
       setTimeout(() => setSaveSuccess(''), 4000);
       // Refresh notifications and summaries after save
       refreshNotificationsAndSummaries();
+      refreshValidationReport(selectedProject.id);
     } catch (err) {
       setSaveError(err.message || 'Kayıt sırasında hata oluştu');
     } finally {
@@ -1146,11 +1246,6 @@ const ProjeMuhasebesi = () => {
   const [savingAll, setSavingAll] = useState(false);
   const saveAllSections = async () => {
     if (!selectedProject) return;
-    const invoiceErrs = validateInvoiceRequired();
-    if (invoiceErrs) {
-      setSaveError(invoiceErrs.join(' '));
-      return;
-    }
     setSavingAll(true);
     setSaveError('');
     setSaveSuccess('');
@@ -1169,6 +1264,7 @@ const ProjeMuhasebesi = () => {
       setTimeout(() => setSaveSuccess(''), 4000);
       // Refresh notifications and summaries after save
       refreshNotificationsAndSummaries();
+      refreshValidationReport(selectedProject.id);
     } catch (err) {
       setSaveError(err.message || 'Toplu kayıt sırasında hata oluştu');
     } finally {
@@ -1176,8 +1272,68 @@ const ProjeMuhasebesi = () => {
     }
   };
 
+  // Maliyet alanları boş bırakılamaz; maliyet yoksa 0 girilmelidir.
+  const validateRequiredCostEntries = (sectionsToValidate, sourceForm = form) => {
+    const errs = [];
+    const isBlank = (v) => v == null || String(v).trim() === '';
+    const addErr = (label) => errs.push(`${label} boş bırakılamaz, yoksa 0 giriniz.`);
+
+    const sections = sectionsToValidate || sectionKeys;
+    sections.forEach((section) => {
+      const s = sourceForm[section];
+      if (!s) return;
+      switch (section) {
+        case 'machinePurchase':
+          if (isBlank(s.purchasePrice)) addErr('Makine alım bedeli');
+          if (isBlank(s.externalCommission)) addErr('Dış komisyon');
+          if (isBlank(s.equityAmount)) addErr('Öz kaynak tutarı');
+          if (isBlank(s.creditAmount)) addErr('Kredi tutarı');
+          if (isBlank(s.creditInterestRate)) addErr('Kredi faiz oranı');
+          break;
+        case 'machineVisit':
+          if (s.visited) {
+            if (isBlank(s.flightCost)) addErr('Uçuş masrafı');
+            if (isBlank(s.hotelCost)) addErr('Otel masrafı');
+            if (isBlank(s.carRentalCost)) addErr('Araç kiralama');
+            if (isBlank(s.additionalExpenseCost)) addErr('Diğer masraflar');
+          }
+          break;
+        case 'logistics':
+          if (isBlank(s.freightCost)) addErr('Navlun bedeli');
+          if (isBlank(s.additionalLogisticsCost)) addErr('Ek lojistik');
+          if (isBlank(s.brandingCost)) addErr('Brandalama');
+          if (isBlank(s.insuranceCost)) addErr('Sigorta');
+          break;
+        case 'customs':
+          if (isBlank(s.entryCustomsCost)) addErr('Giriş gümrük bedeli');
+          if (!s.warehousePaidByBuyer) {
+            if (isBlank(s.warehouseUnloadingCost)) addErr('Antrepo indirme vinç maliyeti');
+            if (isBlank(s.storageCost)) addErr('Ardiye');
+          }
+          break;
+        case 'transfer':
+          if (isBlank(s.transferCost)) addErr('Gümrükçü devir bedeli');
+          break;
+        case 'generalCosts':
+          if (isBlank(s.installationCost)) addErr('Kurulum maliyeti');
+          if (isBlank(s.salesPrice)) addErr('Satış fiyatı');
+          break;
+        default:
+          break;
+      }
+
+      (s.additionalCosts || []).forEach((ac, i) => {
+        if (isBlank(ac.amount)) {
+          addErr(`${SECTION_LABELS[section]} - Ek maliyet "${ac.itemName || `Kalem ${i + 1}`}"`);
+        }
+      });
+    });
+
+    return errs.length > 0 ? errs : null;
+  };
+
   // Fatura zorunluluğu: Maliyet kaleminde tutar girilmişse fatura zorunludur (şirketten fatura olmadan para çıkmaz)
-  const validateInvoiceRequired = (sectionsToValidate) => {
+  const validateInvoiceRequired = (sectionsToValidate, sourceForm = form) => {
     const num = (v) => parseFormMoney(v) ?? 0;
     const hasInvoice = (invoiceKey) => invoiceKey && String(invoiceKey).trim() !== '';
     const errs = [];
@@ -1194,7 +1350,7 @@ const ProjeMuhasebesi = () => {
 
     const sections = sectionsToValidate || sectionKeys;
     sections.forEach((section) => {
-      const s = form[section];
+      const s = sourceForm[section];
       if (!s) return;
       switch (section) {
         case 'machinePurchase':
@@ -1241,9 +1397,10 @@ const ProjeMuhasebesi = () => {
     return errs.length > 0 ? errs : null;
   };
 
-  const buildSectionPayload = (section) => {
-    const s = form[section];
-    const numMoney = (v) => parseFormMoney(v);
+  const buildSectionPayload = (section, sourceForm = form) => {
+    const s = sourceForm[section];
+    const round2 = (n) => (typeof n === 'number' && !isNaN(n) ? Number(n.toFixed(2)) : null);
+    const numMoney = (v) => round2(parseFormMoney(v));
     const numRate = (v) => parseFormRate(v);
     const int = (v) => (v === '' || v == null ? null : parseInt(v, 10));
     const str = (v) => (v === '' || v == null ? null : v);
@@ -1273,6 +1430,7 @@ const ProjeMuhasebesi = () => {
           externalCommissionTry: numMoney(s.externalCommissionTry),
           externalCommissionRate: numRate(s.externalCommissionRate),
           machineCondition: str(s.machineCondition),
+          paymentMethod: str(s.paymentMethod),
           equityAmount: numMoney(s.equityAmount),
           creditAmount: numMoney(s.creditAmount),
           creditInterestRate: numRate(s.creditInterestRate),
@@ -1413,19 +1571,40 @@ const ProjeMuhasebesi = () => {
 
   // ── Complete draft ──
   const [completing, setCompleting] = useState(false);
+  const [finalizingEdits, setFinalizingEdits] = useState(false);
   const handleCompleteDraft = async () => {
     if (!selectedProject) return;
-    const invoiceErrs = validateInvoiceRequired();
-    if (invoiceErrs) {
-      setSaveError(invoiceErrs.join(' '));
-      return;
-    }
-    if (!window.confirm('Tüm bölümlerin eksiksiz olduğundan emin misiniz? Tamamlandı olarak işaretlenecek.')) return;
     setCompleting(true);
     setSaveError('');
     try {
+      const requiredBefore = validateRequiredCostEntries(undefined, form) || [];
+      const autoZeroForm = applyAutoZeroToForm(form);
+      if (requiredBefore.length > 0) {
+        const ok = window.confirm(`Bazı maliyet alanları boş. Tamamla sırasında bu alanlar 0 olarak doldurulacaktır (${requiredBefore.length} alan). Onaylıyor musunuz?`);
+        if (!ok) {
+          setCompleting(false);
+          return;
+        }
+      }
+      const allData = {};
+      sectionKeys.forEach((key) => {
+        allData[key] = buildSectionPayload(key, autoZeroForm);
+      });
+      await accountingService.saveAllSections(selectedProject.id, allData);
+      setForm(autoZeroForm);
+      const invoiceErrs = validateInvoiceRequired(undefined, autoZeroForm);
+      if (invoiceErrs) {
+        setSaveError(invoiceErrs.join(' '));
+        setCompleting(false);
+        return;
+      }
+      if (!window.confirm('Onayla ve tamamla?')) {
+        setCompleting(false);
+        return;
+      }
       await accountingService.completeDraft(selectedProject.id);
       // Navigate back to project list after completing
+      setCompletedEditMode(false);
       setSelectedProject(null);
       setDraft(null);
       setForm(emptyDraftForm());
@@ -1437,6 +1616,52 @@ const ProjeMuhasebesi = () => {
     }
   };
 
+  const handleSaveAndRecomplete = async () => {
+    if (!selectedProject) return;
+    setFinalizingEdits(true);
+    setSaveError('');
+    setSaveSuccess('');
+    try {
+      const requiredBefore = validateRequiredCostEntries(undefined, form) || [];
+      const autoZeroForm = applyAutoZeroToForm(form);
+      if (requiredBefore.length > 0) {
+        const ok = window.confirm(`Bazı maliyet alanları boş. Tamamla sırasında bu alanlar 0 olarak doldurulacaktır (${requiredBefore.length} alan). Onaylıyor musunuz?`);
+        if (!ok) {
+          setFinalizingEdits(false);
+          return;
+        }
+      }
+      const allData = {};
+      sectionKeys.forEach(key => {
+        allData[key] = buildSectionPayload(key, autoZeroForm);
+      });
+      const saved = await accountingService.saveAllSections(selectedProject.id, allData);
+      if (saved) {
+        setDraft(saved);
+        setForm(mapDraftToForm(saved));
+      }
+      const invoiceErrs = validateInvoiceRequired(undefined, autoZeroForm);
+      if (invoiceErrs) {
+        setSaveError(invoiceErrs.join(' '));
+        setFinalizingEdits(false);
+        return;
+      }
+      const completed = await accountingService.completeDraft(selectedProject.id);
+      if (completed) {
+        setDraft(completed);
+      }
+      await refreshNotificationsAndSummaries();
+      await refreshValidationReport(selectedProject.id);
+      setCompletedEditMode(false);
+      setSaveSuccess('Değişiklikler kaydedildi ve proje tekrar tamamlandı.');
+      setTimeout(() => setSaveSuccess(''), 4000);
+    } catch (err) {
+      setSaveError(err.message || 'Kaydetme ve tamamlama sırasında hata oluştu');
+    } finally {
+      setFinalizingEdits(false);
+    }
+  };
+
   // ── Filtered projects ──
   const filteredProjects = projects.filter(p => {
     if (!searchQuery.trim()) return true;
@@ -1445,6 +1670,9 @@ const ProjeMuhasebesi = () => {
   });
 
   const sectionKeys = Object.keys(SECTION_LABELS);
+  const liveBlockingErrors = useMemo(() => validateRequiredCostEntries(undefined, form) || [], [form]);
+  const liveInvoiceWarnings = useMemo(() => validateInvoiceRequired(undefined, form) || [], [form]);
+
   const getSectionStatus = (sectionKey) => {
     if (!draft) return 'NOT_STARTED';
     if (sectionKey === 'costSummary') {
@@ -1475,8 +1703,10 @@ const ProjeMuhasebesi = () => {
     const purchaseRate = nRate(form.machinePurchase.purchaseExchangeRate) || nRate(rates?.EUR);
     const creditAmount = nMoney(form.machinePurchase.creditAmount);
     const creditInterestRate = nRate(form.machinePurchase.creditInterestRate);
+    const interestType = form.machinePurchase.paymentMethod === 'MONTHLY_RATE' ? 'MONTHLY_RATE' : 'YEARLY_RATE';
+    const dayDivisor = interestType === 'MONTHLY_RATE' ? 30 : 365;
     const financingCostEur = creditAmount > 0 && creditInterestRate > 0 && financingDays > 0
-      ? (creditAmount * creditInterestRate / 100) * (financingDays / 365)
+      ? (creditAmount * creditInterestRate / 100) * (financingDays / dayDivisor)
       : 0;
     const financingCostTry = financingCostEur * purchaseRate;
     const toEur = (tryVal) => (eurRate > 0 ? tryVal / eurRate : 0);
@@ -1637,7 +1867,9 @@ const ProjeMuhasebesi = () => {
               min="0"
             />
             <div style={{ marginTop: '8px', fontSize: '12px', color: '#64748b' }}>
-              Finansman maliyeti = kredi tutarı x faiz oranı x (gün / 365)
+              {form.machinePurchase.paymentMethod === 'MONTHLY_RATE'
+                ? 'Finansman maliyeti = kredi tutarı x aylık faiz oranı x (gün / 30)'
+                : 'Finansman maliyeti = kredi tutarı x yıllık faiz oranı x (gün / 365)'}
             </div>
           </div>
           <div className="form-field">
@@ -1645,9 +1877,10 @@ const ProjeMuhasebesi = () => {
             <div style={{ padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '13px', color: '#334155' }}>
               {(() => {
                 const days = parseFloat(gc.financingDays) || 0;
-                const credit = parseFloat(form.machinePurchase.creditAmount) || 0;
-                const rate = parseFloat(form.machinePurchase.creditInterestRate) || 0;
-                const financeEur = credit > 0 && rate > 0 && days > 0 ? (credit * rate / 100) * (days / 365) : 0;
+                const credit = parseFormMoney(form.machinePurchase.creditAmount) || 0;
+                const rate = parseFormRate(form.machinePurchase.creditInterestRate) || 0;
+                const divisor = form.machinePurchase.paymentMethod === 'MONTHLY_RATE' ? 30 : 365;
+                const financeEur = credit > 0 && rate > 0 && days > 0 ? (credit * rate / 100) * (days / divisor) : 0;
                 return `${financeEur.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR`;
               })()}
             </div>
@@ -1753,12 +1986,12 @@ const ProjeMuhasebesi = () => {
             <div className="form-grid">
               <div className="form-field">
                 <label className="field-label">Öz Kaynak Tutarı (EUR)</label>
-                <input type="number" className="input-field full-width" placeholder="0.00" value={f.equityAmount} onChange={(e) => handleChange(s, 'equityAmount', e.target.value)} step="0.01" min="0" />
+                <input type="text" inputMode="decimal" className="input-field full-width" placeholder="0,00" value={formatNumberForInput(f.equityAmount)} onChange={(e) => handleChange(s, 'equityAmount', sanitizeDecimalTyping(e.target.value))} />
                 <EurToTryHint eurAmountStr={f.equityAmount} tryPerEurRateStr={f.purchaseExchangeRate} label="(Makine alım kuru)" />
               </div>
               <div className="form-field">
                 <label className="field-label">Kredi Tutarı (EUR)</label>
-                <input type="number" className="input-field full-width" placeholder="0.00" value={f.creditAmount} onChange={(e) => handleChange(s, 'creditAmount', e.target.value)} step="0.01" min="0" />
+                <input type="text" inputMode="decimal" className="input-field full-width" placeholder="0,00" value={formatNumberForInput(f.creditAmount)} onChange={(e) => handleChange(s, 'creditAmount', sanitizeDecimalTyping(e.target.value))} />
                 <EurToTryHint eurAmountStr={f.creditAmount} tryPerEurRateStr={f.purchaseExchangeRate} label="(Makine alım kuru)" />
               </div>
             </div>
@@ -1766,14 +1999,20 @@ const ProjeMuhasebesi = () => {
             <div className="form-grid">
               <div className="form-field">
                 <label className="field-label">Kredi Faiz Oranı (%)</label>
-                <input type="number" className="input-field full-width" placeholder="0.00" value={f.creditInterestRate} onChange={(e) => handleChange(s, 'creditInterestRate', e.target.value)} step="0.01" min="0" />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input type="text" inputMode="decimal" className="input-field full-width" placeholder="0,00" value={formatNumberForInput(f.creditInterestRate)} onChange={(e) => handleChange(s, 'creditInterestRate', sanitizeDecimalTyping(e.target.value))} />
+                  <select className="select-field" style={{ minWidth: '116px' }} value={f.paymentMethod || 'YEARLY_RATE'} onChange={(e) => handleChange(s, 'paymentMethod', e.target.value)}>
+                    <option value="YEARLY_RATE">Yıllık</option>
+                    <option value="MONTHLY_RATE">Aylık</option>
+                  </select>
+                </div>
               </div>
               <div className="form-field">
                 <label className="field-label">Kontrol Toplamı</label>
                 <div style={{ padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '13px', color: '#334155' }}>
-                  {(parseFloat(f.equityAmount || 0) + parseFloat(f.creditAmount || 0)).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR
+                  {((parseFormMoney(f.equityAmount) || 0) + (parseFormMoney(f.creditAmount) || 0)).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR
                   <EurToTryHint
-                    eurAmountStr={String(parseFloat(f.equityAmount || 0) + parseFloat(f.creditAmount || 0))}
+                    eurAmountStr={String((parseFormMoney(f.equityAmount) || 0) + (parseFormMoney(f.creditAmount) || 0))}
                     tryPerEurRateStr={f.purchaseExchangeRate}
                     label="(Makine alım kuru)"
                   />
@@ -2358,7 +2597,7 @@ const ProjeMuhasebesi = () => {
       {/* Header */}
       <div className="pm-header">
         <div className="pm-header-left">
-          <button className="btn-back" onClick={() => { refreshNotificationsAndSummaries(); setSelectedProject(null); }}>
+          <button className="btn-back" onClick={() => { refreshNotificationsAndSummaries(); setCompletedEditMode(false); setValidationReport(null); setSelectedProject(null); }}>
             <AiOutlineArrowLeft /> Projeler
           </button>
           <div>
@@ -2395,23 +2634,33 @@ const ProjeMuhasebesi = () => {
           {draft && draft.draftStatus === 'COMPLETED' && (
             <>
               <span className="completed-badge"><AiOutlineCheckCircle /> Tamamlandı</span>
-              {isAdmin() && !adminEditMode && (
+              {canEdit() && !completedEditMode && (
                 <button
                   className="btn-save"
-                  onClick={() => setAdminEditMode(true)}
-                  style={{ marginLeft: '8px', background: '#e53e3e' }}
-                >
-                  Düzenle (Admin)
-                </button>
-              )}
-              {isAdmin() && adminEditMode && (
-                <button
-                  className="btn-secondary"
-                  onClick={() => setAdminEditMode(false)}
+                  onClick={() => setCompletedEditMode(true)}
                   style={{ marginLeft: '8px' }}
                 >
-                  Düzenlemeyi Kapat
+                  Düzenle
                 </button>
+              )}
+              {canEdit() && completedEditMode && (
+                <>
+                  <button
+                    className="btn-complete"
+                    onClick={handleSaveAndRecomplete}
+                    disabled={finalizingEdits || savingAll}
+                    style={{ marginLeft: '8px' }}
+                  >
+                    <AiOutlineCheckCircle /> {finalizingEdits ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet ve Tamamla'}
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    onClick={() => setCompletedEditMode(false)}
+                    style={{ marginLeft: '8px' }}
+                  >
+                    Düzenlemeyi Kapat
+                  </button>
+                </>
               )}
             </>
           )}
@@ -2427,6 +2676,33 @@ const ProjeMuhasebesi = () => {
       {draftError && <div className="error-banner"><AiOutlineWarning /> {draftError}</div>}
       {saveError && <div className="error-banner"><AiOutlineWarning /> {saveError}</div>}
       {saveSuccess && <div className="success-banner"><AiOutlineCheckCircle /> {saveSuccess}</div>}
+      {(liveBlockingErrors.length > 0 || liveInvoiceWarnings.length > 0 || (validationReport && ((validationReport.blockingErrors?.length || 0) > 0 || (validationReport.warnings?.length || 0) > 0))) && (
+        <div className="error-banner validation-compact-banner" style={{ display: 'block' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+            <AiOutlineWarning />
+            <strong>Kullanıcı Düzeltme Rehberi</strong>
+          </div>
+          {validationReport?.sectionMissingCounts && Object.keys(validationReport.sectionMissingCounts).length > 0 && (
+            <div style={{ marginBottom: '8px', fontSize: '12px', opacity: 0.95 }}>
+              {Object.entries(validationReport.sectionMissingCounts).map(([section, count]) => (
+                <span key={section} style={{ marginRight: '12px' }}>
+                  {section}: {count}
+                </span>
+              ))}
+            </div>
+          )}
+          <div style={{ fontSize: '12px', lineHeight: 1.35 }}>
+            <div>
+              <strong>Zorunlu:</strong> {liveBlockingErrors.length}
+              {liveBlockingErrors.length > 0 ? ` · ${liveBlockingErrors.slice(0, 3).join(' · ')}` : ''}
+            </div>
+            <div>
+              <strong>Fatura Uyarısı:</strong> {liveInvoiceWarnings.length}
+              {liveInvoiceWarnings.length > 0 ? ` · ${liveInvoiceWarnings.slice(0, 2).join(' · ')}` : ''}
+            </div>
+          </div>
+        </div>
+      )}
 
       {!draftLoading && !draftError && (
         <div className="pm-editor">
@@ -2448,6 +2724,9 @@ const ProjeMuhasebesi = () => {
           <div className="section-panel" ref={sectionPanelRef}>
             <div className="section-panel-header">
               <h2 className="section-panel-title">{SECTION_LABELS[activeSection]}</h2>
+              <div className="info-row" style={{ marginTop: '6px', color: '#b45309', fontSize: '12px' }}>
+                <AiOutlineWarning /> Hiçbir maliyet alanı boş bırakılamaz. Maliyet yoksa 0 giriniz.
+              </div>
             </div>
             {renderSection()}
           </div>

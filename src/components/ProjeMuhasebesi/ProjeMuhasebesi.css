@@ -718,6 +718,13 @@ input:checked + .slider:before { transform: translateX(18px); }
   margin-bottom: 16px;
 }
 
+.validation-compact-banner {
+  max-height: 116px;
+  overflow: auto;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
 .success-banner {
   display: flex;
   align-items: center;

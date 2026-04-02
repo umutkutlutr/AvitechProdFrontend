@@ -9,6 +9,7 @@ import './ProposalInformationModal.css';
 
 const CostInformationModal = ({ service, onClose }) => {
     const [costSummary, setCostSummary] = useState(null);
+    const [offers, setOffers] = useState([]);
     const [offerPrice, setOfferPrice] = useState(null);
     const [bidPrice, setBidPrice] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -27,9 +28,11 @@ const CostInformationModal = ({ service, onClose }) => {
                 setError(null);
 
                 const offerData = await offerService.getOffersByProject(service.id);
+                setOffers([]);
                 if (offerData && Array.isArray(offerData) && offerData.length > 0) {
-                    const offer = offerData[0];
-                    if (offer.price) setBidPrice(offer.price);
+                    setOffers(offerData);
+                    const latestOffer = offerData[0];
+                    if (latestOffer?.price) setBidPrice(latestOffer.price);
                     const completedOffer = offerData.find(o => o.status === 'COMPLETED');
                     if (completedOffer) {
                         setOfferPrice(completedOffer.salePrice ?? completedOffer.price);
@@ -156,7 +159,7 @@ const CostInformationModal = ({ service, onClose }) => {
                                                     {section.items.map((item, idx) => {
                                                         const eurAmount = (item.amountEur != null && !isNaN(item.amountEur))
                                                             ? parseFloat(item.amountEur)
-                                                            : ((parseFloat(item.amountTry) || 0) / (parseFloat(costSummary?.salesExchangeRate) || 38.5));
+                                                            : 0;
                                                         return (
                                                         <div key={`${section.sectionKey}-${idx}`} className="cost-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                             <span className="cost-description">{item.label}</span>
@@ -197,9 +200,21 @@ const CostInformationModal = ({ service, onClose }) => {
                                     </div>
                                     <div className="sales-info">
                                         <div className="sales-item">
-                                            <span>Teklif Fiyatı:</span>
+                                            <span>Son Teklif Fiyatı:</span>
                                             <span className="sales-price">{finalBidPrice ? formatCurrency(finalBidPrice, 'EUR') : '-'}</span>
                                         </div>
+                                        {offers.length > 0 && (
+                                            <div className="sales-item" style={{ alignItems: 'flex-start' }}>
+                                                <span>Gönderilen Tüm Teklifler:</span>
+                                                <span className="sales-price" style={{ textAlign: 'right' }}>
+                                                    {offers.map((offer, idx) => (
+                                                        <div key={offer.id || idx}>
+                                                            {`#${offers.length - idx} · ${offer.status || 'OFFER_SENT'} · ${formatCurrency(offer.salePrice ?? offer.price ?? 0, 'EUR')}`}
+                                                        </div>
+                                                    ))}
+                                                </span>
+                                            </div>
+                                        )}
                                         {labelPriceOriginal != null && labelPriceOriginal > 0 && (
                                             <div className="sales-item">
                                                 <span>Etiket Fiyatı:</span>

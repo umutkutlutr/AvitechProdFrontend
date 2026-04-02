@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AiOutlineClose } from 'react-icons/ai';
 import clientService from '../../services/clientService';
+import CountryPhoneInput from '../shared/CountryPhoneInput';
 import './EditCompanyModal.css';
 
 const EditCompanyModal = ({ isOpen, onClose, client, onSuccess }) => {
@@ -67,6 +68,14 @@ const EditCompanyModal = ({ isOpen, onClose, client, onSuccess }) => {
     }));
   };
 
+  const handlePhoneChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -78,7 +87,12 @@ const EditCompanyModal = ({ isOpen, onClose, client, onSuccess }) => {
     try {
       setLoading(true);
       setError('');
-      await clientService.updateClient(client.id, formData);
+      const payload = {
+        ...formData,
+        phone: formData.phone ? formData.phone.trim() : '',
+        businessPhone: formData.businessPhone ? formData.businessPhone.trim() : ''
+      };
+      await clientService.updateClient(client.id, payload);
       if (onSuccess) {
         onSuccess();
       }
@@ -181,26 +195,24 @@ const EditCompanyModal = ({ isOpen, onClose, client, onSuccess }) => {
 
           <div className="form-group">
             <label htmlFor="phone">Telefon</label>
-            <input
-              type="tel"
+            <CountryPhoneInput
               id="phone"
               name="phone"
               value={formData.phone}
-              onChange={handleChange}
-              placeholder="Telefon numarasını girin"
+              onChange={handlePhoneChange}
+              placeholder="Telefon numarası"
               disabled={loading || loadingClientDetails}
             />
           </div>
 
           <div className="form-group">
             <label htmlFor="businessPhone">İş Telefonu</label>
-            <input
-              type="tel"
+            <CountryPhoneInput
               id="businessPhone"
               name="businessPhone"
               value={formData.businessPhone}
-              onChange={handleChange}
-              placeholder="+902125555555"
+              onChange={handlePhoneChange}
+              placeholder="İş telefonu"
               disabled={loading || loadingClientDetails}
             />
           </div>

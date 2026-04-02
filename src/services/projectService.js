@@ -303,23 +303,27 @@ class ProjectService {
     }
   }
 
-  async sendOfferToClients(projectId, clientIds, ccEmails = [], price, description) {
+  async sendOfferToClients(projectId, clientIds, ccEmails = [], price, description, senderSignature = null) {
     try {
       // Send individual requests for each client
       const promises = clientIds.map(async (clientId) => {
+        const payload = {
+          projectId: projectId,
+          clientId: clientId,
+          ccEmails: ccEmails,
+          price: price,
+          description: description,
+        };
+        if (senderSignature) {
+          payload.senderSignature = senderSignature;
+        }
         const response = await fetchWithAuth(`${API_BASE_URL}/api/offers`, {
           method: 'POST',
           headers: {
             ...authService.getAuthHeaders(),
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            projectId: projectId,
-            clientId: clientId,
-            ccEmails: ccEmails,
-            price: price,
-            description: description
-          }),
+          body: JSON.stringify(payload),
         });
 
         return await response.json();

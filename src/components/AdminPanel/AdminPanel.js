@@ -162,7 +162,10 @@ const AdminPanel = () => {
             return rate > 0 ? (parseFloat(item?.amountTry) || 0) / rate : 0;
           };
 
-          const purchasePriceEur = getItemAmountEur('MACHINE_PURCHASE', 'Makine Alım Bedeli') || getSectionTotalEur('MACHINE_PURCHASE');
+          const machinePurchaseOnlyEur = getItemAmountEur('MACHINE_PURCHASE', 'Makine Alım Bedeli');
+          const externalCommissionEur = getItemAmountEur('MACHINE_PURCHASE', 'Dış Komisyon');
+          const purchaseItemsTotalEur = (machinePurchaseOnlyEur || 0) + (externalCommissionEur || 0);
+          const purchasePriceEur = purchaseItemsTotalEur > 0 ? purchaseItemsTotalEur : getSectionTotalEur('MACHINE_PURCHASE');
           const visitCostEur = getSectionTotalEur('MACHINE_VISIT');
           const logisticsTotalEur = getSectionTotalEur('LOGISTICS');
           const insuranceEur = getItemAmountEur('LOGISTICS', 'Sigorta');

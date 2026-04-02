@@ -265,6 +265,22 @@ class AccountingService {
     }
   }
 
+  async getValidationReport(projectId) {
+    try {
+      const response = await fetchWithAuth(
+        `${API_BASE_URL}/api/accounting/projects/${projectId}/validation-report`,
+        {
+          method: 'GET',
+          headers: authService.getAuthHeaders(),
+        }
+      );
+      return await response.json();
+    } catch (error) {
+      console.error('AccountingService.getValidationReport error:', error);
+      throw error;
+    }
+  }
+
   /**
    * Upload a document to S3 for the given project.
    * Returns { key: <public S3 URL> }
