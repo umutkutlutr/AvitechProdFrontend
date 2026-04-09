@@ -357,6 +357,35 @@
   min-height: 500px;
 }
 
+/* Tamamlanmış proje: sekmesiz tek sayfa (özet + tüm bölümler) */
+.pm-editor-unified-completed {
+  flex-direction: column;
+}
+
+.pm-editor-unified-completed .section-panel {
+  max-height: none;
+}
+
+.unified-block {
+  margin-bottom: 28px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.unified-cost-summary-block {
+  background: #fafbfc;
+  border-radius: 10px;
+  padding: 16px 16px 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.unified-block-header {
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+}
+
 .section-tabs {
   display: flex;
   flex-direction: column;

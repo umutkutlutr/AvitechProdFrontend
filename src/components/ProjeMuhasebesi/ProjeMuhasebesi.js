@@ -946,7 +946,7 @@ const ProjeMuhasebesi = () => {
   };
 
   // ── When a project is selected, load its draft ──
-  const handleSelectProject = useCallback(async (project) => {
+  const handleSelectProject = useCallback(async (project, opts = {}) => {
     setSelectedProject(project);
     setCompletedEditMode(false);
     setValidationReport(null);
@@ -960,6 +960,9 @@ const ProjeMuhasebesi = () => {
       const dto = await accountingService.getDraft(project.id);
       setDraft(dto);
       setForm(mapDraftToForm(dto));
+      if (opts.openCompletedUnifiedEdit && dto.draftStatus === 'COMPLETED') {
+        setCompletedEditMode(true);
+      }
       await refreshValidationReport(project.id);
       // If there's a pending section from notification click, navigate to it
       if (pendingSectionRef.current) {
@@ -1695,6 +1698,8 @@ const ProjeMuhasebesi = () => {
   const sectionKeys = Object.keys(SECTION_LABELS);
   const liveBlockingErrors = useMemo(() => validateRequiredCostEntries(undefined, form) || [], [form]);
   const liveInvoiceWarnings = useMemo(() => validateInvoiceRequired(undefined, form) || [], [form]);
+  const showUnifiedCompletedEdit = draft?.draftStatus === 'COMPLETED' && completedEditMode;
+  const unifiedEditSectionKeys = ['machinePurchase', 'machineVisit', 'logistics', 'customs', 'transfer', 'generalCosts'];
   const backendOnlyBlocking = useMemo(() => {
     const backend = validationReport?.blockingErrors || [];
     if (!backend.length) return [];
@@ -1719,13 +1724,24 @@ const ProjeMuhasebesi = () => {
   };
 
   // ── Compute total costs from all sections (EUR bazlı) ──
+  /** Satır tutarını, girilen para birimi + satır kuru ile EUR'a çevirir (parantez ile sağ sütun uyumlu). */
   const computeTotalCosts = () => {
     const nMoney = (v) => parseFormMoney(v) ?? 0;
     const nRate = (v) => parseFormRate(v) ?? 0;
     const eurRate = nRate(rates?.EUR) || 38.5;
+    const lineToEur = (amountStr, currencyStr, rateStr, amountTryStr) => {
+      const amt = nMoney(amountStr);
+      const tryM = nMoney(amountTryStr);
+      const rLine = nRate(rateStr);
+      const cur = currencyStr || 'EUR';
+      if (cur === 'EUR') return amt;
+      if (cur === 'TRY' && rLine > 0) return amt / rLine;
+      if (cur === 'USD' && eurRate > 0 && tryM > 0) return tryM / eurRate;
+      if (eurRate > 0 && tryM > 0) return tryM / eurRate;
+      return amt;
+    };
     const sumAdditionalEur = (items) => {
-      if (!eurRate || eurRate <= 0) return 0;
-      return (items || []).reduce((acc, ac) => acc + (nMoney(ac.amountTry) / eurRate), 0);
+      return (items || []).reduce((acc, ac) => acc + lineToEur(ac.amount, ac.currency, ac.exchangeRate, ac.amountTry), 0);
     };
     const financingDays = Math.max(parseInt(String(form.generalCosts.financingDays || ''), 10) || 0, 0);
     const purchaseRate = nRate(form.machinePurchase.purchaseExchangeRate) || nRate(rates?.EUR);
@@ -1737,60 +1753,65 @@ const ProjeMuhasebesi = () => {
       ? (creditAmount * creditInterestRate / 100) * (financingDays / dayDivisor)
       : 0;
     const financingCostTry = financingCostEur * purchaseRate;
-    const toEur = (tryVal) => (eurRate > 0 ? tryVal / eurRate : 0);
+    const mp = form.machinePurchase;
+    const mv = form.machineVisit;
+    const lg = form.logistics;
+    const cu = form.customs;
+    const tr = form.transfer;
+    const gcf = form.generalCosts;
 
     const sections = [
       {
         key: 'machinePurchase', label: '1a. Makine Alım',
         items: [
-          { label: 'Makine Alım Bedeli', try: nMoney(form.machinePurchase.purchasePriceTry), eur: toEur(nMoney(form.machinePurchase.purchasePriceTry)), currency: form.machinePurchase.purchaseCurrency, amount: nMoney(form.machinePurchase.purchasePrice) },
-          { label: 'Dış Komisyon', try: nMoney(form.machinePurchase.externalCommissionTry), eur: toEur(nMoney(form.machinePurchase.externalCommissionTry)), currency: form.machinePurchase.externalCommissionCurrency, amount: nMoney(form.machinePurchase.externalCommission) },
+          { label: 'Makine Alım Bedeli', try: nMoney(mp.purchasePriceTry), eur: lineToEur(mp.purchasePrice, mp.purchaseCurrency, mp.purchaseExchangeRate, mp.purchasePriceTry), currency: mp.purchaseCurrency, amount: nMoney(mp.purchasePrice) },
+          { label: 'Dış Komisyon', try: nMoney(mp.externalCommissionTry), eur: lineToEur(mp.externalCommission, mp.externalCommissionCurrency, mp.externalCommissionRate, mp.externalCommissionTry), currency: mp.externalCommissionCurrency, amount: nMoney(mp.externalCommission) },
           { label: 'Finansman Maliyeti', try: financingCostTry, eur: financingCostEur, currency: 'EUR', amount: financingCostEur },
         ],
-        additionalEur: sumAdditionalEur(form.machinePurchase.additionalCosts),
+        additionalEur: sumAdditionalEur(mp.additionalCosts),
       },
       {
         key: 'machineVisit', label: '1b. Makine Ziyareti',
         items: [
-          { label: 'Uçak', try: nMoney(form.machineVisit.flightCostTry), eur: toEur(nMoney(form.machineVisit.flightCostTry)), currency: form.machineVisit.flightCurrency, amount: nMoney(form.machineVisit.flightCost) },
-          { label: 'Otel', try: nMoney(form.machineVisit.hotelCostTry), eur: toEur(nMoney(form.machineVisit.hotelCostTry)), currency: form.machineVisit.hotelCurrency, amount: nMoney(form.machineVisit.hotelCost) },
-          { label: 'Araç Kiralama', try: nMoney(form.machineVisit.carRentalCostTry), eur: toEur(nMoney(form.machineVisit.carRentalCostTry)), currency: form.machineVisit.carRentalCurrency, amount: nMoney(form.machineVisit.carRentalCost) },
-          { label: 'Ek Masraf', try: nMoney(form.machineVisit.additionalExpenseCostTry), eur: toEur(nMoney(form.machineVisit.additionalExpenseCostTry)), currency: form.machineVisit.additionalExpenseCurrency, amount: nMoney(form.machineVisit.additionalExpenseCost) },
+          { label: 'Uçak', try: nMoney(mv.flightCostTry), eur: lineToEur(mv.flightCost, mv.flightCurrency, mv.flightExchangeRate, mv.flightCostTry), currency: mv.flightCurrency, amount: nMoney(mv.flightCost) },
+          { label: 'Otel', try: nMoney(mv.hotelCostTry), eur: lineToEur(mv.hotelCost, mv.hotelCurrency, mv.hotelExchangeRate, mv.hotelCostTry), currency: mv.hotelCurrency, amount: nMoney(mv.hotelCost) },
+          { label: 'Araç Kiralama', try: nMoney(mv.carRentalCostTry), eur: lineToEur(mv.carRentalCost, mv.carRentalCurrency, mv.carRentalExchangeRate, mv.carRentalCostTry), currency: mv.carRentalCurrency, amount: nMoney(mv.carRentalCost) },
+          { label: 'Ek Masraf', try: nMoney(mv.additionalExpenseCostTry), eur: lineToEur(mv.additionalExpenseCost, mv.additionalExpenseCurrency, mv.additionalExpenseRate, mv.additionalExpenseCostTry), currency: mv.additionalExpenseCurrency, amount: nMoney(mv.additionalExpenseCost) },
         ],
-        additionalEur: sumAdditionalEur(form.machineVisit.additionalCosts),
+        additionalEur: sumAdditionalEur(mv.additionalCosts),
       },
       {
         key: 'logistics', label: '2. Lojistik',
         items: [
-          { label: 'Nakliye', try: nMoney(form.logistics.freightCostTry), eur: toEur(nMoney(form.logistics.freightCostTry)), currency: form.logistics.freightCurrency, amount: nMoney(form.logistics.freightCost) },
-          { label: 'Ek Lojistik', try: nMoney(form.logistics.additionalLogisticsCostTry), eur: toEur(nMoney(form.logistics.additionalLogisticsCostTry)), currency: form.logistics.additionalLogisticsCurrency, amount: nMoney(form.logistics.additionalLogisticsCost) },
-          { label: 'Brandalama', try: nMoney(form.logistics.brandingCostTry), eur: toEur(nMoney(form.logistics.brandingCostTry)), currency: form.logistics.brandingCurrency, amount: nMoney(form.logistics.brandingCost) },
-          { label: 'Sigorta', try: nMoney(form.logistics.insuranceCostTry), eur: toEur(nMoney(form.logistics.insuranceCostTry)), currency: form.logistics.insuranceCurrency, amount: nMoney(form.logistics.insuranceCost) },
+          { label: 'Nakliye', try: nMoney(lg.freightCostTry), eur: lineToEur(lg.freightCost, lg.freightCurrency, lg.freightExchangeRate, lg.freightCostTry), currency: lg.freightCurrency, amount: nMoney(lg.freightCost) },
+          { label: 'Ek Lojistik', try: nMoney(lg.additionalLogisticsCostTry), eur: lineToEur(lg.additionalLogisticsCost, lg.additionalLogisticsCurrency, lg.additionalLogisticsRate, lg.additionalLogisticsCostTry), currency: lg.additionalLogisticsCurrency, amount: nMoney(lg.additionalLogisticsCost) },
+          { label: 'Brandalama', try: nMoney(lg.brandingCostTry), eur: lineToEur(lg.brandingCost, lg.brandingCurrency, lg.brandingExchangeRate, lg.brandingCostTry), currency: lg.brandingCurrency, amount: nMoney(lg.brandingCost) },
+          { label: 'Sigorta', try: nMoney(lg.insuranceCostTry), eur: lineToEur(lg.insuranceCost, lg.insuranceCurrency, lg.insuranceExchangeRate, lg.insuranceCostTry), currency: lg.insuranceCurrency, amount: nMoney(lg.insuranceCost) },
         ],
-        additionalEur: sumAdditionalEur(form.logistics.additionalCosts),
+        additionalEur: sumAdditionalEur(lg.additionalCosts),
       },
       {
         key: 'customs', label: '3. Gümrük',
         items: [
-          { label: 'Gümrükçü bedeli', try: nMoney(form.customs.entryCustomsCostTry), eur: toEur(nMoney(form.customs.entryCustomsCostTry)), currency: form.customs.entryCustomsCurrency, amount: nMoney(form.customs.entryCustomsCost) },
-          { label: 'Antrepo indirme vinç maliyeti', try: form.customs.warehousePaidByBuyer ? 0 : nMoney(form.customs.warehouseUnloadingCostTry), eur: toEur(form.customs.warehousePaidByBuyer ? 0 : nMoney(form.customs.warehouseUnloadingCostTry)), currency: form.customs.warehouseUnloadingCurrency, amount: nMoney(form.customs.warehouseUnloadingCost) },
-          { label: 'Ardiye', try: form.customs.warehousePaidByBuyer ? 0 : nMoney(form.customs.storageCostTry), eur: toEur(form.customs.warehousePaidByBuyer ? 0 : nMoney(form.customs.storageCostTry)), currency: form.customs.storageCurrency, amount: nMoney(form.customs.storageCost) },
+          { label: 'Gümrükçü bedeli', try: nMoney(cu.entryCustomsCostTry), eur: lineToEur(cu.entryCustomsCost, cu.entryCustomsCurrency, cu.entryCustomsExchangeRate, cu.entryCustomsCostTry), currency: cu.entryCustomsCurrency, amount: nMoney(cu.entryCustomsCost) },
+          { label: 'Antrepo indirme vinç maliyeti', try: cu.warehousePaidByBuyer ? 0 : nMoney(cu.warehouseUnloadingCostTry), eur: lineToEur(cu.warehouseUnloadingCost, cu.warehouseUnloadingCurrency, cu.warehouseUnloadingExchangeRate, cu.warehouseUnloadingCostTry), currency: cu.warehouseUnloadingCurrency, amount: nMoney(cu.warehouseUnloadingCost) },
+          { label: 'Ardiye', try: cu.warehousePaidByBuyer ? 0 : nMoney(cu.storageCostTry), eur: lineToEur(cu.storageCost, cu.storageCurrency, cu.storageExchangeRate, cu.storageCostTry), currency: cu.storageCurrency, amount: nMoney(cu.storageCost) },
         ],
-        additionalEur: sumAdditionalEur(form.customs.additionalCosts),
+        additionalEur: sumAdditionalEur(cu.additionalCosts),
       },
       {
         key: 'transfer', label: '4. Devir İşlemleri',
         items: [
-          { label: 'Gümrükçü Devir Bedeli', try: nMoney(form.transfer.transferCostTry), eur: toEur(nMoney(form.transfer.transferCostTry)), currency: form.transfer.transferCurrency, amount: nMoney(form.transfer.transferCost) },
+          { label: 'Gümrükçü Devir Bedeli', try: nMoney(tr.transferCostTry), eur: lineToEur(tr.transferCost, tr.transferCurrency, tr.transferExchangeRate, tr.transferCostTry), currency: tr.transferCurrency, amount: nMoney(tr.transferCost) },
         ],
-        additionalEur: sumAdditionalEur(form.transfer.additionalCosts),
+        additionalEur: sumAdditionalEur(tr.additionalCosts),
       },
       {
         key: 'generalCosts', label: '5. Genel Maliyetler',
         items: [
-          { label: 'Kurulum', try: nMoney(form.generalCosts.installationCostTry), eur: toEur(nMoney(form.generalCosts.installationCostTry)), currency: form.generalCosts.installationCurrency, amount: nMoney(form.generalCosts.installationCost) },
+          { label: 'Kurulum', try: nMoney(gcf.installationCostTry), eur: lineToEur(gcf.installationCost, gcf.installationCurrency, gcf.installationExchangeRate, gcf.installationCostTry), currency: gcf.installationCurrency, amount: nMoney(gcf.installationCost) },
         ],
-        additionalEur: sumAdditionalEur(form.generalCosts.additionalCosts),
+        additionalEur: sumAdditionalEur(gcf.additionalCosts),
       },
     ];
 
@@ -1981,8 +2002,8 @@ const ProjeMuhasebesi = () => {
   };
 
   // ── Render section form ──
-  const renderSection = () => {
-    const s = activeSection;
+  const renderSection = (forcedSectionKey) => {
+    const s = forcedSectionKey !== undefined ? forcedSectionKey : activeSection;
     const f = form[s];
 
     switch (s) {
@@ -2606,7 +2627,12 @@ const ProjeMuhasebesi = () => {
                   <button
                     className="btn-save"
                     style={{ fontSize: '11px', padding: '5px 12px', borderRadius: '6px' }}
-                    onClick={(e) => { e.stopPropagation(); handleSelectProject(project); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSelectProject(project, {
+                        openCompletedUnifiedEdit: summary?.draftStatus === 'COMPLETED',
+                      });
+                    }}
                   >
                     {summary?.draftStatus === 'COMPLETED' ? 'Maliyet Düzenle' : 'Maliyet Gir'}
                   </button>
@@ -2739,30 +2765,61 @@ const ProjeMuhasebesi = () => {
       )}
 
       {!draftLoading && !draftError && (
-        <div className="pm-editor">
-          {/* Section tabs */}
-          <div className="section-tabs">
-            {sectionKeys.map(key => (
-              <button
-                key={key}
-                className={`section-tab ${activeSection === key ? 'active' : ''}`}
-                onClick={() => { setActiveSection(key); if (sectionPanelRef.current) sectionPanelRef.current.scrollTop = 0; }}
-              >
-                <span className="tab-label">{SECTION_LABELS[key]}</span>
-                <StatusBadge status={getSectionStatus(key)} />
-              </button>
-            ))}
-          </div>
-
-          {/* Section form */}
-          <div className="section-panel" ref={sectionPanelRef}>
-            <div className="section-panel-header">
-              <h2 className="section-panel-title">{SECTION_LABELS[activeSection]}</h2>
-              <div className="info-row" style={{ marginTop: '6px', color: '#b45309', fontSize: '12px' }}>
-                <AiOutlineWarning /> Hiçbir maliyet alanı boş bırakılamaz. Maliyet yoksa 0 giriniz.
-              </div>
+        <div className={`pm-editor${showUnifiedCompletedEdit ? ' pm-editor-unified-completed' : ''}`}>
+          {!showUnifiedCompletedEdit && (
+            <div className="section-tabs">
+              {sectionKeys.map(key => (
+                <button
+                  key={key}
+                  className={`section-tab ${activeSection === key ? 'active' : ''}`}
+                  onClick={() => { setActiveSection(key); if (sectionPanelRef.current) sectionPanelRef.current.scrollTop = 0; }}
+                >
+                  <span className="tab-label">{SECTION_LABELS[key]}</span>
+                  <StatusBadge status={getSectionStatus(key)} />
+                </button>
+              ))}
             </div>
-            {renderSection()}
+          )}
+
+          <div className="section-panel" ref={sectionPanelRef}>
+            {showUnifiedCompletedEdit ? (
+              <>
+                <div className="unified-completed-intro">
+                  <p style={{ margin: '0 0 8px', fontSize: '14px', color: '#4a5568', lineHeight: 1.45 }}>
+                    Tamamlanmış proje: maliyet özeti ve tüm bölümler aşağıda tek ekranda. Kayıt için üstteki <strong>Değişiklikleri Kaydet ve Tamamla</strong> veya her bölümdeki kaydet düğmelerini kullanın.
+                  </p>
+                  <div className="info-row" style={{ marginBottom: '16px', color: '#b45309', fontSize: '12px' }}>
+                    <AiOutlineWarning /> Hiçbir maliyet alanı boş bırakılamaz. Maliyet yoksa 0 giriniz.
+                  </div>
+                </div>
+                <div className="unified-block unified-cost-summary-block">
+                  <div className="section-panel-header unified-block-header">
+                    <h2 className="section-panel-title">{SECTION_LABELS.costSummary}</h2>
+                    <StatusBadge status={getSectionStatus('costSummary')} />
+                  </div>
+                  {renderSection('costSummary')}
+                </div>
+                {unifiedEditSectionKeys.map((key) => (
+                  <div key={key} className="unified-block unified-section-block">
+                    <div className="section-panel-header unified-block-header">
+                      <h2 className="section-panel-title">{SECTION_LABELS[key]}</h2>
+                      <StatusBadge status={getSectionStatus(key)} />
+                    </div>
+                    {renderSection(key)}
+                  </div>
+                ))}
+              </>
+            ) : (
+              <>
+                <div className="section-panel-header">
+                  <h2 className="section-panel-title">{SECTION_LABELS[activeSection]}</h2>
+                  <div className="info-row" style={{ marginTop: '6px', color: '#b45309', fontSize: '12px' }}>
+                    <AiOutlineWarning /> Hiçbir maliyet alanı boş bırakılamaz. Maliyet yoksa 0 giriniz.
+                  </div>
+                </div>
+                {renderSection()}
+              </>
+            )}
           </div>
         </div>
       )}

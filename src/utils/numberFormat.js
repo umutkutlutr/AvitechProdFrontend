@@ -6,6 +6,12 @@ export function parseFormattedNumber(value) {
   if (value === '' || value === null || value === undefined) return '';
   const str = String(value).trim();
   if (str === '' || str === '.' || str === ',') return '';
+  // Trailing comma = user typing decimals (e.g. "1.234,") → parse as integer part only
+  if (str.endsWith(',')) {
+    const base = str.slice(0, -1).trim();
+    if (base === '') return '';
+    return parseFormattedNumber(base);
+  }
   // Replace comma with dot for decimal
   const withDotDecimal = str.replace(',', '.');
   const parts = withDotDecimal.split('.');
@@ -32,6 +38,23 @@ export function formatNumberForInput(value) {
   if (value === '' || value === null || value === undefined) return value === null || value === undefined ? '' : value;
   const str = String(value).trim();
   if (str === '' || str === '.') return str;
+  if (str === ',') return ',';
+
+  // In-progress Turkish decimal: binlik nokta + virgül + en fazla 2 ondalık (yazarken kaybolmasın)
+  const lastComma = str.lastIndexOf(',');
+  if (lastComma !== -1) {
+    const intPartStr = str.slice(0, lastComma);
+    const decPartStr = str.slice(lastComma + 1);
+    if (/^[\d.]*$/.test(intPartStr) && /^\d*$/.test(decPartStr) && decPartStr.length <= 2) {
+      const intDigits = intPartStr.replace(/\./g, '');
+      if (intDigits === '' && decPartStr === '') return ',';
+      const intForFormat = intDigits === '' ? '0' : intDigits;
+      const formattedInt = intForFormat.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      if (decPartStr.length === 0) return `${formattedInt},`;
+      return `${formattedInt},${decPartStr}`;
+    }
+  }
+
   const num = typeof value === 'number' ? value : parseFormattedNumber(str);
   if (num === '' || (typeof num === 'string' && str !== '')) return str;
   const numVal = typeof num === 'number' ? num : parseFloat(String(num).replace(',', '.'));

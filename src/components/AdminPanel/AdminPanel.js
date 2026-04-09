@@ -466,6 +466,7 @@ const AdminPanel = () => {
                 <th>Makine Alış Maliyeti</th>
                 <th>Satış Bedeli</th>
                 <th>Vergi Öncesi Brüt Kar</th>
+                <th>Kâr % (maliyet üzerinden)</th>
                 <th>Satılan Firma</th>
                 <th>Durum</th>
               </tr>
@@ -473,7 +474,7 @@ const AdminPanel = () => {
             <tbody>
               {filteredData.length === 0 ? (
                 <tr>
-                  <td colSpan="19" className="no-data">
+                  <td colSpan="20" className="no-data">
                     {Object.keys(activeFilters).length > 0
                       ? 'Filtrelere uygun veri bulunamadı.'
                       : 'Gösterilecek veri bulunmamaktadır.'}
@@ -492,6 +493,10 @@ const AdminPanel = () => {
                     const otherEur = item.otherCostsEur ?? 0;
                     const totalCostEur = item.totalCostEur ?? 0;
                     const grossProfitEur = item.grossProfitEur;
+                    const profitPctOnCost =
+                      grossProfitEur != null && !isNaN(grossProfitEur) && totalCostEur > 0
+                        ? (grossProfitEur / totalCostEur) * 100
+                        : null;
                     const fmt = (n) => n != null && !isNaN(n) ? n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-';
                     return (
                       <tr key={item.id}>
@@ -513,6 +518,11 @@ const AdminPanel = () => {
                         <td className="currency">{item.salePriceEur != null && !isNaN(item.salePriceEur) ? fmt(item.salePriceEur) + ' €' : '-'}</td>
                         <td className={`currency ${grossProfitEur != null && grossProfitEur < 0 ? 'negative' : ''}`}>
                           {grossProfitEur != null ? fmt(grossProfitEur) + ' €' : '-'}
+                        </td>
+                        <td className={`currency ${profitPctOnCost != null && profitPctOnCost < 0 ? 'negative' : ''}`}>
+                          {profitPctOnCost != null && !isNaN(profitPctOnCost)
+                            ? `${profitPctOnCost.toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`
+                            : '-'}
                         </td>
                         <td>{item.companySold || '-'}</td>
                         <td className={`status-cell ${item.status === 'SATILDI' ? 'sold' : 'instock'}`}>
