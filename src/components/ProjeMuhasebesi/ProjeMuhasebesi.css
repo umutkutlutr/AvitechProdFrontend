@@ -555,6 +555,18 @@
   gap: 5px;
 }
 
+.rate-readonly {
+  font-size: 13px;
+  color: #374151;
+  font-weight: 500;
+}
+
+.rate-ref-hint {
+  font-size: 11px;
+  font-weight: 400;
+  color: #6b7280;
+}
+
 .try-equivalent {
   font-size: 12px;
   color: #059669;

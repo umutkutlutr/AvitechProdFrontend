@@ -49,11 +49,13 @@ const QuotesSent = ({ onEditService }) => {
 
   // Fetch offers from the new API endpoint
   useEffect(() => {
+    let cancelled = false;
     const fetchQuotesSentProjects = async () => {
       try {
         setLoading(true);
         setError(null);
         const offersData = await projectService.getOffers();
+        if (cancelled) return;
 
         // Transform offers data to match the expected format
         const transformedServices = await Promise.all(offersData.map(async (offer) => {
@@ -140,16 +142,17 @@ const QuotesSent = ({ onEditService }) => {
           }
         }));
 
-        setServices(transformedServices);
+        if (!cancelled) setServices(transformedServices);
       } catch (err) {
         console.error('Error fetching quotes sent projects:', err);
-        setError(err.message || 'Teklif gönderilen projeler yüklenirken bir hata oluştu');
+        if (!cancelled) setError(err.message || 'Teklif gönderilen projeler yüklenirken bir hata oluştu');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchQuotesSentProjects();
+    return () => { cancelled = true; };
   }, []);
 
   const handleInfoClick = (service) => {

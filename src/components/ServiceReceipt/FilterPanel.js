@@ -20,6 +20,7 @@ const FilterPanel = ({ onFilter, onClear }) => {
 
   // Load existing projects and filter options for dropdowns
   useEffect(() => {
+    let cancelled = false;
     const load = async () => {
       setLoadingProjects(true);
       try {
@@ -27,15 +28,17 @@ const FilterPanel = ({ onFilter, onClear }) => {
           projectService.getProjects(),
           projectService.getFilterOptions(),
         ]);
+        if (cancelled) return;
         setExistingProjects(projects);
         setFilterOptions(options || {});
       } catch (error) {
         console.error('Error loading filter data:', error);
       } finally {
-        setLoadingProjects(false);
+        if (!cancelled) setLoadingProjects(false);
       }
     };
     load();
+    return () => { cancelled = true; };
   }, []);
 
   // Extract unique values: prefer API filter-options, fallback to existing projects

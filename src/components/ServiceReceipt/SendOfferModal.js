@@ -4,7 +4,7 @@ import projectService from '../../services/projectService';
 import clientService from '../../services/clientService';
 import accountingService from '../../services/accountingService';
 import offerService from '../../services/offerService';
-import { getExchangeRates } from '../../services/currencyService';
+import { getExchangeRates, FALLBACK_RATES } from '../../services/currencyService';
 import {
   formatPhoneDisplayOrDash
 } from '../../utils/phoneFormat';
@@ -83,7 +83,9 @@ const SendOfferModal = ({ service, onClose }) => {
 
   // Fetch exchange rates on mount
   useEffect(() => {
-    getExchangeRates().then(r => setRates(r)).catch(() => {});
+    let cancelled = false;
+    getExchangeRates().then(r => { if (!cancelled) setRates(r); }).catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   // Parse formatted input (remove thousand separators, keep decimal point)
@@ -875,30 +877,24 @@ const SendOfferModal = ({ service, onClose }) => {
   // Format number with dots as thousand separators (e.g., 12000.03 -> 12.000.03)
   const formatNumberWithDots = (number) => {
     if (number === null || number === undefined || isNaN(number)) {
-      return '0.00';
+      return '0,00';
     }
 
     // Handle negative numbers
     const isNegative = number < 0;
     const absNumber = Math.abs(number);
 
-    // Convert to string and split by decimal point
-    const numStr = absNumber.toString();
-    const parts = numStr.split('.');
-
-    // Format integer part with dots as thousand separators
+    // Format with 2 decimal places
+    const fixedNum = absNumber.toFixed(2);
+    const parts = fixedNum.split('.');
     const integerPart = parts[0];
+    const decimalPart = parts[1] || '00';
+
+    // Format integer part with dots as thousand separators (Turkish format)
     const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
-    // Handle decimal part
-    let decimalPart = '00';
-    if (parts.length > 1) {
-      // Keep decimal part, pad to 2 digits if needed
-      decimalPart = parts[1].padEnd(2, '0').substring(0, 2);
-    }
-
-    // Combine parts with negative sign if needed
-    const formatted = `${formattedInteger}.${decimalPart}`;
+    // Turkish format: dot for thousands, comma for decimal
+    const formatted = `${formattedInteger},${decimalPart}`;
     return isNegative ? `-${formatted}` : formatted;
   };
 
@@ -947,7 +943,7 @@ const SendOfferModal = ({ service, onClose }) => {
                 <div style={{ fontSize: '10px', color: '#c53030', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '3px' }}>Toplam Maliyet</div>
                 <div style={{ fontSize: '15px', fontWeight: 700, color: '#c53030' }}>
                   {accountingData.totalCostTry != null ? (() => {
-                    const eurRate = parseFloat(rates?.EUR) || 38.50;
+                    const eurRate = parseFloat(rates?.EUR) || FALLBACK_RATES.EUR;
                     const totalEur = parseFloat(accountingData.totalCostTry) / eurRate;
                     return <>€{totalEur.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}<br /><span style={{ fontSize: '12px', opacity: 0.9 }}>₺{parseFloat(accountingData.totalCostTry).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span></>;
                   })() : '-'}
@@ -959,7 +955,7 @@ const SendOfferModal = ({ service, onClose }) => {
               }}>
                 <div style={{ fontSize: '10px', color: '#276749', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '3px' }}>Etiket Fiyatı</div>
                 <div style={{ fontSize: '15px', fontWeight: 700, color: '#276749' }}>
-                  {accountingData.labelPrice != null ? `${accountingData.labelCurrency === 'USD' ? '$' : '€'}${parseFloat(accountingData.labelPrice).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}` : '-'}
+                  {accountingData.labelPrice != null ? `${String(accountingData.labelCurrency || 'EUR').toUpperCase() === 'TRY' ? '₺' : '€'}${parseFloat(accountingData.labelPrice).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}` : '-'}
                 </div>
               </div>
               <div style={{
@@ -969,11 +965,11 @@ const SendOfferModal = ({ service, onClose }) => {
                 <div style={{ fontSize: '10px', color: '#6b46c1', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '3px' }}>Kar Analizi</div>
                 <div style={{ fontSize: '15px', fontWeight: 700, color: '#6b46c1' }}>
                   {accountingData.totalCostTry != null && formData.salesPrice > 0 ? (() => {
-                    const eurRate = parseFloat(rates?.EUR) || 38.50;
+                    const eurRate = parseFloat(rates?.EUR) || FALLBACK_RATES.EUR;
                     const salesTry = formData.salesPrice * eurRate;
                     const profitTry = salesTry - parseFloat(accountingData.totalCostTry);
                     const profitEur = profitTry / eurRate;
-                    const profitPct = salesTry > 0 ? (profitTry / salesTry) * 100 : 0;
+                    const profitPct = salesTry > 0 ? Math.round((profitTry / salesTry) * 10000) / 100 : 0;
                     return (
                       <span style={{ color: profitTry >= 0 ? '#6b46c1' : '#c53030' }}>
                         €{profitEur.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} (%{profitPct.toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })})<br />

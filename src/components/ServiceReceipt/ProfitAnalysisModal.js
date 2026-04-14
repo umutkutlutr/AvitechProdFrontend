@@ -5,6 +5,7 @@ import { normalizeProjectCard } from '../../utils/projectNormalizer';
 import accountingService from '../../services/accountingService';
 import offerService from '../../services/offerService';
 import projectService from '../../services/projectService';
+import { FALLBACK_RATES } from '../../services/currencyService';
 import './ProfitAnalysisModal.css';
 
 const ProfitAnalysisModal = ({ service, onClose, showSalesPrice = false }) => {
@@ -16,6 +17,7 @@ const ProfitAnalysisModal = ({ service, onClose, showSalesPrice = false }) => {
   const modalRef = useRef(null);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchData = async () => {
       if (!service?.id) {
         setError('Proje ID bulunamadı');
@@ -32,6 +34,7 @@ const ProfitAnalysisModal = ({ service, onClose, showSalesPrice = false }) => {
 
         // Fetch offer details from the offers endpoint to extract salePrice and price
         const offerData = await offerService.getOffersByProject(service.id);
+        if (cancelled) return;
 
         // Extract salePrice and price from offers
         if (offerData && Array.isArray(offerData) && offerData.length > 0) {
@@ -55,23 +58,27 @@ const ProfitAnalysisModal = ({ service, onClose, showSalesPrice = false }) => {
 
         // Fetch cost summary from accounting API
         const summary = await accountingService.getCostSummary(service.id);
+        if (cancelled) return;
         setCostSummary(summary);
       } catch (err) {
+        if (cancelled) return;
         console.error('Error fetching cost data:', err);
         setError(err.message || 'Maliyet detayları yüklenirken bir hata oluştu');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchData();
+    return () => { cancelled = true; };
   }, [service?.id, service?.offerId, service?.originalStatus, service?.offerStatus, service?.status, service?.rawStatus]);
 
   const formatCurrency = (amount, currency = 'TRY') => {
     if (amount == null || isNaN(amount)) return '₺0';
     const num = typeof amount === 'number' ? amount : parseFloat(amount);
+    if (isNaN(num)) return currency === 'EUR' ? '€0,00' : '₺0,00';
     if (currency === 'EUR') {
-      return `€${num.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      return `€${num.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
     return `₺${num.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
@@ -106,10 +113,10 @@ const ProfitAnalysisModal = ({ service, onClose, showSalesPrice = false }) => {
   const salesPrice = actualSalePriceFromCost ?? offerPrice ?? (isSold ? salesPriceFromCost : null);
   const salesPriceEur = costSummary?.salesPriceEur ?? (salesPrice != null ? salesPrice : null);
   const netProfitEur = costSummary?.netProfitEur ?? null;
-  const profitMargin = costSummary?.profitMarginPercent ?? (salesPriceEur != null && salesPriceEur > 0 && netProfitEur != null ? ((netProfitEur / salesPriceEur) * 100) : 0);
+  const profitMargin = costSummary?.profitMarginPercent ?? (salesPriceEur != null && salesPriceEur > 0 && netProfitEur != null ? Math.round((netProfitEur / salesPriceEur) * 10000) / 100 : 0);
 
   const allCostItems = costSummary?.sections?.flatMap(section =>
-    section.items.map(item => ({ ...item, sectionName: section.sectionName }))
+    (section.items || []).map(item => ({ ...item, sectionName: section.sectionName }))
   ) || [];
 
   const handleExportExcel = async () => {
@@ -216,13 +223,16 @@ const ProfitAnalysisModal = ({ service, onClose, showSalesPrice = false }) => {
                 <div className="cost-list">
                   {costSummary?.sections?.map((section) => (
                     <React.Fragment key={section.sectionKey}>
-                      {section.items.length > 0 && (
+                      {section.items?.length > 0 && (
                         <>
                           <div className="cost-section-label">{section.sectionName}</div>
                           {section.items.map((item, idx) => {
+                            const parsedItemRate = parseFloat(item.exchangeRate);
+                            const parsedSalesRate = parseFloat(costSummary?.salesExchangeRate);
+                            const itemRate = (!isNaN(parsedItemRate) && parsedItemRate > 0) ? parsedItemRate : (!isNaN(parsedSalesRate) && parsedSalesRate > 0) ? parsedSalesRate : FALLBACK_RATES.EUR;
                             const eurAmount = (item.amountEur != null && !isNaN(item.amountEur))
                               ? parseFloat(item.amountEur)
-                              : ((parseFloat(item.amountTry) || 0) / (parseFloat(costSummary?.salesExchangeRate) || 38.5));
+                              : (itemRate > 0 ? Math.round(((parseFloat(item.amountTry) || 0) / itemRate) * 100) / 100 : 0);
                             return (
                             <div key={`${section.sectionKey}-${idx}`} className="cost-item">
                               <span className="cost-description">{item.label}</span>
@@ -300,7 +310,7 @@ const ProfitAnalysisModal = ({ service, onClose, showSalesPrice = false }) => {
                   <div className="profit-item">
                     <span>Net Kâr Marjı:</span>
                     <span className={`profit-margin ${profitMargin >= 0 ? 'positive' : 'negative'}`}>
-                      {typeof profitMargin === 'number' ? profitMargin.toFixed(1) : parseFloat(profitMargin || 0).toFixed(1)}%
+                      {(isNaN(Number(profitMargin)) ? 0 : Number(profitMargin)).toFixed(1)}%
                     </span>
                   </div>
                 </div>

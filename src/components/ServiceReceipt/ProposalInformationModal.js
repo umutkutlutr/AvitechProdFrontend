@@ -39,9 +39,9 @@ const ProposalInformationModal = ({ service, onClose }) => {
 
   const formatCurrency = (amount, currency = 'EUR') => {
     if (currency === 'TRY') {
-      return `₺${amount.toLocaleString('tr-TR')}`;
+      return `₺${amount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
-    return `€${amount.toLocaleString('de-DE')}`;
+    return `€${amount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const formatDate = (dateString) => {

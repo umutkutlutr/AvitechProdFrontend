@@ -30,6 +30,7 @@ const ServiceDetailsModal = ({ service, onClose, isCompletedProject = false }) =
   const preloadQueue = useRef([]);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchProjectDetails = async () => {
       if (!service?.id) {
         setError('Proje ID bulunamadı');
@@ -41,16 +42,19 @@ const ServiceDetailsModal = ({ service, onClose, isCompletedProject = false }) =
         setLoading(true);
         setError(null);
         const data = await projectService.getProjectById(service.id);
+        if (cancelled) return;
         setProjectDetails(normalizeProjectDetail(data) || data);
       } catch (err) {
+        if (cancelled) return;
         console.error('Error fetching project details:', err);
         setError(err.message || 'Proje detayları yüklenirken bir hata oluştu');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchProjectDetails();
+    return () => { cancelled = true; };
   }, [service?.id]);
 
   // Update ref when imagePosition changes

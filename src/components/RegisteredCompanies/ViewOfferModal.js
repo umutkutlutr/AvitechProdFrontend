@@ -103,7 +103,7 @@ const ViewOfferModal = ({ isOpen, onClose, clientId, clientName }) => {
       return 'Belirtilmemiş';
     }
 
-    return `€${numericAmount.toLocaleString('de-DE')}`;
+    return `€${numericAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const handleViewOfferPdf = (offerId) => {

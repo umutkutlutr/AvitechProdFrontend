@@ -222,12 +222,12 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
             return os;
           }
         })(),
-        teamMeasurementProbe: (project.toolMeasureProbe || project.takimOlcmeProbu) ? 'Var' : (project.teamMeasurementProbe || 'Var'),
-        partMeasurementProbe: (project.partMeasureProbe || project.parcaOlcmeProbu) ? 'Var' : (project.partMeasurementProbe || 'Var'),
-        insideWaterGiving: (project.internalWater || project.ictenSuVerme) ? 'Var' : (project.insideWaterGiving || 'Yok'),
-        conveyor: project.conveyor ? 'Var' : (project.conveyor || 'Yok'),
-        paperFilter: (project.paperFilter || project.kagitFiltre) ? 'Var' : (project.paperFilter || 'Yok'),
-        elCarki: project.elCarki ? 'Var' : 'Yok',
+        teamMeasurementProbe: (project.takimOlcmeProbu != null ? project.takimOlcmeProbu : (project.toolMeasureProbe != null ? project.toolMeasureProbe : true)) ? 'Var' : 'Yok',
+        partMeasurementProbe: (project.parcaOlcmeProbu != null ? project.parcaOlcmeProbu : (project.partMeasureProbe != null ? project.partMeasureProbe : true)) ? 'Var' : 'Yok',
+        insideWaterGiving: (project.ictenSuVerme != null ? project.ictenSuVerme : (project.internalWater != null ? project.internalWater : false)) ? 'Var' : 'Yok',
+        conveyor: (project.konveyor != null ? project.konveyor : (project.conveyor != null ? project.conveyor : false)) ? 'Var' : 'Yok',
+        paperFilter: (project.kagitFiltre != null ? project.kagitFiltre : (project.paperFilter != null ? project.paperFilter : false)) ? 'Var' : 'Yok',
+        elCarki: (project.elCarki != null ? project.elCarki : false) ? 'Var' : 'Yok',
         xMovement: project.xmovement || project.xMovement || '',
         yMovement: project.ymovement || project.yMovement || '',
         zMovement: project.zmovement || project.zMovement || '',
@@ -269,12 +269,12 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
         workingHours: project.hoursOperated ? project.hoursOperated.toString() : (project.workingHours || ''),
         repairHours: project.rpm ? project.rpm.toString() : (project.repairHours || ''),
         teamCount: project.takimSayisi ? project.takimSayisi.toString() : (project.teamCount || '2'),
-        teamMeasurementProbe: project.takimOlcmeProbu ? 'Var' : (project.teamMeasurementProbe || 'Var'),
-        partMeasurementProbe: project.parcaOlcmeProbu ? 'Var' : (project.partMeasurementProbe || 'Var'),
-        insideWaterGiving: project.ictenSuVerme ? 'Var' : (project.insideWaterGiving || 'Yok'),
-        conveyor: project.konveyor ? 'Var' : (project.conveyor || 'Yok'),
-        paperFilter: project.kagitFiltre ? 'Var' : (project.paperFilter || 'Yok'),
-        elCarki: project.elCarki ? 'Var' : 'Yok'
+        teamMeasurementProbe: (project.takimOlcmeProbu != null ? project.takimOlcmeProbu : true) ? 'Var' : 'Yok',
+        partMeasurementProbe: (project.parcaOlcmeProbu != null ? project.parcaOlcmeProbu : true) ? 'Var' : 'Yok',
+        insideWaterGiving: (project.ictenSuVerme != null ? project.ictenSuVerme : false) ? 'Var' : 'Yok',
+        conveyor: (project.konveyor != null ? project.konveyor : false) ? 'Var' : 'Yok',
+        paperFilter: (project.kagitFiltre != null ? project.kagitFiltre : false) ? 'Var' : 'Yok',
+        elCarki: (project.elCarki != null ? project.elCarki : false) ? 'Var' : 'Yok'
       });
       console.log('=====================');
 
@@ -308,6 +308,65 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
       ...prev,
       [field]: value
     }));
+  };
+
+  // When both machineName and model are selected from suggestions, auto-fill specs
+  const tryAutoFillSpecs = async (selectedField, selectedValue) => {
+    const machineName = selectedField === 'machineName' ? selectedValue : formData.machineName;
+    const model = selectedField === 'model' ? selectedValue : formData.model;
+    if (!machineName || !model) return;
+
+    try {
+      const specs = await autofillService.getSpecsByMakeAndModel(machineName, model);
+      if (!specs) return;
+
+      const ok = window.confirm(
+        `"${machineName} ${model}" için önceki projeden teknik özellikler bulundu. ` +
+        `Seri no, yıl ve saat hariç tüm alanları otomatik doldurmak ister misiniz?`
+      );
+      if (!ok) return;
+
+      setFormData(prev => ({
+        ...prev,
+        // Dimensions
+        ...(specs.machineWidth != null && { machineWidth: String(specs.machineWidth) }),
+        ...(specs.machineLength != null && { machineLength: String(specs.machineLength) }),
+        ...(specs.machineHeight != null && { machineHeight: String(specs.machineHeight) }),
+        // Weights
+        ...(specs.netWeight != null && { machineNetWeight: String(specs.netWeight) }),
+        ...(specs.additionalWeight != null && { additionalWeight: String(specs.additionalWeight) }),
+        ...(specs.maxMaterialWeight != null && { maxMaterialWeight: String(specs.maxMaterialWeight) }),
+        // Movements
+        ...(specs.xMovement != null && { xMovement: String(specs.xMovement) }),
+        ...(specs.yMovement != null && { yMovement: String(specs.yMovement) }),
+        ...(specs.zMovement != null && { zMovement: String(specs.zMovement) }),
+        ...(specs.aMovement != null && { aMovement: String(specs.aMovement) }),
+        ...(specs.bMovement != null && { bMovement: String(specs.bMovement) }),
+        ...(specs.cMovement != null && { cMovement: String(specs.cMovement) }),
+        // Classification
+        ...(specs.type != null && { machineType: specs.type }),
+        ...(specs.condition != null && { condition: specs.condition }),
+        ...(specs.machineOrigin != null && { machineOrigin: specs.machineOrigin }),
+        ...(specs.machinePower != null && { machinePower: specs.machinePower }),
+        ...(specs.rpm != null && { repairHours: String(specs.rpm) }),
+        ...(specs.takimSayisi != null && { teamCount: String(specs.takimSayisi) }),
+        // Operating system
+        ...(specs.operatingSystem != null && { operatingSystem: specs.operatingSystem }),
+        ...(specs.operatingSystemOther != null && { customOperatingSystem: specs.operatingSystemOther }),
+        // Features
+        ...(specs.takimOlcmeProbu != null && { teamMeasurementProbe: specs.takimOlcmeProbu ? 'Var' : 'Yok' }),
+        ...(specs.parcaOlcmeProbu != null && { partMeasurementProbe: specs.parcaOlcmeProbu ? 'Var' : 'Yok' }),
+        ...(specs.ictenSuVerme != null && { insideWaterGiving: specs.ictenSuVerme ? 'Var' : 'Yok' }),
+        ...(specs.konveyor != null && { conveyor: specs.konveyor ? 'Var' : 'Yok' }),
+        ...(specs.kagitFiltre != null && { paperFilter: specs.kagitFiltre ? 'Var' : 'Yok' }),
+        ...(specs.elCarki != null && { elCarki: specs.elCarki ? 'Var' : 'Yok' }),
+        // Holder & accessories
+        ...(specs.holderType != null && { holderType: specs.holderType }),
+        ...(specs.additionalEquipment != null && { accessoryData: specs.additionalEquipment }),
+      }));
+    } catch (err) {
+      console.warn('Auto-fill specs failed:', err);
+    }
   };
 
   const handleMovementBlur = (field, value) => {
@@ -767,12 +826,12 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
       konveyor: formData.conveyor === 'Var',
       kagitFiltre: formData.paperFilter === 'Var',
       elCarki: formData.elCarki === 'Var',
-      xmovement: formData.xMovement || '',
-      ymovement: formData.yMovement || '',
-      zmovement: formData.zMovement || '',
-      amovement: formData.aMovement || '',
-      bmovement: formData.bMovement || '',
-      cmovement: formData.cMovement || '',
+      xMovement: formData.xMovement || '',
+      yMovement: formData.yMovement || '',
+      zMovement: formData.zMovement || '',
+      aMovement: formData.aMovement || '',
+      bMovement: formData.bMovement || '',
+      cMovement: formData.cMovement || '',
       holderType: formData.holderType || '',
       machineWidth: (formData.machineWidth && !isNaN(parseFloat(formData.machineWidth))) ? parseFloat(formData.machineWidth) : null,
       machineLength: (formData.machineLength && !isNaN(parseFloat(formData.machineLength))) ? parseFloat(formData.machineLength) : null,
@@ -1009,6 +1068,7 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
                     <AutocompleteInput
                       value={formData.machineName}
                       onChange={(e) => handleInputChange('machineName', e.target.value)}
+                      onSelect={(val) => tryAutoFillSpecs('machineName', val)}
                       suggestions={autofillData.machineNames}
                       placeholder="Dmg Mori"
                     />
@@ -1018,6 +1078,7 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
                     <AutocompleteInput
                       value={formData.model}
                       onChange={(e) => handleInputChange('model', e.target.value)}
+                      onSelect={(val) => tryAutoFillSpecs('model', val)}
                       suggestions={autofillData.machineModels}
                       placeholder="Model adı"
                     />

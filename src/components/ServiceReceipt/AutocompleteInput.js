@@ -9,6 +9,7 @@ const AutocompleteInput = ({
     onChange,
     onBlur,
     onKeyPress,
+    onSelect,
     suggestions,
     placeholder,
     className = '',
@@ -82,6 +83,7 @@ const AutocompleteInput = ({
         onChange(syntheticEvent);
         setShowSuggestions(false);
         setActiveSuggestionIndex(-1);
+        if (onSelect) onSelect(suggestion);
     };
 
     const handleKeyDown = (e) => {

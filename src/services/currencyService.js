@@ -8,9 +8,8 @@ import authService from './authService';
 const FALLBACK_API_URL = 'https://api.exchangerate-api.com/v4/latest/EUR';
 
 // Hardcoded fallback rates - direct TRY rates (1 EUR = X TRY)
-const FALLBACK_RATES = {
+export const FALLBACK_RATES = {
   EUR: 38.50,  // 1 EUR = 38.50 TRY
-  USD: 36.80,  // 1 USD = 36.80 TRY
   TRY: 1.0
 };
 
@@ -35,11 +34,10 @@ const fetchTCMBRates = async () => {
       // Still use them as they come from the backend
     }
 
-    // Use direct TRY rates from the backend `rates` map (1 EUR = X TRY, 1 USD = Y TRY)
+    // Use direct TRY rates from the backend `rates` map (1 EUR = X TRY)
     const directRates = data.rates || {};
     return {
       EUR: directRates.EUR || data.EUR_TRY || FALLBACK_RATES.EUR,
-      USD: directRates.USD || data.USD_TRY || FALLBACK_RATES.USD,
       TRY: 1.0,
       source: data.source === 'TCMB' ? 'TCMB' : 'TCMB (fallback)',
       timestamp: data.timestamp || new Date().toISOString()
@@ -64,12 +62,9 @@ const fetchFallbackRates = async () => {
 
     const data = await response.json();
 
-    // Convert EUR-based rates to direct TRY rates (1 EUR = X TRY, 1 USD = Y TRY)
     const eurTry = data.rates.TRY || FALLBACK_RATES.EUR;
-    const eurUsd = data.rates.USD || 1.05;
     return {
       EUR: eurTry,
-      USD: eurTry / eurUsd,
       TRY: 1.0,
       source: 'exchangerate-api.com',
       timestamp: new Date().toISOString()
@@ -102,12 +97,9 @@ export const getExchangeRates = async () => {
     return rates;
   }
 
-  // If all APIs fail, use hardcoded fallback
-  // Return direct TRY rates: 1 EUR = X TRY, 1 USD = Y TRY
   console.warn('All APIs failed, using hardcoded fallback rates');
   return {
     EUR: FALLBACK_RATES.EUR,
-    USD: FALLBACK_RATES.USD,
     TRY: 1.0,
     source: 'fallback (offline)',
     timestamp: new Date().toISOString(),
@@ -136,7 +128,7 @@ export const convertCurrency = (amount, fromCurrency, toCurrency, rates) => {
     return 0;
   }
 
-  // rates are direct TRY rates: rates[EUR]=38.50, rates[USD]=36.80, rates[TRY]=1.0
+  // rates are direct TRY rates: rates[EUR]=38.50, rates[TRY]=1.0
   const tryAmount = amount * rates[fromCurrency];
   const convertedAmount = tryAmount / rates[toCurrency];
 
@@ -150,12 +142,7 @@ export const convertCurrency = (amount, fromCurrency, toCurrency, rates) => {
  * @returns {string} Formatted currency string
  */
 export const formatCurrency = (amount, currency) => {
-  const symbols = {
-    EUR: '€',
-    TRY: '₺',
-    USD: '$'
-  };
-
+  const symbols = { EUR: '€', TRY: '₺' };
   const symbol = symbols[currency] || currency;
   const formattedAmount = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 2,

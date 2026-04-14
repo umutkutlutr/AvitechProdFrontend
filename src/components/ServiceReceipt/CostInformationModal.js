@@ -55,9 +55,10 @@ const CostInformationModal = ({ service, onClose }) => {
     const formatCurrency = (amount, currency = 'TRY') => {
         if (amount == null || isNaN(amount)) return '-';
         const num = typeof amount === 'number' ? amount : parseFloat(amount);
-        const symbols = { EUR: '€', USD: '$', TRY: '₺' };
-        const symbol = symbols[currency] || currency;
-        const locale = currency === 'EUR' ? 'de-DE' : currency === 'USD' ? 'en-US' : 'tr-TR';
+        const c = currency === 'USD' ? 'EUR' : currency;
+        const symbols = { EUR: '€', TRY: '₺' };
+        const symbol = symbols[c] || currency;
+        const locale = 'tr-TR';
         return `${symbol}${num.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     };
 
@@ -81,10 +82,10 @@ const CostInformationModal = ({ service, onClose }) => {
     const finalBidPrice = bidPrice ?? 0;
     const salesPriceEur = costSummary?.salesPriceEur ?? (salesPrice != null ? salesPrice : null);
     const netProfitEur = costSummary?.netProfitEur ?? null;
-    const profitMargin = costSummary?.profitMarginPercent ?? (salesPriceEur != null && salesPriceEur > 0 && netProfitEur != null ? ((netProfitEur / salesPriceEur) * 100) : 0);
+    const profitMargin = costSummary?.profitMarginPercent ?? (salesPriceEur != null && salesPriceEur > 0 && netProfitEur != null ? Math.round((netProfitEur / salesPriceEur) * 10000) / 100 : 0);
 
     const allCostItems = costSummary?.sections?.flatMap(section =>
-        section.items.map(item => ({ ...item, sectionName: section.sectionName }))
+        (section.items || []).map(item => ({ ...item, sectionName: section.sectionName }))
     ) || [];
 
     return (
@@ -151,7 +152,7 @@ const CostInformationModal = ({ service, onClose }) => {
                                 <div className="cost-list">
                                     {costSummary?.sections?.map((section) => (
                                         <React.Fragment key={section.sectionKey}>
-                                            {section.items.length > 0 && (
+                                            {section.items?.length > 0 && (
                                                 <>
                                                     <div className="cost-section-label" style={{ fontWeight: 600, color: '#555', marginTop: '8px', fontSize: '13px' }}>
                                                         {section.sectionName}
@@ -251,7 +252,7 @@ const CostInformationModal = ({ service, onClose }) => {
                                         <div className="profit-item">
                                             <span>Net Kâr Marjı:</span>
                                             <span className={`profit-margin ${profitMargin >= 0 ? 'positive' : 'negative'}`}>
-                                                {typeof profitMargin === 'number' ? profitMargin.toFixed(1) : parseFloat(profitMargin || 0).toFixed(1)}%
+                                                {(isNaN(Number(profitMargin)) ? 0 : Number(profitMargin)).toFixed(1)}%
                                             </span>
                                         </div>
                                     </div>

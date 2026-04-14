@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useAuth } from '../../contexts/AuthContext';
 import projectService from '../../services/projectService';
 import accountingService from '../../services/accountingService';
-import { getExchangeRates } from '../../services/currencyService';
+import { getExchangeRates, FALLBACK_RATES } from '../../services/currencyService';
 import {
   AiOutlineSearch,
   AiOutlineReload,
@@ -28,14 +28,27 @@ import './ProjeMuhasebesi.css';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
-const CURRENCIES = ['EUR', 'USD', 'TRY'];
+const CURRENCIES = ['EUR', 'TRY'];
 
-/** Girdi sırasında rakam, nokta (binlik) ve tek virgül (ondalık) */
+/** Eski kayıtlar / API: USD artık kullanılmıyor → EUR */
+function normalizeCurrency(c) {
+  if (!c || c === 'USD') return 'EUR';
+  return c;
+}
+
+/** Girdi sırasında rakam ve tek virgül (ondalık). Noktalar otomatik eklenir (binlik ayırıcı). */
 function sanitizeDecimalTyping(raw) {
   let s = String(raw).replace(/[^\d.,]/g, '');
   const ci = s.indexOf(',');
   if (ci !== -1) {
-    s = s.slice(0, ci + 1) + s.slice(ci + 1).replace(/,/g, '');
+    // Virgül var: virgülden önceki noktalar binlik ayırıcı → sil
+    const intPart = s.slice(0, ci).replace(/\./g, '');
+    // Virgülden sonra sadece rakamlar, ekstra virgül yok
+    const rest = s.slice(ci + 1).replace(/[.,]/g, '');
+    s = intPart + ',' + rest;
+  } else {
+    // Virgül yok: noktalar ambiguous → binlik olarak kabul et ve sil
+    s = s.replace(/\./g, '');
   }
   return s;
 }
@@ -62,8 +75,7 @@ function formatMoneyTrLocalized(n) {
 }
 
 /**
- * Yeşil önizleme: EUR/USD tutarı → ₺ karşılığı (amountTry); TRY tutarı → € karşılığı (kur: 1 EUR = rate TRY).
- * Gösterimde her zaman formdaki kur alanı kullanılır.
+ * Yeşil önizleme: EUR → ₺ (amountTry); TRY → € (satır kuru: 1 EUR = rate TRY).
  */
 function CurrencyEquivalentHint({ currency, amountStr, amountTryStr, rateStr }) {
   const amt = parseFormMoney(amountStr);
@@ -82,7 +94,7 @@ function CurrencyEquivalentHint({ currency, amountStr, amountTryStr, rateStr }) 
     return null;
   }
 
-  if (currency === 'EUR' || currency === 'USD') {
+  if (currency === 'EUR') {
     if (tryAm != null && r != null && r > 0) {
       return (
         <div className="try-equivalent currency-equivalent-hint">
@@ -96,9 +108,9 @@ function CurrencyEquivalentHint({ currency, amountStr, amountTryStr, rateStr }) 
 
 /** Sabit EUR alanları (öz kaynak / kredi): Makine alım kuruna göre ₺ önizlemesi */
 function EurToTryHint({ eurAmountStr, tryPerEurRateStr, label }) {
-  const eur = parseFloat(String(eurAmountStr ?? '').replace(',', '.'));
+  const eur = parseFormMoney(eurAmountStr);
   const r = parseFormRate(tryPerEurRateStr);
-  if (isNaN(eur) || eur === 0 || r == null || r <= 0) return null;
+  if (eur == null || isNaN(eur) || eur === 0 || r == null || r <= 0) return null;
   return (
     <div className="try-equivalent currency-equivalent-hint" style={{ marginTop: '6px' }}>
       ≃ <strong>₺{formatMoneyTrLocalized(eur * r)}</strong>
@@ -276,7 +288,7 @@ const mapDraftToForm = (dto) => {
       id: ac.id,
       itemName: ac.itemName || '',
       amount: ac.amount != null ? String(ac.amount) : '',
-      currency: ac.currency || 'EUR',
+      currency: normalizeCurrency(ac.currency || 'EUR'),
       amountTry: ac.amountTry != null ? String(ac.amountTry) : '',
       exchangeRate: ac.exchangeRate != null ? String(ac.exchangeRate) : '',
       invoiceKey: ac.invoiceKey || '',
@@ -286,11 +298,11 @@ const mapDraftToForm = (dto) => {
   const mp = dto.machinePurchase || {};
   form.machinePurchase = {
     purchasePrice: mp.purchasePrice != null ? String(mp.purchasePrice) : '',
-    purchaseCurrency: mp.purchaseCurrency || 'EUR',
+    purchaseCurrency: normalizeCurrency(mp.purchaseCurrency || 'EUR'),
     purchaseExchangeRate: mp.purchaseExchangeRate != null ? String(mp.purchaseExchangeRate) : '',
     purchasePriceTry: mp.purchasePriceTry != null ? String(mp.purchasePriceTry) : '',
     externalCommission: mp.externalCommission != null ? String(mp.externalCommission) : '',
-    externalCommissionCurrency: mp.externalCommissionCurrency || 'EUR',
+    externalCommissionCurrency: normalizeCurrency(mp.externalCommissionCurrency || 'EUR'),
     externalCommissionRate: mp.externalCommissionRate != null ? String(mp.externalCommissionRate) : '',
     externalCommissionTry: mp.externalCommissionTry != null ? String(mp.externalCommissionTry) : '',
     machineCondition: mp.machineCondition || '',
@@ -307,22 +319,22 @@ const mapDraftToForm = (dto) => {
   form.machineVisit = {
     visited: mv.visited === false ? false : true,
     flightCost: mv.flightCost != null ? String(mv.flightCost) : '',
-    flightCurrency: mv.flightCurrency || 'EUR',
+    flightCurrency: normalizeCurrency(mv.flightCurrency || 'EUR'),
     flightExchangeRate: mv.flightExchangeRate != null ? String(mv.flightExchangeRate) : '',
     flightCostTry: mv.flightCostTry != null ? String(mv.flightCostTry) : '',
     flightInvoiceKey: mv.flightInvoiceKey || '',
     hotelCost: mv.hotelCost != null ? String(mv.hotelCost) : '',
-    hotelCurrency: mv.hotelCurrency || 'EUR',
+    hotelCurrency: normalizeCurrency(mv.hotelCurrency || 'EUR'),
     hotelExchangeRate: mv.hotelExchangeRate != null ? String(mv.hotelExchangeRate) : '',
     hotelCostTry: mv.hotelCostTry != null ? String(mv.hotelCostTry) : '',
     hotelInvoiceKey: mv.hotelInvoiceKey || '',
     carRentalCost: mv.carRentalCost != null ? String(mv.carRentalCost) : '',
-    carRentalCurrency: mv.carRentalCurrency || 'EUR',
+    carRentalCurrency: normalizeCurrency(mv.carRentalCurrency || 'EUR'),
     carRentalExchangeRate: mv.carRentalExchangeRate != null ? String(mv.carRentalExchangeRate) : '',
     carRentalCostTry: mv.carRentalCostTry != null ? String(mv.carRentalCostTry) : '',
     carRentalInvoiceKey: mv.carRentalInvoiceKey || '',
     additionalExpenseCost: mv.additionalExpense != null ? String(mv.additionalExpense) : '',
-    additionalExpenseCurrency: mv.additionalExpenseCurrency || 'EUR',
+    additionalExpenseCurrency: normalizeCurrency(mv.additionalExpenseCurrency || 'EUR'),
     additionalExpenseExchangeRate: mv.additionalExpenseRate != null ? String(mv.additionalExpenseRate) : '',
     additionalExpenseCostTry: mv.additionalExpenseTry != null ? String(mv.additionalExpenseTry) : '',
     additionalExpenseInvoiceKey: mv.additionalExpenseInvoiceKey || '',
@@ -334,17 +346,17 @@ const mapDraftToForm = (dto) => {
     agreedCompany: lg.agreedCompany || '',
     vehiclePlate: lg.vehiclePlate || '',
     freightCost: lg.freightCost != null ? String(lg.freightCost) : '',
-    freightCurrency: lg.freightCurrency || 'EUR',
+    freightCurrency: normalizeCurrency(lg.freightCurrency || 'EUR'),
     freightExchangeRate: lg.freightExchangeRate != null ? String(lg.freightExchangeRate) : '',
     freightCostTry: lg.freightCostTry != null ? String(lg.freightCostTry) : '',
     freightInvoiceKey: lg.freightInvoiceKey || '',
     additionalLogisticsCost: lg.additionalLogisticsCost != null ? String(lg.additionalLogisticsCost) : '',
-    additionalLogisticsCurrency: lg.additionalLogisticsCurrency || 'EUR',
+    additionalLogisticsCurrency: normalizeCurrency(lg.additionalLogisticsCurrency || 'EUR'),
     additionalLogisticsExchangeRate: lg.additionalLogisticsRate != null ? String(lg.additionalLogisticsRate) : '',
     additionalLogisticsCostTry: lg.additionalLogisticsTry != null ? String(lg.additionalLogisticsTry) : '',
     additionalLogisticsInvoiceKey: lg.additionalLogisticsInvoiceKey || '',
     brandingCost: lg.brandingCost != null ? String(lg.brandingCost) : '',
-    brandingCurrency: lg.brandingCurrency || 'EUR',
+    brandingCurrency: normalizeCurrency(lg.brandingCurrency || 'EUR'),
     brandingExchangeRate: lg.brandingExchangeRate != null ? String(lg.brandingExchangeRate) : '',
     brandingCostTry: lg.brandingCostTry != null ? String(lg.brandingCostTry) : '',
     brandingInvoiceKey: lg.brandingInvoiceKey || '',
@@ -360,7 +372,7 @@ const mapDraftToForm = (dto) => {
     packingListDocumentKey: lg.packingListDocumentKey || '',
     insuranceDone: !!lg.insuranceDone,
     insuranceCost: lg.insuranceCost != null ? String(lg.insuranceCost) : '',
-    insuranceCurrency: lg.insuranceCurrency || 'EUR',
+    insuranceCurrency: normalizeCurrency(lg.insuranceCurrency || 'EUR'),
     insuranceExchangeRate: lg.insuranceExchangeRate != null ? String(lg.insuranceExchangeRate) : '',
     insuranceCostTry: lg.insuranceCostTry != null ? String(lg.insuranceCostTry) : '',
     insuranceDocumentKey: lg.insuranceDocumentKey || '',
@@ -370,7 +382,7 @@ const mapDraftToForm = (dto) => {
   const cu = dto.customs || {};
   form.customs = {
     entryCustomsCost: cu.entryCustomsCost != null ? String(cu.entryCustomsCost) : '',
-    entryCustomsCurrency: cu.entryCustomsCurrency || 'EUR',
+    entryCustomsCurrency: normalizeCurrency(cu.entryCustomsCurrency || 'EUR'),
     entryCustomsExchangeRate: cu.entryCustomsExchangeRate != null ? String(cu.entryCustomsExchangeRate) : '',
     entryCustomsCostTry: cu.entryCustomsCostTry != null ? String(cu.entryCustomsCostTry) : '',
     entryCustomsInvoiceKey: cu.entryCustomsInvoiceKey || '',
@@ -379,12 +391,12 @@ const mapDraftToForm = (dto) => {
     hasCountReportDocument: !!cu.hasCountReportDocument,
     countReportDocumentKey: cu.countReportDocumentKey || '',
     warehouseUnloadingCost: cu.warehouseUnloadingCost != null ? String(cu.warehouseUnloadingCost) : '',
-    warehouseUnloadingCurrency: cu.warehouseUnloadingCurrency || 'EUR',
+    warehouseUnloadingCurrency: normalizeCurrency(cu.warehouseUnloadingCurrency || 'EUR'),
     warehouseUnloadingExchangeRate: cu.warehouseUnloadingRate != null ? String(cu.warehouseUnloadingRate) : '',
     warehouseUnloadingCostTry: cu.warehouseUnloadingTry != null ? String(cu.warehouseUnloadingTry) : '',
     warehouseUnloadingInvoiceKey: cu.warehouseUnloadingInvoiceKey || '',
     storageCost: cu.storageCost != null ? String(cu.storageCost) : '',
-    storageCurrency: cu.storageCurrency || 'EUR',
+    storageCurrency: normalizeCurrency(cu.storageCurrency || 'EUR'),
     storageExchangeRate: cu.storageExchangeRate != null ? String(cu.storageExchangeRate) : '',
     storageCostTry: cu.storageCostTry != null ? String(cu.storageCostTry) : '',
     storageInvoiceKey: cu.storageInvoiceKey || '',
@@ -395,7 +407,7 @@ const mapDraftToForm = (dto) => {
   const tr = dto.transfer || {};
   form.transfer = {
     transferCost: tr.transferCost != null ? String(tr.transferCost) : '',
-    transferCurrency: tr.transferCurrency || 'EUR',
+    transferCurrency: normalizeCurrency(tr.transferCurrency || 'EUR'),
     transferExchangeRate: tr.transferExchangeRate != null ? String(tr.transferExchangeRate) : '',
     transferCostTry: tr.transferCostTry != null ? String(tr.transferCostTry) : '',
     transferInvoiceKey: tr.transferInvoiceKey || '',
@@ -409,12 +421,12 @@ const mapDraftToForm = (dto) => {
   const gc = dto.generalCosts || {};
   form.generalCosts = {
     installationCost: gc.installationCost != null ? String(gc.installationCost) : '',
-    installationCurrency: gc.installationCurrency || 'EUR',
+    installationCurrency: normalizeCurrency(gc.installationCurrency || 'EUR'),
     installationExchangeRate: gc.installationExchangeRate != null ? String(gc.installationExchangeRate) : '',
     installationCostTry: gc.installationCostTry != null ? String(gc.installationCostTry) : '',
     installationInvoiceKey: gc.installationInvoiceKey || '',
     salesPrice: gc.salesPrice != null ? String(gc.salesPrice) : '',
-    salesCurrency: gc.salesCurrency || 'EUR',
+    salesCurrency: normalizeCurrency(gc.salesCurrency || 'EUR'),
     salesExchangeRate: gc.salesExchangeRate != null ? String(gc.salesExchangeRate) : '',
     salesPriceTry: gc.salesPriceTry != null ? String(gc.salesPriceTry) : '',
     financingDays: gc.financingDays != null ? String(gc.financingDays) : '',
@@ -444,8 +456,9 @@ const StatusBadge = ({ status }) => {
 const CurrencyInput = ({ label, amountField, currencyField, rateField, tryField, section, form, onChange, rates, required }) => {
   const [amountDraft, setAmountDraft] = useState(null);
   const amount = form[section][amountField] || '';
-  const currency = form[section][currencyField] || 'EUR';
+  const currency = normalizeCurrency(form[section][currencyField] || 'EUR');
   const rate = form[section][rateField] || '';
+  const tcmbEur = parseFormRate(rates?.EUR) ?? NaN;
 
   const amountDisplay = amountDraft !== null ? amountDraft : formatNumberForInput(amount);
   const amountForCalc = amountDraft !== null ? amountDraft : amount;
@@ -456,14 +469,18 @@ const CurrencyInput = ({ label, amountField, currencyField, rateField, tryField,
   };
 
   const handleAmountFocus = () => {
-    setAmountDraft(amount === '' ? '' : formatNumberForInput(amount));
+    if (amount === '' || amount == null) { setAmountDraft(''); return; }
+    // Binlik nokta olmadan, virgül-ondalık formatında göster (düzenleme kolaylığı)
+    const num = parseFloat(String(amount).replace(',', '.'));
+    if (isNaN(num)) { setAmountDraft(String(amount)); return; }
+    setAmountDraft(Number.isInteger(num) ? String(num) : num.toFixed(2).replace('.', ','));
   };
 
   const handleAmountChange = (raw) => {
     const val = sanitizeDecimalTyping(raw);
     setAmountDraft(val);
     const num = parseAmountNumeric(val);
-    const newRate = parseFormRate(rate) ?? NaN;
+    const lineRate = parseFormRate(rate) ?? NaN;
     if (val === '') {
       onChange(section, amountField, '');
       if (tryField) onChange(section, tryField, '');
@@ -473,8 +490,11 @@ const CurrencyInput = ({ label, amountField, currencyField, rateField, tryField,
       let newTry = '';
       if (currency === 'TRY') {
         newTry = num.toFixed(2);
-      } else if (!isNaN(newRate)) {
-        newTry = (num * newRate).toFixed(2);
+      } else if (currency === 'EUR' && !isNaN(tcmbEur) && tcmbEur > 0) {
+        if (rateField) onChange(section, rateField, tcmbEur.toFixed(4));
+        newTry = (num * tcmbEur).toFixed(2);
+      } else if (!isNaN(lineRate)) {
+        newTry = (num * lineRate).toFixed(2);
       }
       if (tryField) onChange(section, tryField, newTry);
     }
@@ -492,6 +512,7 @@ const CurrencyInput = ({ label, amountField, currencyField, rateField, tryField,
   };
 
   const handleRateChange = (val) => {
+    if (currency === 'EUR') return;
     onChange(section, rateField, val);
     const num = parseAmountNumeric(amountForCalc);
     const numRate = parseFormRate(val) ?? NaN;
@@ -507,25 +528,26 @@ const CurrencyInput = ({ label, amountField, currencyField, rateField, tryField,
     const currentRate = parseFormRate(rate) || 1;
     onChange(section, currencyField, val);
     if (val === 'TRY') {
-      const eurRate = rates?.EUR ?? currentRate;
-      const newRate = parseFormRate(eurRate) || 1;
-      if (rateField) onChange(section, rateField, String(newRate));
+      const defRate = parseFormRate(rates?.EUR) || 1;
+      if (rateField) onChange(section, rateField, String(defRate));
       if (!isNaN(num)) onChange(section, tryField, num.toFixed(2));
       else if (tryField) onChange(section, tryField, amountForCalc);
-    } else {
-      const newRate = rates?.[val] ?? currentRate;
-      const r = parseFormRate(newRate) || 1;
+    } else if (val === 'EUR') {
+      const r = parseFormRate(rates?.EUR) || 1;
       if (rateField) onChange(section, rateField, r.toFixed(4));
       if (!isNaN(num)) {
-        const amountInOrig = currency === 'TRY' ? num / currentRate : num;
-        const tryAmount = amountInOrig * r;
-        onChange(section, tryField, tryAmount.toFixed(2));
-      }
-      if (currency === 'TRY' && !isNaN(num) && currentRate > 0) {
-        onChange(section, amountField, (num / currentRate).toFixed(2));
+        if (currency === 'TRY' && currentRate > 0) {
+          const tryAmt = num;
+          onChange(section, amountField, (tryAmt / r).toFixed(4));
+          onChange(section, tryField, tryAmt.toFixed(2));
+        } else {
+          onChange(section, tryField, (num * r).toFixed(2));
+        }
       }
     }
   };
+
+  const hintRateStr = currency === 'EUR' && !isNaN(tcmbEur) ? String(tcmbEur) : rate;
 
   return (
     <div className="currency-input-group">
@@ -552,22 +574,31 @@ const CurrencyInput = ({ label, amountField, currencyField, rateField, tryField,
       <div className="exchange-row">
         <div className="exchange-rate-group">
           <label className="field-label-small">1 {currency === 'TRY' ? 'EUR' : currency} = </label>
-          <input
-            type="text"
-            inputMode="decimal"
-            className="input-field rate-field"
-            placeholder="Kur"
-            value={rate}
-            onChange={(e) => handleRateChange(e.target.value)}
-          />
-          <span className="field-label-small">TRY</span>
+          {currency === 'EUR' ? (
+            <span className="rate-readonly">
+              {!isNaN(tcmbEur) && tcmbEur > 0 ? tcmbEur.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : '—'} TRY
+              <span className="rate-ref-hint"> (TCMB referans, düzenlenmez)</span>
+            </span>
+          ) : (
+            <>
+              <input
+                type="text"
+                inputMode="decimal"
+                className="input-field rate-field"
+                placeholder="Kur"
+                value={rate}
+                onChange={(e) => handleRateChange(e.target.value)}
+              />
+              <span className="field-label-small">TRY</span>
+            </>
+          )}
         </div>
         {tryField ? (
           <CurrencyEquivalentHint
             currency={currency}
             amountStr={amountForCalc}
             amountTryStr={form[section][tryField]}
-            rateStr={rate}
+            rateStr={hintRateStr}
           />
         ) : null}
       </div>
@@ -636,6 +667,8 @@ const AdditionalCostRow = ({ item, index, section, projectId, onChange, onPatch,
   const [amountDraft, setAmountDraft] = useState(null);
   const amountDisplay = amountDraft !== null ? amountDraft : formatNumberForInput(item.amount);
   const amountForCalc = amountDraft !== null ? amountDraft : item.amount;
+  const itemCur = normalizeCurrency(item.currency || 'EUR');
+  const tcmbEur = parseFormRate(rates?.EUR) ?? NaN;
 
   const parseAmountNumeric = (src) => {
     const numVal = parseFormattedNumber(src);
@@ -643,12 +676,16 @@ const AdditionalCostRow = ({ item, index, section, projectId, onChange, onPatch,
   };
 
   const handleAmountFocus = () => {
-    setAmountDraft(item.amount === '' || item.amount == null ? '' : formatNumberForInput(item.amount));
+    if (item.amount === '' || item.amount == null) { setAmountDraft(''); return; }
+    // Binlik nokta olmadan, virgül-ondalık formatında göster
+    const num = parseFloat(String(item.amount).replace(',', '.'));
+    if (isNaN(num)) { setAmountDraft(String(item.amount)); return; }
+    setAmountDraft(Number.isInteger(num) ? String(num) : num.toFixed(2).replace('.', ','));
   };
 
   const handleCurrencyChange = (val) => {
     const num = parseAmountNumeric(amountForCalc);
-    const oldCurrency = item.currency;
+    const oldCurrency = itemCur;
     const oldRate = parseFormRate(item.exchangeRate);
     const oldR = oldRate != null && oldRate > 0 ? oldRate : 1;
 
@@ -665,8 +702,7 @@ const AdditionalCostRow = ({ item, index, section, projectId, onChange, onPatch,
         onPatch(section, index, patch);
         return;
       }
-      const newRateRaw = rates?.[val] ?? item.exchangeRate;
-      const r = parseFormRate(newRateRaw) || 1;
+      const r = parseFormRate(rates?.EUR) || 1;
       const patch = { currency: val, exchangeRate: r.toFixed(4) };
       if (!isNaN(num) && r > 0) {
         const tryTotal = oldCurrency === 'TRY' ? num : num * oldR;
@@ -678,15 +714,13 @@ const AdditionalCostRow = ({ item, index, section, projectId, onChange, onPatch,
     }
 
     onChange(section, index, 'currency', val);
-    if (rates && val !== 'TRY') {
-      const newRate = rates[val] || '';
-      if (newRate) {
-        onChange(section, index, 'exchangeRate', parseFloat(newRate).toFixed(4));
-        const numVal = parseFormattedNumber(amountForCalc);
-        const n = typeof numVal === 'number' ? numVal : parseFloat(String(numVal).replace(',', '.'));
-        if (!isNaN(n)) {
-          onChange(section, index, 'amountTry', (n * newRate).toFixed(2));
-        }
+    if (val === 'EUR') {
+      const r = parseFormRate(rates?.EUR) || 1;
+      onChange(section, index, 'exchangeRate', r.toFixed(4));
+      const numVal = parseFormattedNumber(amountForCalc);
+      const n = typeof numVal === 'number' ? numVal : parseFloat(String(numVal).replace(',', '.'));
+      if (!isNaN(n)) {
+        onChange(section, index, 'amountTry', (n * r).toFixed(2));
       }
     } else if (val === 'TRY') {
       const er = parseFormRate(rates?.EUR) || 1;
@@ -704,15 +738,18 @@ const AdditionalCostRow = ({ item, index, section, projectId, onChange, onPatch,
     const val = sanitizeDecimalTyping(raw);
     setAmountDraft(val);
     const num = parseAmountNumeric(val);
-    const numRate = parseFormRate(item.exchangeRate) ?? NaN;
+    const numRate = itemCur === 'EUR' ? tcmbEur : (parseFormRate(item.exchangeRate) ?? NaN);
     if (val === '') {
       onChange(section, index, 'amount', '');
       onChange(section, index, 'amountTry', '');
       return;
     }
     if (!isNaN(num)) {
-      if (item.currency === 'TRY') {
+      if (itemCur === 'TRY') {
         onChange(section, index, 'amountTry', num.toFixed(2));
+      } else if (itemCur === 'EUR' && !isNaN(numRate) && numRate > 0) {
+        onChange(section, index, 'exchangeRate', numRate.toFixed(4));
+        onChange(section, index, 'amountTry', (num * numRate).toFixed(2));
       } else if (!isNaN(numRate)) {
         onChange(section, index, 'amountTry', (num * numRate).toFixed(2));
       }
@@ -731,17 +768,20 @@ const AdditionalCostRow = ({ item, index, section, projectId, onChange, onPatch,
   };
 
   const handleRateChange = (val) => {
+    if (itemCur === 'EUR') return;
     onChange(section, index, 'exchangeRate', val);
     const num = parseAmountNumeric(amountForCalc);
     const numRate = parseFormRate(val) ?? NaN;
     if (!isNaN(num)) {
-      if (item.currency === 'TRY') {
+      if (itemCur === 'TRY') {
         onChange(section, index, 'amountTry', num.toFixed(2));
       } else if (!isNaN(numRate)) {
         onChange(section, index, 'amountTry', (num * numRate).toFixed(2));
       }
     }
   };
+
+  const hintRateStr = itemCur === 'EUR' && !isNaN(tcmbEur) ? String(tcmbEur) : (item.exchangeRate ?? '');
 
   return (
     <div className="additional-cost-row-wrap">
@@ -765,7 +805,7 @@ const AdditionalCostRow = ({ item, index, section, projectId, onChange, onPatch,
         />
         <select
           className="select-field currency-select"
-          value={item.currency}
+          value={normalizeCurrency(item.currency || 'EUR')}
           onChange={(e) => handleCurrencyChange(e.target.value)}
         >
           {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -776,22 +816,31 @@ const AdditionalCostRow = ({ item, index, section, projectId, onChange, onPatch,
       </div>
       <div className="exchange-row additional-cost-exchange">
         <div className="exchange-rate-group">
-          <label className="field-label-small">1 {item.currency === 'TRY' ? 'EUR' : item.currency} = </label>
-          <input
-            type="text"
-            inputMode="decimal"
-            className="input-field rate-field"
-            placeholder="Kur"
-            value={item.exchangeRate ?? ''}
-            onChange={(e) => handleRateChange(e.target.value)}
-          />
-          <span className="field-label-small">TRY</span>
+          <label className="field-label-small">1 {itemCur === 'TRY' ? 'EUR' : itemCur} = </label>
+          {itemCur === 'EUR' ? (
+            <span className="rate-readonly">
+              {!isNaN(tcmbEur) && tcmbEur > 0 ? tcmbEur.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : '—'} TRY
+              <span className="rate-ref-hint"> (TCMB referans)</span>
+            </span>
+          ) : (
+            <>
+              <input
+                type="text"
+                inputMode="decimal"
+                className="input-field rate-field"
+                placeholder="Kur"
+                value={item.exchangeRate ?? ''}
+                onChange={(e) => handleRateChange(e.target.value)}
+              />
+              <span className="field-label-small">TRY</span>
+            </>
+          )}
         </div>
         <CurrencyEquivalentHint
-          currency={item.currency}
+          currency={itemCur}
           amountStr={amountForCalc}
           amountTryStr={item.amountTry}
-          rateStr={item.exchangeRate}
+          rateStr={hintRateStr}
         />
       </div>
       <div className="additional-cost-upload-row">
@@ -824,9 +873,10 @@ const ProjeMuhasebesi = () => {
   const [saving, setSaving] = useState({});
   const [saveError, setSaveError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState('');
+  const [costMismatchWarning, setCostMismatchWarning] = useState('');
 
   // Exchange rates
-  const [rates, setRates] = useState({ EUR: 1, USD: 1, TRY: 1 });
+  const [rates, setRates] = useState({ EUR: 1, TRY: 1 });
   const [ratesSource, setRatesSource] = useState('');
   const [ratesLoading, setRatesLoading] = useState(false);
 
@@ -1016,20 +1066,23 @@ const ProjeMuhasebesi = () => {
       for (const [section, pairs] of Object.entries(rateFieldPairs)) {
         for (const [currField, rateField, amountField, tryField] of pairs) {
           const sectionForm = updated[section];
-          // Only auto-fill if rate is empty and currency is not TRY
-          if (!sectionForm[rateField] && sectionForm[currField] && sectionForm[currField] !== 'TRY') {
-            const newRate = rates[sectionForm[currField]];
-            if (newRate) {
-              sectionForm[rateField] = parseFloat(newRate).toFixed(4);
-              // Also auto-compute TRY amount if there's an amount
-              const numAmount = parseFormMoney(sectionForm[amountField]);
-              if (numAmount != null && tryField && !sectionForm[tryField]) {
-                sectionForm[tryField] = (numAmount * newRate).toFixed(2);
-              }
+          const cur = normalizeCurrency(sectionForm[currField]);
+          const er = rates.EUR;
+          if (!er || er <= 1) continue;
+          if (cur === 'EUR') {
+            sectionForm[rateField] = parseFloat(er).toFixed(4);
+            const numAmount = parseFormMoney(sectionForm[amountField]);
+            if (numAmount != null && tryField) {
+              sectionForm[tryField] = (numAmount * er).toFixed(2);
+            }
+          } else if (cur === 'TRY' && !sectionForm[rateField]) {
+            sectionForm[rateField] = parseFloat(er).toFixed(4);
+            const numAmount = parseFormMoney(sectionForm[amountField]);
+            if (numAmount != null && tryField && !sectionForm[tryField]) {
+              sectionForm[tryField] = numAmount.toFixed(2);
             }
           }
         }
-        updated[section] = { ...updated[section], ...updated[section] };
       }
       return updated;
     });
@@ -1097,7 +1150,8 @@ const ProjeMuhasebesi = () => {
   const addAdditionalCost = (section) => {
     // Auto-fill exchange rate from TCMB rates for the default currency (EUR)
     const defaultCurrency = 'EUR';
-    const defaultRate = (rates && rates[defaultCurrency]) ? parseFloat(rates[defaultCurrency]).toFixed(4) : '';
+    const parsed = rates && rates[defaultCurrency] ? parseFloat(rates[defaultCurrency]) : NaN;
+    const defaultRate = !isNaN(parsed) ? parsed.toFixed(4) : '';
     setForm(prev => ({
       ...prev,
       [section]: {
@@ -1678,6 +1732,28 @@ const ProjeMuhasebesi = () => {
       }
       await refreshNotificationsAndSummaries();
       await refreshValidationReport(selectedProject.id);
+
+      // ── Backend-frontend toplam doğrulaması ──
+      try {
+        const backendSummary = await accountingService.getCostSummary(selectedProject.id);
+        const frontendTotals = computeTotalCosts();
+        const backendTotalEur = parseFloat(backendSummary?.totalCostEur) || 0;
+        const frontendTotalEur = frontendTotals.grandTotalEur || 0;
+        const diff = Math.abs(backendTotalEur - frontendTotalEur);
+        if (diff > 0.02) {
+          setCostMismatchWarning(
+            `Uyarı: Frontend toplam (€${frontendTotalEur.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}) ile ` +
+            `backend toplam (€${backendTotalEur.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}) arasında ` +
+            `€${diff.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} fark tespit edildi. Sayfayı yenileyerek kontrol edin.`
+          );
+          setTimeout(() => setCostMismatchWarning(''), 10000);
+        } else {
+          setCostMismatchWarning('');
+        }
+      } catch (reconcileErr) {
+        console.warn('Cost reconciliation check failed:', reconcileErr);
+      }
+
       setCompletedEditMode(false);
       setSaveSuccess('Değişiklikler kaydedildi ve proje tekrar tamamlandı.');
       setTimeout(() => setSaveSuccess(''), 4000);
@@ -1728,20 +1804,20 @@ const ProjeMuhasebesi = () => {
   const computeTotalCosts = () => {
     const nMoney = (v) => parseFormMoney(v) ?? 0;
     const nRate = (v) => parseFormRate(v) ?? 0;
-    const eurRate = nRate(rates?.EUR) || 38.5;
+    const r2 = (n) => Math.round(n * 100) / 100; // 2 ondalık yuvarlama (backend HALF_UP uyumlu)
+    const eurRate = nRate(rates?.EUR) || FALLBACK_RATES.EUR;
     const lineToEur = (amountStr, currencyStr, rateStr, amountTryStr) => {
       const amt = nMoney(amountStr);
       const tryM = nMoney(amountTryStr);
       const rLine = nRate(rateStr);
-      const cur = currencyStr || 'EUR';
-      if (cur === 'EUR') return amt;
-      if (cur === 'TRY' && rLine > 0) return amt / rLine;
-      if (cur === 'USD' && eurRate > 0 && tryM > 0) return tryM / eurRate;
-      if (eurRate > 0 && tryM > 0) return tryM / eurRate;
-      return amt;
+      const cur = normalizeCurrency(currencyStr || 'EUR');
+      if (cur === 'EUR') return r2(amt);
+      if (cur === 'TRY' && rLine > 0) return r2(amt / rLine);
+      if (eurRate > 0 && tryM > 0) return r2(tryM / eurRate);
+      return r2(amt);
     };
     const sumAdditionalEur = (items) => {
-      return (items || []).reduce((acc, ac) => acc + lineToEur(ac.amount, ac.currency, ac.exchangeRate, ac.amountTry), 0);
+      return r2((items || []).reduce((acc, ac) => acc + lineToEur(ac.amount, ac.currency, ac.exchangeRate, ac.amountTry), 0));
     };
     const financingDays = Math.max(parseInt(String(form.generalCosts.financingDays || ''), 10) || 0, 0);
     const purchaseRate = nRate(form.machinePurchase.purchaseExchangeRate) || nRate(rates?.EUR);
@@ -1749,10 +1825,12 @@ const ProjeMuhasebesi = () => {
     const creditInterestRate = nRate(form.machinePurchase.creditInterestRate);
     const interestType = form.machinePurchase.paymentMethod === 'MONTHLY_RATE' ? 'MONTHLY_RATE' : 'YEARLY_RATE';
     const dayDivisor = interestType === 'MONTHLY_RATE' ? 30 : 365;
+    // Backend-uyumlu finansman hesaplaması: ara hesap 6 ondalık, son değer 2 ondalık
+    const r6 = (n) => Math.round(n * 1000000) / 1000000;
     const financingCostEur = creditAmount > 0 && creditInterestRate > 0 && financingDays > 0
-      ? (creditAmount * creditInterestRate / 100) * (financingDays / dayDivisor)
+      ? r2(r6(creditAmount * creditInterestRate / 100) * financingDays / dayDivisor)
       : 0;
-    const financingCostTry = financingCostEur * purchaseRate;
+    const financingCostTry = r2(financingCostEur * purchaseRate);
     const mp = form.machinePurchase;
     const mv = form.machineVisit;
     const lg = form.logistics;
@@ -1817,9 +1895,10 @@ const ProjeMuhasebesi = () => {
 
     let grandTotalEur = 0;
     for (const sec of sections) {
-      sec.sectionTotalEur = sec.items.reduce((acc, it) => acc + it.eur, 0) + sec.additionalEur;
+      sec.sectionTotalEur = r2(sec.items.reduce((acc, it) => acc + it.eur, 0) + sec.additionalEur);
       grandTotalEur += sec.sectionTotalEur;
     }
+    grandTotalEur = r2(grandTotalEur);
 
     return { sections, grandTotalEur, eurRate };
   };
@@ -1848,7 +1927,7 @@ const ProjeMuhasebesi = () => {
     const salesExchangeRate = parseFormRate(gc.salesExchangeRate) || eurRate;
     const labelPriceEur = salesCurrency === 'EUR' ? salesPrice : (parseFormMoney(gc.salesPriceTry) ?? 0) / (salesExchangeRate || eurRate);
     const profitEur = labelPriceEur - grandTotalEur;
-    const margin = labelPriceEur > 0 ? ((profitEur / labelPriceEur) * 100) : 0;
+    const margin = labelPriceEur > 0 ? Math.round((profitEur / labelPriceEur) * 10000) / 100 : 0;
     const fmtEur = (v) => `€${v.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     return (
@@ -2036,12 +2115,12 @@ const ProjeMuhasebesi = () => {
               <div className="form-field">
                 <label className="field-label">Öz Kaynak Tutarı (EUR)</label>
                 <input type="text" inputMode="decimal" className="input-field full-width" placeholder="0,00" value={formatNumberForInput(f.equityAmount)} onChange={(e) => handleChange(s, 'equityAmount', sanitizeDecimalTyping(e.target.value))} />
-                <EurToTryHint eurAmountStr={f.equityAmount} tryPerEurRateStr={f.purchaseExchangeRate} label="(Makine alım kuru)" />
+                <EurToTryHint eurAmountStr={f.equityAmount} tryPerEurRateStr={String(rates?.EUR ?? f.purchaseExchangeRate ?? '')} label="(TCMB referans)" />
               </div>
               <div className="form-field">
                 <label className="field-label">Kredi Tutarı (EUR)</label>
                 <input type="text" inputMode="decimal" className="input-field full-width" placeholder="0,00" value={formatNumberForInput(f.creditAmount)} onChange={(e) => handleChange(s, 'creditAmount', sanitizeDecimalTyping(e.target.value))} />
-                <EurToTryHint eurAmountStr={f.creditAmount} tryPerEurRateStr={f.purchaseExchangeRate} label="(Makine alım kuru)" />
+                <EurToTryHint eurAmountStr={f.creditAmount} tryPerEurRateStr={String(rates?.EUR ?? f.purchaseExchangeRate ?? '')} label="(TCMB referans)" />
               </div>
             </div>
 
@@ -2062,8 +2141,8 @@ const ProjeMuhasebesi = () => {
                   {((parseFormMoney(f.equityAmount) || 0) + (parseFormMoney(f.creditAmount) || 0)).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR
                   <EurToTryHint
                     eurAmountStr={String((parseFormMoney(f.equityAmount) || 0) + (parseFormMoney(f.creditAmount) || 0))}
-                    tryPerEurRateStr={f.purchaseExchangeRate}
-                    label="(Makine alım kuru)"
+                    tryPerEurRateStr={String(rates?.EUR ?? f.purchaseExchangeRate ?? '')}
+                    label="(TCMB referans)"
                   />
                 </div>
               </div>
@@ -2348,9 +2427,6 @@ const ProjeMuhasebesi = () => {
                 {rates.EUR && rates.EUR > 1 && (
                   <span> · 1 EUR = ₺{parseFloat(rates.EUR).toFixed(2)}</span>
                 )}
-                {rates.USD && rates.USD > 1 && (
-                  <span> · 1 USD = ₺{parseFloat(rates.USD).toFixed(2)}</span>
-                )}
               </span>
             )}
           </div>
@@ -2612,7 +2688,7 @@ const ProjeMuhasebesi = () => {
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ color: '#718096' }}>Etiket:</span>
                         <span style={{ fontWeight: 600 }}>
-                          {summary.labelCurrency === 'EUR' ? '€' : summary.labelCurrency === 'USD' ? '$' : '₺'}
+                          {summary.labelCurrency === 'EUR' ? '€' : '₺'}
                           {parseFloat(summary.labelPrice).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
@@ -2730,6 +2806,7 @@ const ProjeMuhasebesi = () => {
       {draftError && <div className="error-banner"><AiOutlineWarning /> {draftError}</div>}
       {saveError && <div className="error-banner"><AiOutlineWarning /> {saveError}</div>}
       {saveSuccess && <div className="success-banner"><AiOutlineCheckCircle /> {saveSuccess}</div>}
+      {costMismatchWarning && <div className="error-banner" style={{ background: '#fffbeb', borderColor: '#f59e0b', color: '#92400e' }}><AiOutlineWarning /> {costMismatchWarning}</div>}
       {(liveBlockingErrors.length > 0 || liveInvoiceWarnings.length > 0 || (validationReport && ((validationReport.blockingErrors?.length || 0) > 0 || (validationReport.warnings?.length || 0) > 0))) && (
         <div className="error-banner validation-compact-banner" style={{ display: 'block' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>

@@ -72,17 +72,9 @@ class ProjectService {
       console.log('Number of photos:', photoFiles.length);
       console.log('==========================================');
 
-      // Get auth headers but remove Content-Type to let browser set it with boundary
-      const authHeaders = authService.getAuthHeaders();
-      const headersWithoutContentType = { ...authHeaders };
-      delete headersWithoutContentType['Content-Type'];
-
       const response = await fetch(`${API_BASE_URL}/api/projects`, {
         method: 'POST',
-        headers: {
-          ...headersWithoutContentType,
-          // Don't set Content-Type - let browser set it with boundary for multipart/form-data
-        },
+        headers: authService.getAuthHeaders(false), // skip Content-Type for multipart/form-data
         body: formData,
       });
 
@@ -153,17 +145,9 @@ class ProjectService {
       console.log('Number of new photo files in multipart:', photoFiles.length);
       console.log('==========================================');
 
-      // Get auth headers but remove Content-Type to let browser set it with boundary
-      const authHeaders = authService.getAuthHeaders();
-      const headersWithoutContentType = { ...authHeaders };
-      delete headersWithoutContentType['Content-Type'];
-
       const response = await fetch(`${API_BASE_URL}/api/projects/${id}`, {
         method: 'PUT',
-        headers: {
-          ...headersWithoutContentType,
-          // Don't set Content-Type - let browser set it with boundary for multipart/form-data
-        },
+        headers: authService.getAuthHeaders(false), // skip Content-Type for multipart/form-data
         body: formData,
       });
 

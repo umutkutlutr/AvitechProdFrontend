@@ -4,6 +4,7 @@ import { FaFileExcel } from 'react-icons/fa';
 import projectService from '../../services/projectService';
 import offerService from '../../services/offerService';
 import accountingService from '../../services/accountingService';
+import { FALLBACK_RATES } from '../../services/currencyService';
 import AdminFilterPanel from './AdminFilterPanel';
 import SearchBar from '../ServiceReceipt/SearchBar';
 import './AdminPanel.css';
@@ -106,7 +107,7 @@ const AdminPanel = () => {
   const extractNumericValue = (value) => {
     if (!value || value === 'N/A') return 0;
     const valueStr = String(value);
-    const currencyMatch = valueStr.match(/(EUR|TRY|USD)?\s*([\d.,]+)/i);
+    const currencyMatch = valueStr.match(/(EUR|TRY)?\s*([\d.,]+)/i);
     if (currencyMatch) {
       let numericStr = currencyMatch[2];
       // Check if it's European format (dots as thousands, comma as decimal)
@@ -149,7 +150,7 @@ const AdminPanel = () => {
             console.warn(`Could not fetch cost summary for project ${project.id}:`, costError);
           }
 
-          const rate = (costSummary?.salesExchangeRate != null && costSummary.salesExchangeRate > 0) ? parseFloat(costSummary.salesExchangeRate) : 38.5;
+          const rate = (costSummary?.salesExchangeRate != null && costSummary.salesExchangeRate > 0) ? parseFloat(costSummary.salesExchangeRate) : FALLBACK_RATES.EUR;
           const getSectionTotalEur = (key) => {
             const s = costSummary?.sections?.find(x => x.sectionKey === key);
             return parseFloat(s?.totalEur) ?? (rate > 0 ? (parseFloat(s?.totalTry) || 0) / rate : 0);
@@ -159,7 +160,8 @@ const AdminPanel = () => {
             const item = s?.items?.find(i => i.label === label);
             const eur = parseFloat(item?.amountEur);
             if (!isNaN(eur)) return eur;
-            return rate > 0 ? (parseFloat(item?.amountTry) || 0) / rate : 0;
+            const itemRate = parseFloat(item?.exchangeRate) || rate;
+            return itemRate > 0 ? Math.round(((parseFloat(item?.amountTry) || 0) / itemRate) * 100) / 100 : 0;
           };
 
           const machinePurchaseOnlyEur = getItemAmountEur('MACHINE_PURCHASE', 'Makine Alım Bedeli');
@@ -174,11 +176,13 @@ const AdminPanel = () => {
           const installationItem = costSummary?.sections?.find(s => s.sectionKey === 'GENERAL_COSTS')?.items?.find(i =>
             /kurulum|montaj|installation/i.test(i.label || '')
           );
-          const installationEur = installationItem ? (parseFloat(installationItem.amountEur) ?? (rate > 0 ? (parseFloat(installationItem.amountTry) || 0) / rate : 0)) : 0;
+          const installationItemRate = parseFloat(installationItem?.exchangeRate) || rate;
+          const installationEur = installationItem ? (parseFloat(installationItem.amountEur) ?? (installationItemRate > 0 ? Math.round(((parseFloat(installationItem.amountTry) || 0) / installationItemRate) * 100) / 100 : 0)) : 0;
           const financingItem = costSummary?.sections?.find(s => s.sectionKey === 'MACHINE_PURCHASE')?.items?.find(i =>
             /finansman|financing|finans/i.test(i.label || '')
           );
-          const financingEur = financingItem ? (parseFloat(financingItem.amountEur) ?? (rate > 0 ? (parseFloat(financingItem.amountTry) || 0) / rate : 0)) : 0;
+          const financingItemRate = parseFloat(financingItem?.exchangeRate) || rate;
+          const financingEur = financingItem ? (parseFloat(financingItem.amountEur) ?? (financingItemRate > 0 ? Math.round(((parseFloat(financingItem.amountTry) || 0) / financingItemRate) * 100) / 100 : 0)) : 0;
           const totalCostEur = costSummary?.totalCostEur != null ? parseFloat(costSummary.totalCostEur) : (rate > 0 ? (parseFloat(costSummary?.totalCostTry) || 0) / rate : 0);
           const otherCostsEur = totalCostEur - purchasePriceEur;
 
@@ -218,7 +222,7 @@ const AdminPanel = () => {
             if (val == null || (typeof val === 'number' && isNaN(val))) return null;
             const n = typeof val === 'number' ? val : parseFloat(val);
             if (isNaN(n)) return null;
-            return n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
           };
 
           return {
@@ -271,7 +275,7 @@ const AdminPanel = () => {
             companySold: null,
             status: project.status === 'SOLD' ? 'SATILDI' : 'STOKTA',
             rawStatus: project.status,
-            rate: 38.5
+            rate: FALLBACK_RATES.EUR
           };
         }
       });
@@ -340,7 +344,7 @@ const AdminPanel = () => {
 
     // Extract numeric value from string like "EUR 18000" or "18000" or "EUR -5000"
     const valueStr = String(value);
-    const currencyMatch = valueStr.match(/(EUR|TRY|USD)?\s*([-\d.,]+)/i);
+    const currencyMatch = valueStr.match(/(EUR|TRY)?\s*([-\d.,]+)/i);
 
     if (currencyMatch) {
       const currency = currencyMatch[1] || 'EUR';
@@ -466,7 +470,7 @@ const AdminPanel = () => {
                 <th>Makine Alış Maliyeti</th>
                 <th>Satış Bedeli</th>
                 <th>Vergi Öncesi Brüt Kar</th>
-                <th>Kâr % (maliyet üzerinden)</th>
+                <th>Kâr % (satış üzerinden)</th>
                 <th>Satılan Firma</th>
                 <th>Durum</th>
               </tr>
@@ -493,11 +497,12 @@ const AdminPanel = () => {
                     const otherEur = item.otherCostsEur ?? 0;
                     const totalCostEur = item.totalCostEur ?? 0;
                     const grossProfitEur = item.grossProfitEur;
+                    const salePriceEur = item.salePriceEur != null ? parseFloat(item.salePriceEur) : null;
                     const profitPctOnCost =
-                      grossProfitEur != null && !isNaN(grossProfitEur) && totalCostEur > 0
-                        ? (grossProfitEur / totalCostEur) * 100
+                      grossProfitEur != null && !isNaN(grossProfitEur) && salePriceEur != null && salePriceEur > 0
+                        ? Math.round((grossProfitEur / salePriceEur) * 10000) / 100
                         : null;
-                    const fmt = (n) => n != null && !isNaN(n) ? n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-';
+                    const fmt = (n) => n != null && !isNaN(n) ? n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-';
                     return (
                       <tr key={item.id}>
                         <td className="project-code">{item.projectCode}</td>

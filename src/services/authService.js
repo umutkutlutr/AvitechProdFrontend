@@ -78,11 +78,14 @@ class AuthService {
     return this.user;
   }
 
-  getAuthHeaders() {
-    return {
+  getAuthHeaders(includeContentType = true) {
+    const headers = {
       'Authorization': `Bearer ${this.token}`,
-      'Content-Type': 'application/json',
     };
+    if (includeContentType) {
+      headers['Content-Type'] = 'application/json';
+    }
+    return headers;
   }
 }
 

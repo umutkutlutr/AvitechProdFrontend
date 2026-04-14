@@ -454,6 +454,24 @@ const autofillService = {
             console.error('Error fetching anahtar bilgisi:', error);
             return [];
         }
+    },
+
+    /**
+     * Fetch technical specs for a given make+model from the most recent matching project.
+     * Returns null if no match found (HTTP 204).
+     */
+    async getSpecsByMakeAndModel(machineName, model) {
+        try {
+            const authAxios = createAuthAxios();
+            const response = await authAxios.get('/autofill/specs', {
+                params: { machineName, model }
+            });
+            return response.data || null;
+        } catch (error) {
+            if (error.response && error.response.status === 204) return null;
+            console.error('Error fetching specs by make+model:', error);
+            return null;
+        }
     }
 };
 

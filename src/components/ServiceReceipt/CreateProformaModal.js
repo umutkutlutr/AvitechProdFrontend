@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FaTimes, FaFileInvoice, FaPaperPlane, FaPlus, FaTrash } from 'react-icons/fa';
 import proformaService from '../../services/proformaService';
 import bankService from '../../services/bankService';
+import { parseFormattedNumber, formatNumberForInput } from '../../utils/numberFormat';
 import './CreateProformaModal.css';
 
 const GTIP_FIVE_AXIS = '8457.10.90.00.12';
@@ -41,7 +42,7 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
   useEffect(() => {
     if (offer?.price != null) {
       const p = parseFloat(offer.price);
-      if (!isNaN(p)) setPrice(p.toLocaleString('tr-TR'));
+      if (!isNaN(p)) setPrice(p.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
       else setPrice(String(offer.price));
     }
   }, [offer]);
@@ -84,14 +85,8 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
     fetchBanks();
   }, []);
 
-  const formatPrice = (val) => {
-    const clean = val.replace(/[^\d]/g, '');
-    if (!clean) return '';
-    return parseInt(clean).toLocaleString('tr-TR');
-  };
-
   const handlePriceChange = (e) => {
-    setPrice(formatPrice(e.target.value));
+    setPrice(formatNumberForInput(e.target.value));
   };
 
   const buildTermsString = () => {
@@ -117,7 +112,7 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
 
   const handleSendClick = () => {
     setError('');
-    const numericPrice = parseInt(price.replace(/\./g, ''));
+    const numericPrice = parseFormattedNumber(price);
     if (!numericPrice || numericPrice <= 0) {
       setError('Geçerli bir fiyat giriniz.');
       return;
@@ -139,7 +134,8 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
     setError('');
 
     try {
-      const numericPrice = parseInt(price.replace(/\./g, ''));
+      const parsed = parseFormattedNumber(price);
+      const numericPrice = typeof parsed === 'number' ? Math.round(parsed * 100) / 100 : 0;
       const requestData = {
         offerId: offer.id,
         price: numericPrice,
@@ -196,7 +192,7 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
               </div>
               <div className="proforma-info-item">
                 <span className="label">Teklif Fiyatı:</span>
-                <span className="value">{offer.price ? `${parseInt(offer.price).toLocaleString('tr-TR')} €` : '-'}</span>
+                <span className="value">{offer.price ? `${parseFloat(offer.price).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €` : '-'}</span>
               </div>
               <div className="proforma-info-item">
                 <span className="label">Tarih:</span>
