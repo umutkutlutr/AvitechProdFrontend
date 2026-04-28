@@ -587,17 +587,17 @@ const ServiceDetailsModal = ({ service, onClose, isCompletedProject = false }) =
 
                   <div className="spec-row">
                     <span className="spec-label">X Hareketi:</span>
-                    <span className="spec-value">{projectDetails.xmovement || '-'}</span>
+                    <span className="spec-value">{projectDetails.xmovement || projectDetails.xMovement || '-'}</span>
                   </div>
 
                   <div className="spec-row">
                     <span className="spec-label">Y Hareketi:</span>
-                    <span className="spec-value">{projectDetails.ymovement || '-'}</span>
+                    <span className="spec-value">{projectDetails.ymovement || projectDetails.yMovement || '-'}</span>
                   </div>
 
                   <div className="spec-row">
                     <span className="spec-label">Z Hareketi:</span>
-                    <span className="spec-value">{projectDetails.zmovement || '-'}</span>
+                    <span className="spec-value">{projectDetails.zmovement || projectDetails.zMovement || '-'}</span>
                   </div>
 
                   <div className="spec-row">
@@ -607,12 +607,12 @@ const ServiceDetailsModal = ({ service, onClose, isCompletedProject = false }) =
 
                   <div className="spec-row">
                     <span className="spec-label">B Hareketi:</span>
-                    <span className="spec-value">{projectDetails.bmovement || '-'}</span>
+                    <span className="spec-value">{projectDetails.bmovement || projectDetails.bMovement || '-'}</span>
                   </div>
 
                   <div className="spec-row">
                     <span className="spec-label">C Hareketi:</span>
-                    <span className="spec-value">{projectDetails.cmovement || '-'}</span>
+                    <span className="spec-value">{projectDetails.cmovement || projectDetails.cMovement || '-'}</span>
                   </div>
 
                   <div className="spec-row">

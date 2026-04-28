@@ -317,7 +317,7 @@ const mapDraftToForm = (dto) => {
 
   const mv = dto.machineVisit || {};
   form.machineVisit = {
-    visited: mv.visited === false ? false : true,
+    visited: true,
     flightCost: mv.flightCost != null ? String(mv.flightCost) : '',
     flightCurrency: normalizeCurrency(mv.flightCurrency || 'EUR'),
     flightExchangeRate: mv.flightExchangeRate != null ? String(mv.flightExchangeRate) : '',
@@ -853,7 +853,7 @@ const AdditionalCostRow = ({ item, index, section, projectId, onChange, onPatch,
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const ProjeMuhasebesi = () => {
-  const { canEdit } = useAuth();
+  const { canEdit, isAdmin } = useAuth();
 
   // Project list
   const [projects, setProjects] = useState([]);
@@ -889,8 +889,21 @@ const ProjeMuhasebesi = () => {
   // Completed drafts can be edited in explicit edit mode
   const [completedEditMode, setCompletedEditMode] = useState(false);
 
+  // Section active/inactive toggles (loaded from draft)
+  const [sectionActive, setSectionActive] = useState({
+    machinePurchase: true, machineVisit: true, logistics: true,
+    customs: true, transfer: true, generalCosts: true,
+  });
+
+  // Is this a closed (sold) project?
+  const isProjectClosed = selectedProject?.status === 'SOLD';
+
   // Determine if the current form is editable
   const isEditable = () => {
+    // Closed projects: only admin can edit, and only in explicit edit mode
+    if (isProjectClosed) {
+      return isAdmin() && completedEditMode;
+    }
     if (!canEdit()) return false;
     // Completed drafts are editable only while explicit edit mode is on
     if (draft?.draftStatus === 'COMPLETED') {
@@ -1010,6 +1023,16 @@ const ProjeMuhasebesi = () => {
       const dto = await accountingService.getDraft(project.id);
       setDraft(dto);
       setForm(mapDraftToForm(dto));
+      // Load section active flags from draft. machinePurchase is always active
+      // (no Aktif/Pasif toggle) because purchase price cannot be skipped.
+      setSectionActive({
+        machinePurchase: true,
+        machineVisit: dto.sectionMachineVisitActive !== false,
+        logistics: dto.sectionLogisticsActive !== false,
+        customs: dto.sectionCustomsActive !== false,
+        transfer: dto.sectionTransferActive !== false,
+        generalCosts: dto.sectionGeneralCostsActive !== false,
+      });
       if (opts.openCompletedUnifiedEdit && dto.draftStatus === 'COMPLETED') {
         setCompletedEditMode(true);
       }
@@ -1093,20 +1116,6 @@ const ProjeMuhasebesi = () => {
     setForm(prev => {
       const nextSection = { ...prev[section], [field]: value };
 
-      // If machine visit is disabled, clear its visit-related costs.
-      if (section === 'machineVisit' && field === 'visited' && value === false) {
-        Object.assign(nextSection, {
-          flightCost: '0',
-          flightCostTry: '0',
-          hotelCost: '0',
-          hotelCostTry: '0',
-          carRentalCost: '0',
-          carRentalCostTry: '0',
-          additionalExpenseCost: '0',
-          additionalExpenseCostTry: '0',
-        });
-      }
-
       // If warehouse costs are paid by buyer, clear warehouse-related customs costs.
       if (section === 'customs' && field === 'warehousePaidByBuyer' && value === true) {
         Object.assign(nextSection, {
@@ -1122,6 +1131,23 @@ const ProjeMuhasebesi = () => {
         [section]: nextSection,
       };
     });
+  };
+
+  // ── Section active toggle handler ──
+  const handleToggleSectionActive = async (section) => {
+    if (!selectedProject || !isEditable()) return;
+    const newActive = !sectionActive[section];
+    setSectionActive(prev => ({ ...prev, [section]: newActive }));
+    try {
+      const updatedDto = await accountingService.toggleSectionActive(selectedProject.id, section, newActive);
+      setDraft(updatedDto);
+      setSaveSuccess(`${SECTION_LABELS[section]} ${newActive ? 'aktif' : 'pasif'} yapıldı`);
+      setTimeout(() => setSaveSuccess(''), 3000);
+    } catch (err) {
+      // Revert on failure
+      setSectionActive(prev => ({ ...prev, [section]: !newActive }));
+      setSaveError('Bölüm durumu değiştirilemedi: ' + (err.message || ''));
+    }
   };
 
   // ── Document uploaded callback ──
@@ -1206,15 +1232,11 @@ const ProjeMuhasebesi = () => {
     zeroIfBlank('machinePurchase', 'creditAmount');
     if (isBlank(next.machinePurchase.creditInterestRate)) next.machinePurchase.creditInterestRate = '0';
 
-    if (next.machineVisit.visited) {
-      zeroIfBlank('machineVisit', 'flightCost');
-      zeroIfBlank('machineVisit', 'hotelCost');
-      zeroIfBlank('machineVisit', 'carRentalCost');
-      zeroIfBlank('machineVisit', 'additionalExpenseCost');
-    } else {
-      ['flightCost', 'flightCostTry', 'hotelCost', 'hotelCostTry', 'carRentalCost', 'carRentalCostTry', 'additionalExpenseCost', 'additionalExpenseCostTry']
-        .forEach((f) => { next.machineVisit[f] = '0'; });
-    }
+    next.machineVisit.visited = true;
+    zeroIfBlank('machineVisit', 'flightCost');
+    zeroIfBlank('machineVisit', 'hotelCost');
+    zeroIfBlank('machineVisit', 'carRentalCost');
+    zeroIfBlank('machineVisit', 'additionalExpenseCost');
 
     zeroIfBlank('logistics', 'freightCost');
     zeroIfBlank('logistics', 'additionalLogisticsCost');
@@ -1334,6 +1356,9 @@ const ProjeMuhasebesi = () => {
 
     const sections = sectionsToValidate || sectionKeys;
     sections.forEach((section) => {
+      // Skip validation for inactive sections (they count as zero).
+      // machinePurchase, generalCosts and costSummary are always active.
+      if (section !== 'costSummary' && section !== 'generalCosts' && section !== 'machinePurchase' && !sectionActive[section]) return;
       const s = section === 'costSummary' ? sourceForm.generalCosts : sourceForm[section];
       if (!s) return;
       switch (section) {
@@ -1356,12 +1381,10 @@ const ProjeMuhasebesi = () => {
           }
           break;
         case 'machineVisit':
-          if (s.visited) {
-            if (isBlank(s.flightCost)) addErr('Uçuş masrafı');
-            if (isBlank(s.hotelCost)) addErr('Otel masrafı');
-            if (isBlank(s.carRentalCost)) addErr('Araç kiralama');
-            if (isBlank(s.additionalExpenseCost)) addErr('Diğer masraflar');
-          }
+          if (isBlank(s.flightCost)) addErr('Uçuş masrafı');
+          if (isBlank(s.hotelCost)) addErr('Otel masrafı');
+          if (isBlank(s.carRentalCost)) addErr('Araç kiralama');
+          if (isBlank(s.additionalExpenseCost)) addErr('Diğer masraflar');
           break;
         case 'logistics':
           if (isBlank(s.freightCost)) addErr('Navlun bedeli');
@@ -1377,7 +1400,7 @@ const ProjeMuhasebesi = () => {
         case 'customs':
           if (isBlank(s.entryCustomsCost)) addErr('Giriş gümrük bedeli');
           if (isBlank(s.declarationDocumentKey)) addErr('Beyanname');
-          if (isBlank(s.countReportDocumentKey)) addErr('Sayım tutanağı');
+          // Sayım tutanağı removed from required documents
           if (!s.warehousePaidByBuyer) {
             if (isBlank(s.warehouseUnloadingCost)) addErr('Antrepo indirme vinç maliyeti');
             if (isBlank(s.storageCost)) addErr('Ardiye');
@@ -1385,8 +1408,7 @@ const ProjeMuhasebesi = () => {
           break;
         case 'transfer':
           if (isBlank(s.transferCost)) addErr('Gümrükçü devir bedeli');
-          if (isBlank(s.transferDeclarationKey)) addErr('Devir beyannamesi');
-          if (isBlank(s.transferCountReportKey)) addErr('Devir sayım tutanağı');
+          // Devir Beyannamesi & Devir Sayım Tutanağı retired — no longer required
           break;
         case 'generalCosts':
           if (isBlank(s.installationCost)) addErr('Kurulum maliyeti');
@@ -1430,6 +1452,9 @@ const ProjeMuhasebesi = () => {
 
     const sections = sectionsToValidate || sectionKeys;
     sections.forEach((section) => {
+      // Skip invoice validation for inactive sections.
+      // machinePurchase, generalCosts and costSummary are always active.
+      if (section !== 'costSummary' && section !== 'generalCosts' && section !== 'machinePurchase' && !sectionActive[section]) return;
       const s = sourceForm[section];
       if (!s) return;
       switch (section) {
@@ -1439,13 +1464,11 @@ const ProjeMuhasebesi = () => {
           checkAdditional(s.additionalCosts, '1a');
           break;
         case 'machineVisit':
-          if (s.visited) {
-            check(s.flightCost, s.flightInvoiceKey, 'Uçuş masrafı');
-            check(s.hotelCost, s.hotelInvoiceKey, 'Otel masrafı');
-            check(s.carRentalCost, s.carRentalInvoiceKey, 'Araç kiralama');
-            check(s.additionalExpenseCost, s.additionalExpenseInvoiceKey, 'Diğer masraflar');
-            checkAdditional(s.additionalCosts, '1b');
-          }
+          check(s.flightCost, s.flightInvoiceKey, 'Uçuş masrafı');
+          check(s.hotelCost, s.hotelInvoiceKey, 'Otel masrafı');
+          check(s.carRentalCost, s.carRentalInvoiceKey, 'Araç kiralama');
+          check(s.additionalExpenseCost, s.additionalExpenseInvoiceKey, 'Diğer masraflar');
+          checkAdditional(s.additionalCosts, '1b');
           break;
         case 'logistics':
           check(s.freightCost, s.freightInvoiceKey, 'Navlun bedeli');
@@ -1520,7 +1543,7 @@ const ProjeMuhasebesi = () => {
         };
       case 'machineVisit':
         return {
-          visited: !!s.visited,
+          visited: true,
           flightCost: numMoney(s.flightCost),
           flightCurrency: str(s.flightCurrency),
           flightExchangeRate: numRate(s.flightExchangeRate),
@@ -1774,14 +1797,58 @@ const ProjeMuhasebesi = () => {
   const sectionKeys = Object.keys(SECTION_LABELS);
   const liveBlockingErrors = useMemo(() => validateRequiredCostEntries(undefined, form) || [], [form]);
   const liveInvoiceWarnings = useMemo(() => validateInvoiceRequired(undefined, form) || [], [form]);
-  const showUnifiedCompletedEdit = draft?.draftStatus === 'COMPLETED' && completedEditMode;
+  const isDraftCompleted = draft?.draftStatus === 'COMPLETED';
+  // Closed projects (SOLD) also land on the summary view by default; only Edit mode
+  // shows the section-by-section forms (existing unified edit experience).
+  const showUnifiedCompletedEdit = (isDraftCompleted || isProjectClosed) && completedEditMode;
+  const showCompletedSummaryOnly = (isDraftCompleted || isProjectClosed) && !completedEditMode;
   const unifiedEditSectionKeys = ['machinePurchase', 'machineVisit', 'logistics', 'customs', 'transfer', 'generalCosts'];
+
+  // Backend section labels → frontend section keys (for Pasif filtering of validation report).
+  const backendLabelToSectionKey = useMemo(() => ({
+    'Makine Alım': 'machinePurchase',
+    'Makine Ziyaret': 'machineVisit',
+    'Lojistik': 'logistics',
+    'Gümrük & Depo': 'customs',
+    'Devir İşlemleri': 'transfer',
+    'Genel Gider': 'generalCosts',
+    'Satış Belgeleri': 'costSummary',
+  }), []);
+
+  const isSectionLabelActive = (label) => {
+    const key = backendLabelToSectionKey[label];
+    if (!key) return true;
+    if (key === 'costSummary' || key === 'machinePurchase' || key === 'generalCosts') return true;
+    return sectionActive[key] !== false;
+  };
+
+  // Filtered section counts: skip Pasif sections coming from older backends.
+  const filteredSectionMissingCounts = useMemo(() => {
+    const raw = validationReport?.sectionMissingCounts || {};
+    const out = {};
+    Object.entries(raw).forEach(([label, count]) => {
+      if (isSectionLabelActive(label)) out[label] = count;
+    });
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [validationReport, sectionActive]);
+
   const backendOnlyBlocking = useMemo(() => {
     const backend = validationReport?.blockingErrors || [];
     if (!backend.length) return [];
     const liveSet = new Set(liveBlockingErrors);
-    return backend.filter((msg) => msg && !liveSet.has(msg));
-  }, [validationReport, liveBlockingErrors]);
+    // Drop messages that originate from Pasif sections (recognised by Turkish label prefix).
+    const isPasifMessage = (msg) => {
+      if (!msg) return true;
+      for (const [label, key] of Object.entries(backendLabelToSectionKey)) {
+        if (key === 'costSummary' || key === 'machinePurchase' || key === 'generalCosts') continue;
+        if (sectionActive[key] === false && msg.includes(label)) return true;
+      }
+      return false;
+    };
+    return backend.filter((msg) => msg && !liveSet.has(msg) && !isPasifMessage(msg));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [validationReport, liveBlockingErrors, sectionActive]);
 
   const getSectionStatus = (sectionKey) => {
     if (!draft) return 'NOT_STARTED';
@@ -1895,7 +1962,16 @@ const ProjeMuhasebesi = () => {
 
     let grandTotalEur = 0;
     for (const sec of sections) {
-      sec.sectionTotalEur = r2(sec.items.reduce((acc, it) => acc + it.eur, 0) + sec.additionalEur);
+      // Inactive sections contribute zero to totals.
+      // machinePurchase is always active (no Aktif/Pasif toggle).
+      if (sec.key !== 'machinePurchase' && !sectionActive[sec.key]) {
+        sec.items = sec.items.map(it => ({ ...it, try: 0, eur: 0, amount: 0 }));
+        sec.additionalEur = 0;
+        sec.sectionTotalEur = 0;
+        sec.inactive = true;
+      } else {
+        sec.sectionTotalEur = r2(sec.items.reduce((acc, it) => acc + it.eur, 0) + sec.additionalEur);
+      }
       grandTotalEur += sec.sectionTotalEur;
     }
     grandTotalEur = r2(grandTotalEur);
@@ -1931,7 +2007,7 @@ const ProjeMuhasebesi = () => {
     const fmtEur = (v) => `€${v.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     return (
-      <div className="section-form cost-summary-section">
+      <div className={`section-form cost-summary-section${!isEditable() ? ' read-only-mode' : ''}`}>
         {/* Cost Breakdown */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h3 style={{ margin: 0, color: '#1a202c' }}>Maliyet Özeti (EUR)</h3>
@@ -1953,16 +2029,16 @@ const ProjeMuhasebesi = () => {
         </div>
         <div style={{ background: '#f9fafb', borderRadius: '8px', padding: '16px', marginBottom: '24px' }}>
           {sections.map(sec => (
-            sec.sectionTotalEur > 0 && (
-              <div key={sec.key} style={{ marginBottom: '12px' }}>
-                <div style={{ fontWeight: 600, fontSize: '13px', color: '#4a5568', marginBottom: '4px' }}>{sec.label}</div>
-                {sec.items.filter(it => it.eur > 0).map((it, idx) => (
+            (sec.sectionTotalEur > 0 || sec.inactive) && (
+              <div key={sec.key} style={{ marginBottom: '12px', opacity: sec.inactive ? 0.5 : 1 }}>
+                <div style={{ fontWeight: 600, fontSize: '13px', color: '#4a5568', marginBottom: '4px' }}>{sec.label}{sec.inactive ? ' (Pasif)' : ''}</div>
+                {!sec.inactive && sec.items.filter(it => it.eur > 0).map((it, idx) => (
                   <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', padding: '2px 0 2px 16px' }}>
                     <span style={{ color: '#718096' }}>{it.label} {it.currency !== 'TRY' && it.amount > 0 ? `(${it.amount.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} ${it.currency})` : ''}</span>
                     <span>{fmtEur(it.eur)}</span>
                   </div>
                 ))}
-                {sec.additionalEur > 0 && (
+                {!sec.inactive && sec.additionalEur > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', padding: '2px 0 2px 16px' }}>
                     <span style={{ color: '#718096' }}>Ek Kalemler</span>
                     <span>{fmtEur(sec.additionalEur)}</span>
@@ -1970,7 +2046,7 @@ const ProjeMuhasebesi = () => {
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 600, padding: '4px 0 4px 16px', borderTop: '1px solid #e2e8f0', marginTop: '4px' }}>
                   <span>Alt Toplam</span>
-                  <span>{fmtEur(sec.sectionTotalEur)}</span>
+                  <span>{sec.inactive ? '€0,00' : fmtEur(sec.sectionTotalEur)}</span>
                 </div>
               </div>
             )
@@ -2088,7 +2164,7 @@ const ProjeMuhasebesi = () => {
     switch (s) {
       case 'machinePurchase':
         return (
-          <div className="section-form">
+          <div className={`section-form${!isEditable() ? ' read-only-mode' : ''}`}>
             <div className="form-grid">
               <CurrencyInput label="Makine Alım Bedeli" amountField="purchasePrice" currencyField="purchaseCurrency" rateField="purchaseExchangeRate" tryField="purchasePriceTry" section={s} form={form} onChange={handleChange} rates={rates} required />
               <CurrencyInput label="Dış Komisyon" amountField="externalCommission" currencyField="externalCommissionCurrency" rateField="externalCommissionRate" tryField="externalCommissionTry" section={s} form={form} onChange={handleChange} rates={rates} />
@@ -2169,36 +2245,23 @@ const ProjeMuhasebesi = () => {
 
       case 'machineVisit':
         return (
-          <div className="section-form">
-            <div className="toggle-row">
-              <label className="toggle-label">Makine Ziyareti Yapıldı Mı?</label>
-              <label className="switch">
-                <input type="checkbox" checked={f.visited} onChange={(e) => handleChange(s, 'visited', e.target.checked)} />
-                <span className="slider round"></span>
-              </label>
-              <span className={f.visited ? 'toggle-yes' : 'toggle-no'}>{f.visited ? 'Evet' : 'Hayır'}</span>
+          <div className={`section-form${!isEditable() ? ' read-only-mode' : ''}`}>
+            <div className="form-grid">
+              <CurrencyInput label="Uçuş Masrafı" amountField="flightCost" currencyField="flightCurrency" rateField="flightExchangeRate" tryField="flightCostTry" section={s} form={form} onChange={handleChange} rates={rates} />
+              <CurrencyInput label="Otel Masrafı" amountField="hotelCost" currencyField="hotelCurrency" rateField="hotelExchangeRate" tryField="hotelCostTry" section={s} form={form} onChange={handleChange} rates={rates} />
             </div>
-
-            {f.visited && (
-              <>
-                <div className="form-grid">
-                  <CurrencyInput label="Uçuş Masrafı" amountField="flightCost" currencyField="flightCurrency" rateField="flightExchangeRate" tryField="flightCostTry" section={s} form={form} onChange={handleChange} rates={rates} />
-                  <CurrencyInput label="Otel Masrafı" amountField="hotelCost" currencyField="hotelCurrency" rateField="hotelExchangeRate" tryField="hotelCostTry" section={s} form={form} onChange={handleChange} rates={rates} />
-                </div>
-                <div className="form-grid">
-                  <CurrencyInput label="Araç Kiralama" amountField="carRentalCost" currencyField="carRentalCurrency" rateField="carRentalExchangeRate" tryField="carRentalCostTry" section={s} form={form} onChange={handleChange} rates={rates} />
-                  <CurrencyInput label="Diğer Masraflar" amountField="additionalExpenseCost" currencyField="additionalExpenseCurrency" rateField="additionalExpenseExchangeRate" tryField="additionalExpenseCostTry" section={s} form={form} onChange={handleChange} rates={rates} />
-                </div>
-                <div className="form-grid">
-                  <FileUploadField label="Uçuş Faturası" fieldKey="flightInvoiceKey" section={s} currentKey={f.flightInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
-                  <FileUploadField label="Otel Faturası" fieldKey="hotelInvoiceKey" section={s} currentKey={f.hotelInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
-                </div>
-                <div className="form-grid">
-                  <FileUploadField label="Araç Kiralama Faturası" fieldKey="carRentalInvoiceKey" section={s} currentKey={f.carRentalInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
-                  <FileUploadField label="Diğer Masraflar Faturası" fieldKey="additionalExpenseInvoiceKey" section={s} currentKey={f.additionalExpenseInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
-                </div>
-              </>
-            )}
+            <div className="form-grid">
+              <CurrencyInput label="Araç Kiralama" amountField="carRentalCost" currencyField="carRentalCurrency" rateField="carRentalExchangeRate" tryField="carRentalCostTry" section={s} form={form} onChange={handleChange} rates={rates} />
+              <CurrencyInput label="Diğer Masraflar" amountField="additionalExpenseCost" currencyField="additionalExpenseCurrency" rateField="additionalExpenseExchangeRate" tryField="additionalExpenseCostTry" section={s} form={form} onChange={handleChange} rates={rates} />
+            </div>
+            <div className="form-grid">
+              <FileUploadField label="Uçuş Faturası" fieldKey="flightInvoiceKey" section={s} currentKey={f.flightInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
+              <FileUploadField label="Otel Faturası" fieldKey="hotelInvoiceKey" section={s} currentKey={f.hotelInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
+            </div>
+            <div className="form-grid">
+              <FileUploadField label="Araç Kiralama Faturası" fieldKey="carRentalInvoiceKey" section={s} currentKey={f.carRentalInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
+              <FileUploadField label="Diğer Masraflar Faturası" fieldKey="additionalExpenseInvoiceKey" section={s} currentKey={f.additionalExpenseInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
+            </div>
             <AdditionalCosts section={s} items={f.additionalCosts} projectId={selectedProject?.id} onAdd={addAdditionalCost} onChange={updateAdditionalCost} onPatch={patchAdditionalCost} onRemove={removeAdditionalCost} onUploaded={handleDocUploaded} onError={handleUploadError} rates={rates} />
             {isEditable() && (
               <div className="section-save-actions">
@@ -2215,7 +2278,7 @@ const ProjeMuhasebesi = () => {
 
       case 'logistics':
         return (
-          <div className="section-form">
+          <div className={`section-form${!isEditable() ? ' read-only-mode' : ''}`}>
             <div className="form-grid">
               <div className="form-field">
                 <label className="field-label">Anlaşılan Firma</label>
@@ -2234,6 +2297,7 @@ const ProjeMuhasebesi = () => {
 
             <div className="form-grid">
               <CurrencyInput label="Brandalama Maliyeti" amountField="brandingCost" currencyField="brandingCurrency" rateField="brandingExchangeRate" tryField="brandingCostTry" section={s} form={form} onChange={handleChange} rates={rates} />
+              <FileUploadField label="Brandalama Faturası" fieldKey="brandingInvoiceKey" section={s} currentKey={f.brandingInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
             </div>
 
             <div className="documents-section">
@@ -2283,7 +2347,7 @@ const ProjeMuhasebesi = () => {
 
       case 'customs':
         return (
-          <div className="section-form">
+          <div className={`section-form${!isEditable() ? ' read-only-mode' : ''}`}>
             <div className="form-grid">
               <CurrencyInput label="Gümrükçü bedeli" amountField="entryCustomsCost" currencyField="entryCustomsCurrency" rateField="entryCustomsExchangeRate" tryField="entryCustomsCostTry" section={s} form={form} onChange={handleChange} rates={rates} required />
               <FileUploadField label="Gümrükçü Faturası" fieldKey="entryCustomsInvoiceKey" section={s} currentKey={f.entryCustomsInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
@@ -2297,13 +2361,7 @@ const ProjeMuhasebesi = () => {
                 </label>
                 <FileUploadField label="" fieldKey="declarationDocumentKey" section={s} currentKey={f.declarationDocumentKey} projectId={selectedProject?.id} onUploaded={(sec, field, key) => { handleDocUploaded(sec, field, key); handleChange(sec, 'hasDeclarationDocument', true); }} onRemoved={handleDocRemoved} onError={handleUploadError} />
               </div>
-              <div className="doc-row">
-                <label className="checkbox-label">
-                  <input type="checkbox" checked={!!f.countReportDocumentKey} disabled />
-                  <span>Sayım Tutanağı</span>
-                </label>
-                <FileUploadField label="" fieldKey="countReportDocumentKey" section={s} currentKey={f.countReportDocumentKey} projectId={selectedProject?.id} onUploaded={(sec, field, key) => { handleDocUploaded(sec, field, key); handleChange(sec, 'hasCountReportDocument', true); }} onRemoved={handleDocRemoved} onError={handleUploadError} />
-              </div>
+              {/* Sayım Tutanağı removed — existing files kept in storage for audit */}
             </div>
 
             <div className="toggle-row">
@@ -2344,28 +2402,17 @@ const ProjeMuhasebesi = () => {
 
       case 'transfer':
         return (
-          <div className="section-form">
+          <div className={`section-form${!isEditable() ? ' read-only-mode' : ''}`}>
             <div className="form-grid">
               <CurrencyInput label="Gümrükçü Devir Bedeli" amountField="transferCost" currencyField="transferCurrency" rateField="transferExchangeRate" tryField="transferCostTry" section={s} form={form} onChange={handleChange} rates={rates} />
               <FileUploadField label="Gümrükçü Devir Bedeli Faturası" fieldKey="transferInvoiceKey" section={s} currentKey={f.transferInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
             </div>
 
-            <div className="doc-grid">
-              <div className="doc-row">
-                <label className="checkbox-label">
-                  <input type="checkbox" checked={!!f.transferDeclarationKey} disabled />
-                  <span>Devir beyannamesi</span>
-                </label>
-                <FileUploadField label="" fieldKey="transferDeclarationKey" section={s} currentKey={f.transferDeclarationKey} projectId={selectedProject?.id} onUploaded={(sec, field, key) => { handleDocUploaded(sec, field, key); handleChange(sec, 'hasTransferDeclaration', true); }} onRemoved={handleDocRemoved} onError={handleUploadError} />
-              </div>
-              <div className="doc-row">
-                <label className="checkbox-label">
-                  <input type="checkbox" checked={!!f.transferCountReportKey} disabled />
-                  <span>Devir sayım tutanağı</span>
-                </label>
-                <FileUploadField label="" fieldKey="transferCountReportKey" section={s} currentKey={f.transferCountReportKey} projectId={selectedProject?.id} onUploaded={(sec, field, key) => { handleDocUploaded(sec, field, key); handleChange(sec, 'hasTransferCountReport', true); }} onRemoved={handleDocRemoved} onError={handleUploadError} />
-              </div>
-            </div>
+            {/*
+              Devir Beyannamesi ve Devir Sayım Tutanağı kaldırıldı.
+              Eski projelerin yüklediği dosyalar storage'da korunmaya devam eder; yalnızca
+              UI ve zorunlu alan kontrolleri kapatıldı.
+            */}
 
             <AdditionalCosts section={s} items={f.additionalCosts} projectId={selectedProject?.id} onAdd={addAdditionalCost} onChange={updateAdditionalCost} onPatch={patchAdditionalCost} onRemove={removeAdditionalCost} onUploaded={handleDocUploaded} onError={handleUploadError} rates={rates} />
             {isEditable() && (
@@ -2383,7 +2430,7 @@ const ProjeMuhasebesi = () => {
 
       case 'generalCosts':
         return (
-          <div className="section-form">
+          <div className={`section-form${!isEditable() ? ' read-only-mode' : ''}`}>
             <div className="form-grid">
               <CurrencyInput label="Kurulum Maliyeti" amountField="installationCost" currencyField="installationCurrency" rateField="installationExchangeRate" tryField="installationCostTry" section={s} form={form} onChange={handleChange} rates={rates} />
               <FileUploadField label="Kurulum Faturası" fieldKey="installationInvoiceKey" section={s} currentKey={f.installationInvoiceKey} projectId={selectedProject?.id} onUploaded={handleDocUploaded} onRemoved={handleDocRemoved} onError={handleUploadError} />
@@ -2761,10 +2808,11 @@ const ProjeMuhasebesi = () => {
               <AiOutlineCheckCircle /> {completing ? 'Tamamlanıyor...' : activeSection !== 'costSummary' ? 'Maliyet Özeti & Tamamla' : 'Tamamla'}
             </button>
           )}
-          {draft && draft.draftStatus === 'COMPLETED' && (
+          {(draft && draft.draftStatus === 'COMPLETED') || isProjectClosed ? (
             <>
-              <span className="completed-badge"><AiOutlineCheckCircle /> Tamamlandı</span>
-              {canEdit() && !completedEditMode && (
+              <span className="completed-badge"><AiOutlineCheckCircle /> {isProjectClosed ? 'Satıldı — Salt Okunur' : 'Tamamlandı'}</span>
+              {/* Edit button: closed projects → admin only; completed drafts → canEdit */}
+              {(isProjectClosed ? isAdmin() : canEdit()) && !completedEditMode && (
                 <button
                   className="btn-save"
                   onClick={() => setCompletedEditMode(true)}
@@ -2773,7 +2821,7 @@ const ProjeMuhasebesi = () => {
                   Düzenle
                 </button>
               )}
-              {canEdit() && completedEditMode && (
+              {(isProjectClosed ? isAdmin() : canEdit()) && completedEditMode && (
                 <>
                   <button
                     className="btn-complete"
@@ -2793,7 +2841,7 @@ const ProjeMuhasebesi = () => {
                 </>
               )}
             </>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -2807,15 +2855,15 @@ const ProjeMuhasebesi = () => {
       {saveError && <div className="error-banner"><AiOutlineWarning /> {saveError}</div>}
       {saveSuccess && <div className="success-banner"><AiOutlineCheckCircle /> {saveSuccess}</div>}
       {costMismatchWarning && <div className="error-banner" style={{ background: '#fffbeb', borderColor: '#f59e0b', color: '#92400e' }}><AiOutlineWarning /> {costMismatchWarning}</div>}
-      {(liveBlockingErrors.length > 0 || liveInvoiceWarnings.length > 0 || (validationReport && ((validationReport.blockingErrors?.length || 0) > 0 || (validationReport.warnings?.length || 0) > 0))) && (
+      {(liveBlockingErrors.length > 0 || liveInvoiceWarnings.length > 0 || backendOnlyBlocking.length > 0 || Object.keys(filteredSectionMissingCounts).length > 0) && (
         <div className="error-banner validation-compact-banner" style={{ display: 'block' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
             <AiOutlineWarning />
             <strong>Kullanıcı Düzeltme Rehberi</strong>
           </div>
-          {validationReport?.sectionMissingCounts && Object.keys(validationReport.sectionMissingCounts).length > 0 && (
+          {Object.keys(filteredSectionMissingCounts).length > 0 && (
             <div style={{ marginBottom: '8px', fontSize: '12px', opacity: 0.95 }}>
-              {Object.entries(validationReport.sectionMissingCounts).map(([section, count]) => (
+              {Object.entries(filteredSectionMissingCounts).map(([section, count]) => (
                 <span key={section} style={{ marginRight: '12px' }}>
                   {section}: {count}
                 </span>
@@ -2842,16 +2890,16 @@ const ProjeMuhasebesi = () => {
       )}
 
       {!draftLoading && !draftError && (
-        <div className={`pm-editor${showUnifiedCompletedEdit ? ' pm-editor-unified-completed' : ''}`}>
-          {!showUnifiedCompletedEdit && (
+        <div className={`pm-editor${showUnifiedCompletedEdit ? ' pm-editor-unified-completed' : ''}${showCompletedSummaryOnly ? ' pm-editor-summary-only' : ''}`}>
+          {!showUnifiedCompletedEdit && !showCompletedSummaryOnly && (
             <div className="section-tabs">
               {sectionKeys.map(key => (
                 <button
                   key={key}
-                  className={`section-tab ${activeSection === key ? 'active' : ''}`}
+                  className={`section-tab ${activeSection === key ? 'active' : ''}${!sectionActive[key] && key !== 'costSummary' && key !== 'generalCosts' && key !== 'machinePurchase' ? ' tab-inactive' : ''}`}
                   onClick={() => { setActiveSection(key); if (sectionPanelRef.current) sectionPanelRef.current.scrollTop = 0; }}
                 >
-                  <span className="tab-label">{SECTION_LABELS[key]}</span>
+                  <span className="tab-label">{SECTION_LABELS[key]}{!sectionActive[key] && key !== 'costSummary' && key !== 'generalCosts' && key !== 'machinePurchase' ? ' (Pasif)' : ''}</span>
                   <StatusBadge status={getSectionStatus(key)} />
                 </button>
               ))}
@@ -2859,7 +2907,18 @@ const ProjeMuhasebesi = () => {
           )}
 
           <div className="section-panel" ref={sectionPanelRef}>
-            {showUnifiedCompletedEdit ? (
+            {showCompletedSummaryOnly ? (
+              <>
+                <div className="section-panel-header">
+                  <h2 className="section-panel-title">{SECTION_LABELS.costSummary}</h2>
+                  <StatusBadge status={getSectionStatus('costSummary')} />
+                </div>
+                <div className="info-row" style={{ margin: '6px 0 12px', color: '#4a5568', fontSize: '12px' }}>
+                  Tamamlanmış proje — sadece maliyet özeti gösteriliyor. Düzenlemek için üstteki <strong>Düzenle</strong> düğmesini kullanın.
+                </div>
+                {renderSection('costSummary')}
+              </>
+            ) : showUnifiedCompletedEdit ? (
               <>
                 <div className="unified-completed-intro">
                   <p style={{ margin: '0 0 8px', fontSize: '14px', color: '#4a5568', lineHeight: 1.45 }}>
@@ -2877,12 +2936,23 @@ const ProjeMuhasebesi = () => {
                   {renderSection('costSummary')}
                 </div>
                 {unifiedEditSectionKeys.map((key) => (
-                  <div key={key} className="unified-block unified-section-block">
+                  <div key={key} className={`unified-block unified-section-block${!sectionActive[key] && key !== 'generalCosts' && key !== 'machinePurchase' ? ' section-inactive' : ''}`}>
                     <div className="section-panel-header unified-block-header">
                       <h2 className="section-panel-title">{SECTION_LABELS[key]}</h2>
+                      {key !== 'generalCosts' && key !== 'machinePurchase' && (
+                        <div className="section-toggle-row">
+                          <label className="section-toggle-label">
+                            <input type="checkbox" checked={sectionActive[key]} onChange={() => handleToggleSectionActive(key)} disabled={!isEditable()} />
+                            <span className="section-toggle-slider" />
+                            <span className="section-toggle-text">{sectionActive[key] ? 'Aktif' : 'Pasif'}</span>
+                          </label>
+                        </div>
+                      )}
                       <StatusBadge status={getSectionStatus(key)} />
                     </div>
-                    {renderSection(key)}
+                    {!sectionActive[key] && key !== 'generalCosts' && key !== 'machinePurchase' ? (
+                      <div className="section-inactive-badge">Bu bölüm pasif — toplamda 0,00 olarak sayılır.</div>
+                    ) : renderSection(key)}
                   </div>
                 ))}
               </>
@@ -2890,11 +2960,22 @@ const ProjeMuhasebesi = () => {
               <>
                 <div className="section-panel-header">
                   <h2 className="section-panel-title">{SECTION_LABELS[activeSection]}</h2>
+                  {activeSection !== 'costSummary' && activeSection !== 'generalCosts' && activeSection !== 'machinePurchase' && (
+                    <div className="section-toggle-row">
+                      <label className="section-toggle-label">
+                        <input type="checkbox" checked={sectionActive[activeSection]} onChange={() => handleToggleSectionActive(activeSection)} disabled={!isEditable()} />
+                        <span className="section-toggle-slider" />
+                        <span className="section-toggle-text">{sectionActive[activeSection] ? 'Aktif' : 'Pasif'}</span>
+                      </label>
+                    </div>
+                  )}
                   <div className="info-row" style={{ marginTop: '6px', color: '#b45309', fontSize: '12px' }}>
                     <AiOutlineWarning /> Hiçbir maliyet alanı boş bırakılamaz. Maliyet yoksa 0 giriniz.
                   </div>
                 </div>
-                {renderSection()}
+                {!sectionActive[activeSection] && activeSection !== 'costSummary' && activeSection !== 'generalCosts' && activeSection !== 'machinePurchase' ? (
+                  <div className="section-inactive-badge">Bu bölüm pasif — toplamda 0,00 olarak sayılır.</div>
+                ) : renderSection()}
               </>
             )}
           </div>

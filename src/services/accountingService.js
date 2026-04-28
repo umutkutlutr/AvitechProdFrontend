@@ -167,6 +167,25 @@ class AccountingService {
   }
 
   /**
+   * Toggle a section's active/inactive state.
+   */
+  async toggleSectionActive(projectId, section, active) {
+    try {
+      const response = await fetchWithAuth(
+        `${API_BASE_URL}/api/accounting/projects/${projectId}/draft/section-active?section=${section}&active=${active}`,
+        {
+          method: 'PUT',
+          headers: authService.getAuthHeaders(),
+        }
+      );
+      return await response.json();
+    } catch (error) {
+      console.error('AccountingService.toggleSectionActive error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get missing cost notifications for projects sent to accounting (legacy).
    */
   async getMissingCostNotifications() {

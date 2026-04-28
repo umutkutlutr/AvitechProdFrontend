@@ -366,6 +366,16 @@
   max-height: none;
 }
 
+/* Tamamlanmış / Kapalı proje: yalnızca Maliyet Özeti, sekmeler gizli */
+.pm-editor-summary-only {
+  flex-direction: column;
+}
+
+.pm-editor-summary-only .section-panel {
+  max-height: none;
+  width: 100%;
+}
+
 .unified-block {
   margin-bottom: 28px;
   padding-bottom: 4px;
@@ -777,4 +787,114 @@ input:checked + .slider:before { transform: translateX(18px); }
   font-size: 13px;
   color: #065f46;
   margin-bottom: 16px;
+}
+
+/* ── Read-only mode (closed/completed projects) ── */
+.section-form.read-only-mode input,
+.section-form.read-only-mode select,
+.section-form.read-only-mode textarea,
+.section-form.read-only-mode .switch,
+.section-form.read-only-mode .file-upload-field button,
+.section-form.read-only-mode .btn-add-cost {
+  pointer-events: none;
+  opacity: 0.7;
+  cursor: default;
+}
+
+.section-form.read-only-mode .section-save-actions {
+  display: none;
+}
+
+/* Section inactive badge */
+.section-inactive-badge {
+  display: block;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 24px 16px;
+  border-radius: 8px;
+  text-align: center;
+  margin: 8px 0;
+}
+
+/* Section inactive container fade */
+.unified-block.section-inactive {
+  opacity: 0.65;
+}
+
+/* Inactive tab styling */
+.section-tab.tab-inactive {
+  opacity: 0.55;
+}
+.section-tab.tab-inactive .tab-label {
+  text-decoration: line-through;
+}
+
+/* Section toggle switch */
+.section-toggle-row {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  margin-right: 12px;
+}
+
+.section-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+.section-toggle-label input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.section-toggle-slider {
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  background: #cbd5e1;
+  border-radius: 10px;
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.section-toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.section-toggle-label input:checked + .section-toggle-slider {
+  background: #059669;
+}
+
+.section-toggle-label input:checked + .section-toggle-slider::after {
+  transform: translateX(16px);
+}
+
+.section-toggle-label input:disabled + .section-toggle-slider {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.section-toggle-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  min-width: 32px;
 }

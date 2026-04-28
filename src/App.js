@@ -124,15 +124,8 @@ function AppContent() {
                     </div>
                   }
                 />
-                <Route
-                  path="/manual"
-                  element={
-                    <div className="placeholder-content">
-                      <h1>Kullanım Kılavuzu</h1>
-                      <p>Bu sayfa henüz hazır değil.</p>
-                    </div>
-                  }
-                />
+                {/* /manual removed — redirect to home */}
+                <Route path="/manual" element={<Navigate to="/" replace />} />
                 <Route
                   path="/errorReceipts"
                   element={<ErrorReceipts />}

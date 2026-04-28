@@ -7,7 +7,6 @@ import {
   AiOutlineFolder,
   AiOutlineUser,
   AiOutlineTeam,
-  AiOutlineFile,
   AiOutlineDelete,
   AiOutlineWarning,
   AiOutlineSend,
@@ -51,7 +50,6 @@ const Sidebar = ({ isOpen, onClose }) => {
       { id: 'kampanya-yonetimi', label: 'Stok Tanıtım Gönderimi', icon: AiOutlineMail, path: '/kampanyaYonetimi' }
     ],
     other: [
-      { id: 'manual', label: 'Kullanım Kılavuzu', icon: AiOutlineFile, path: '/manual' },
       { id: 'error-receipts', label: 'İptal Edilen Projeler', icon: AiOutlineDelete, path: '/errorReceipts' }
     ]
   };
