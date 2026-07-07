@@ -45,10 +45,10 @@ const Login = () => {
       {/* Left Side - Images */}
       <div className="login-left">
         <div className="machine-image-top">
-          <img src="/assets/mf1.jpeg" alt="Machine 1" />
+          <img src="/assets/mf1.jpeg" alt="Makine 1" />
         </div>
         <div className="machine-image-bottom">
-          <img src="/assets/mf2.jpeg" alt="Machine 2" />
+          <img src="/assets/mf2.jpeg" alt="Makine 2" />
         </div>
       </div>
 

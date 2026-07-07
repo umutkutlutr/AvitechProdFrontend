@@ -367,10 +367,10 @@ const AllServices = ({ onEditService }) => {
   };
 
   const formatCurrency = (amount, currency = 'EUR') => {
-    if (currency === 'TRY') {
-      return `₺${amount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    }
-    return `€${amount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const num = typeof amount === 'number' ? amount : parseFloat(amount);
+    if (num == null || isNaN(num)) return '-';
+    const symbol = currency === 'TRY' ? '₺' : '€';
+    return `${symbol}${num.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const formatDate = (dateString) => {
@@ -809,8 +809,8 @@ const AllServices = ({ onEditService }) => {
                         <button
                           className="operation-btn edit-btn"
                           onClick={() => handleEditClick(project)}
-                          title="Düzenle"
-                          disabled={editingProjectId === project.id}
+                          title={project.status === 'TEMPLATE' ? 'Düzenle' : 'Yalnızca Şablon durumundaki projeler düzenlenebilir'}
+                          disabled={project.status !== 'TEMPLATE' || editingProjectId === project.id}
                         >
                           {editingProjectId === project.id ? (
                             <div className="loading-spinner-small"></div>

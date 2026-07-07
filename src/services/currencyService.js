@@ -14,6 +14,18 @@ export const FALLBACK_RATES = {
 };
 
 /**
+ * Validates that a value is a usable, plausible EUR/TRY rate.
+ * A rate must be a finite positive number; we also reject implausible
+ * values so a broken payload can't masquerade as a real rate.
+ * @param {*} value
+ * @returns {boolean}
+ */
+const isValidRate = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0;
+};
+
+/**
  * Fetches exchange rates from backend TCMB proxy
  * @returns {Promise<Object|null>} Exchange rates or null if failed
  */
@@ -36,8 +48,18 @@ const fetchTCMBRates = async () => {
 
     // Use direct TRY rates from the backend `rates` map (1 EUR = X TRY)
     const directRates = data.rates || {};
+    const eurCandidate = directRates.EUR != null ? directRates.EUR : data.EUR_TRY;
+
+    // If the backend didn't return a usable EUR rate, do NOT silently substitute
+    // the hardcoded constant and label it "TCMB". Return null so the next
+    // fallback source is tried and, ultimately, the offline flag is set honestly.
+    if (!isValidRate(eurCandidate)) {
+      console.warn('Backend TCMB proxy returned no valid EUR rate; falling through.');
+      return null;
+    }
+
     return {
-      EUR: directRates.EUR || data.EUR_TRY || FALLBACK_RATES.EUR,
+      EUR: Number(eurCandidate),
       TRY: 1.0,
       source: data.source === 'TCMB' ? 'TCMB' : 'TCMB (fallback)',
       timestamp: data.timestamp || new Date().toISOString()
@@ -62,9 +84,14 @@ const fetchFallbackRates = async () => {
 
     const data = await response.json();
 
-    const eurTry = data.rates.TRY || FALLBACK_RATES.EUR;
+    // exchangerate-api EUR base returns rates.TRY = TRY per 1 EUR
+    const eurTry = data && data.rates ? data.rates.TRY : undefined;
+    if (!isValidRate(eurTry)) {
+      console.warn('Fallback API returned no valid TRY rate; falling through.');
+      return null;
+    }
     return {
-      EUR: eurTry,
+      EUR: Number(eurTry),
       TRY: 1.0,
       source: 'exchangerate-api.com',
       timestamp: new Date().toISOString()
@@ -124,7 +151,7 @@ export const convertCurrency = (amount, fromCurrency, toCurrency, rates) => {
     return amount;
   }
 
-  if (!rates || !rates[fromCurrency]) {
+  if (!rates || !rates[fromCurrency] || !rates[toCurrency]) {
     return 0;
   }
 
@@ -142,12 +169,16 @@ export const convertCurrency = (amount, fromCurrency, toCurrency, rates) => {
  * @returns {string} Formatted currency string
  */
 export const formatCurrency = (amount, currency) => {
+  const num = typeof amount === 'number' ? amount : parseFloat(amount);
+  if (num == null || isNaN(num)) return '-';
+  const c = currency === 'USD' ? 'EUR' : currency;
   const symbols = { EUR: '€', TRY: '₺' };
-  const symbol = symbols[currency] || currency;
-  const formattedAmount = new Intl.NumberFormat('en-US', {
+  const symbol = symbols[c] || c || '';
+  // App-wide standard is tr-TR formatting (1.234,56), not en-US.
+  const formattedAmount = new Intl.NumberFormat('tr-TR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  }).format(amount);
+  }).format(num);
 
   return `${symbol}${formattedAmount}`;
 };

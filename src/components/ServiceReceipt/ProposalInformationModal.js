@@ -38,10 +38,10 @@ const ProposalInformationModal = ({ service, onClose }) => {
   }, [service?.id]);
 
   const formatCurrency = (amount, currency = 'EUR') => {
-    if (currency === 'TRY') {
-      return `₺${amount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    }
-    return `€${amount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const num = typeof amount === 'number' ? amount : parseFloat(amount);
+    if (num == null || isNaN(num)) return '-';
+    const symbol = currency === 'TRY' ? '₺' : '€';
+    return `${symbol}${num.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const formatDate = (dateString) => {
@@ -109,7 +109,7 @@ const ProposalInformationModal = ({ service, onClose }) => {
 
           <div className="service-info">
             <h3>{service.machineName}</h3>
-            <p className="service-id">Proje Kodu: {service.machineName}</p>
+            <p className="service-id">Proje Kodu: {service.projectCode || service.machineName}</p>
             {offerDetails && offerDetails.length > 0 && (
               <p className="offer-count">Toplam {offerDetails.length} teklif bulundu</p>
             )}

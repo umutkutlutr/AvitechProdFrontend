@@ -41,13 +41,14 @@ class OfferService {
     });
   }
 
-  async previewOfferPdf(projectId, clientId, price, description, invalidTermKeys = [], senderSignature = null) {
+  async previewOfferPdf(projectId, clientId, price, description, invalidTermKeys = [], senderSignature = null, vatIncluded = false) {
     const body = {
       projectId,
       clientId,
       price,
       description,
       invalidTermKeys,
+      vatIncluded,
     };
     if (senderSignature) {
       body.senderSignature = senderSignature;

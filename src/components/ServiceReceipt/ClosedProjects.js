@@ -64,6 +64,10 @@ const ClosedProjects = ({ onEditService }) => {
             projectCode: n.projectCode || project.projectCode,
             machineName: machineTitle,
             machineTitle,
+            // Carry make/model forward so cost/detail modals can show the model
+            // in the title line (same as the active-projects screen).
+            make: n.make,
+            model: n.model,
             operatingSystem,
             year: year != null ? String(year) : 'N/A',
             serialNumber: n.serialNumber || project.serialNumber,
@@ -114,10 +118,10 @@ const ClosedProjects = ({ onEditService }) => {
   };
 
   const formatCurrency = (amount, currency = 'EUR') => {
-    if (currency === 'TRY') {
-      return `₺${amount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    }
-    return `€${amount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const num = typeof amount === 'number' ? amount : parseFloat(amount);
+    if (num == null || isNaN(num)) return '-';
+    const symbol = currency === 'TRY' ? '₺' : '€';
+    return `${symbol}${num.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -154,6 +158,13 @@ const ClosedProjects = ({ onEditService }) => {
         </div>
       )}
 
+      {!loading && !error && services.length > 0 && (
+        <SearchBar
+          onSearch={(q) => { setSearchTerm(q); setCurrentPage(1); }}
+          placeholder="Proje kodu, makine, model, yıl veya seri no ile ara..."
+        />
+      )}
+
       {!loading && !error && services.length > 0 && filteredServices.length === 0 && (
         <div className="empty-state">
           <p>Arama kriterlerinize uygun proje bulunamadı.</p>
@@ -166,27 +177,8 @@ const ClosedProjects = ({ onEditService }) => {
         const paginatedServices = filteredServices.slice(startIdx, startIdx + itemsPerPage);
         return (
         <>
-          <SearchBar
-            onSearch={(q) => { setSearchTerm(q); setCurrentPage(1); }}
-            placeholder="Proje kodu, makine, model, yıl veya seri no ile ara..."
-          />
           <div className="quotes-sent-toolbar">
             <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} storageKey="closedProjects_viewMode" />
-            <Pagination
-              inline
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalItems={filteredServices.length}
-              itemsPerPage={itemsPerPage}
-              onPageChange={setCurrentPage}
-              onItemsPerPageChange={(v) => {
-                setItemsPerPage(v);
-                setCurrentPage(1);
-                try { localStorage.setItem('closedProjects_pageSize', String(v)); } catch (_) {}
-              }}
-              storageKey="closedProjects_pageSize"
-              label="proje"
-            />
           </div>
           {viewMode === 'table' ? (
             <div className="quotes-sent-table-wrapper">
@@ -277,6 +269,20 @@ const ClosedProjects = ({ onEditService }) => {
             ))}
           </div>
           )}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredServices.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={(v) => {
+              setItemsPerPage(v);
+              setCurrentPage(1);
+              try { localStorage.setItem('closedProjects_pageSize', String(v)); } catch (_) {}
+            }}
+            storageKey="closedProjects_pageSize"
+            label="proje"
+          />
         </>
         );
       })()}

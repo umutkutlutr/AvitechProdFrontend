@@ -26,8 +26,6 @@ const Sidebar = ({ isOpen, onClose }) => {
   const { logout, user, isAdmin, canAccessUserManagement, canCreateProject } = useAuth();
 
   // Debug logging
-  console.log('Sidebar - Current user:', user);
-  console.log('Sidebar - isAdmin():', isAdmin());
 
   // Menü öğeleri, daha kolay yönetim için bir nesne içinde gruplandırıldı.
   const menuItems = {

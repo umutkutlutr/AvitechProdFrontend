@@ -101,11 +101,11 @@
 
 .filter-field-row {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
   flex: 0 1 auto;
-  min-width: 180px;
-  max-width: 280px;
+  min-width: 200px;
+  max-width: 340px;
 }
 
 .filter-field {
@@ -132,6 +132,43 @@
   color: #374151;
   background: white;
   transition: all 0.2s ease;
+}
+
+/* Aralık (min–max) filtre girişleri */
+.filter-range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filter-range-inputs input {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #374151;
+  background: white;
+  transition: all 0.2s ease;
+}
+
+.filter-range-inputs input:focus {
+  outline: none;
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.filter-range-inputs .range-sep {
+  color: #9ca3af;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.filter-range-inputs .range-unit {
+  color: #6b7280;
+  font-size: 12px;
+  flex-shrink: 0;
 }
 
 .filter-field select {

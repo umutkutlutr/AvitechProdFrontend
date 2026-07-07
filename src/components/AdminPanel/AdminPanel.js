@@ -153,7 +153,10 @@ const AdminPanel = () => {
           const rate = (costSummary?.salesExchangeRate != null && costSummary.salesExchangeRate > 0) ? parseFloat(costSummary.salesExchangeRate) : FALLBACK_RATES.EUR;
           const getSectionTotalEur = (key) => {
             const s = costSummary?.sections?.find(x => x.sectionKey === key);
-            return parseFloat(s?.totalEur) ?? (rate > 0 ? (parseFloat(s?.totalTry) || 0) / rate : 0);
+            // parseFloat(undefined) is NaN, so `?? fallback` never fires — guard with isNaN.
+            const eur = parseFloat(s?.totalEur);
+            if (!isNaN(eur)) return eur;
+            return rate > 0 ? (parseFloat(s?.totalTry) || 0) / rate : 0;
           };
           const getItemAmountEur = (sectionKey, label) => {
             const s = costSummary?.sections?.find(x => x.sectionKey === sectionKey);
@@ -177,12 +180,14 @@ const AdminPanel = () => {
             /kurulum|montaj|installation/i.test(i.label || '')
           );
           const installationItemRate = parseFloat(installationItem?.exchangeRate) || rate;
-          const installationEur = installationItem ? (parseFloat(installationItem.amountEur) ?? (installationItemRate > 0 ? Math.round(((parseFloat(installationItem.amountTry) || 0) / installationItemRate) * 100) / 100 : 0)) : 0;
+          const installationEurParsed = parseFloat(installationItem?.amountEur);
+          const installationEur = !installationItem ? 0 : (!isNaN(installationEurParsed) ? installationEurParsed : (installationItemRate > 0 ? Math.round(((parseFloat(installationItem.amountTry) || 0) / installationItemRate) * 100) / 100 : 0));
           const financingItem = costSummary?.sections?.find(s => s.sectionKey === 'MACHINE_PURCHASE')?.items?.find(i =>
             /finansman|financing|finans/i.test(i.label || '')
           );
           const financingItemRate = parseFloat(financingItem?.exchangeRate) || rate;
-          const financingEur = financingItem ? (parseFloat(financingItem.amountEur) ?? (financingItemRate > 0 ? Math.round(((parseFloat(financingItem.amountTry) || 0) / financingItemRate) * 100) / 100 : 0)) : 0;
+          const financingEurParsed = parseFloat(financingItem?.amountEur);
+          const financingEur = !financingItem ? 0 : (!isNaN(financingEurParsed) ? financingEurParsed : (financingItemRate > 0 ? Math.round(((parseFloat(financingItem.amountTry) || 0) / financingItemRate) * 100) / 100 : 0));
           const totalCostEur = costSummary?.totalCostEur != null ? parseFloat(costSummary.totalCostEur) : (rate > 0 ? (parseFloat(costSummary?.totalCostTry) || 0) / rate : 0);
           const otherCostsEur = totalCostEur - purchasePriceEur;
 
@@ -212,11 +217,19 @@ const AdminPanel = () => {
             buySellDays = Math.round((saleDateObj - purchaseDate) / (1000 * 60 * 60 * 24));
           }
 
-          const salePriceEurVal = salePrice != null ? salePrice : (costSummary?.salesPriceEur ?? costSummary?.actualSalePriceOriginal ?? (costSummary?.actualSalePriceOriginal != null ? parseFloat(costSummary.actualSalePriceOriginal) : (project.status === 'SOLD' && costSummary?.salesPriceOriginal != null ? parseFloat(costSummary.salesPriceOriginal) : null)));
-          let grossProfitEurVal = costSummary?.netProfitEur != null ? parseFloat(costSummary.netProfitEur) : null;
-          if (grossProfitEurVal == null && project.status === 'SOLD' && salePriceEurVal != null && totalCostEur >= 0) {
-            grossProfitEurVal = salePriceEurVal - totalCostEur;
-          }
+          // Satış Bedeli ve kâr YALNIZCA satılmış projede gösterilir. Etiket Fiyatı (muhasebedeki
+          // tahmini satış tutarı) satış bedeli DEĞİLDİR; STOKTA projede satış/kâr boş ('-') kalır.
+          // Satış bedeli, tekliften düşük de olabilir (pazarlık) — bu yüzden gerçek Sales tutarını kullanırız.
+          const salePriceEurVal = project.status === 'SOLD'
+            ? (salePrice != null
+                ? salePrice
+                : (costSummary?.actualSalePriceOriginal != null
+                    ? parseFloat(costSummary.actualSalePriceOriginal)
+                    : (costSummary?.salesPriceOriginal != null ? parseFloat(costSummary.salesPriceOriginal) : null)))
+            : null;
+          const grossProfitEurVal = (project.status === 'SOLD' && salePriceEurVal != null && totalCostEur != null && !isNaN(totalCostEur))
+            ? (salePriceEurVal - totalCostEur)
+            : null;
 
           const formatEur = (val) => {
             if (val == null || (typeof val === 'number' && isNaN(val))) return null;
@@ -281,7 +294,6 @@ const AdminPanel = () => {
       });
 
       const data = await Promise.all(dataPromises);
-      console.log('Complete admin data:', data);
       setAdminData(data);
     } catch (err) {
       console.error('Error fetching admin data:', err);
@@ -464,7 +476,7 @@ const AdminPanel = () => {
                 <th>LOJİSTİK</th>
                 <th>SİGORTA</th>
                 <th>GÜMRÜK-ANTREPO</th>
-                <th>FİNASMAN</th>
+                <th>FİNANSMAN</th>
                 <th>Kurulum Bedeli</th>
                 <th>Gider Toplam</th>
                 <th>Makine Alış Maliyeti</th>

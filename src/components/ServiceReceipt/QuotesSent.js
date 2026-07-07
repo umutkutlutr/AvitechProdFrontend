@@ -82,6 +82,10 @@ const QuotesSent = ({ onEditService }) => {
               sentAt: offer.sentAt,
               machineName: derivedMachineTitle,
               machineTitle: derivedMachineTitle,
+              // Carry make/model so the cost modal title shows the model
+              // (consistent with the active-projects screen).
+              make: n.make,
+              model: n.model,
               operatingSystem: derivedOperatingSystem,
               year: derivedYear != null ? String(derivedYear) : '-',
               serialNumber: n.serialNumber || projectDetails.serialNumber || '-',
@@ -269,6 +273,20 @@ const QuotesSent = ({ onEditService }) => {
         </div>
       )}
 
+      {!loading && !error && services.length > 0 && (
+        <div className="quotes-sent-toolbar">
+          <SearchBar
+            onSearch={handleSearch}
+            placeholder="Proje kodu, makine, müşteri, yıl veya seri no ile ara..."
+          />
+          <ViewToggle
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            storageKey="quotesSent_viewMode"
+          />
+        </div>
+      )}
+
       {!loading && !error && services.length > 0 && filteredServices.length === 0 && (
         <div className="empty-state">
           <p>Arama kriterlerinize uygun teklif bulunamadı.</p>
@@ -277,32 +295,6 @@ const QuotesSent = ({ onEditService }) => {
 
       {!loading && !error && services.length > 0 && filteredServices.length > 0 && (
         <>
-          <div className="quotes-sent-toolbar">
-            <SearchBar
-              onSearch={handleSearch}
-              placeholder="Proje kodu, makine, müşteri, yıl veya seri no ile ara..."
-            />
-            <ViewToggle
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              storageKey="quotesSent_viewMode"
-            />
-            <Pagination
-              inline
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalItems={filteredServices.length}
-              itemsPerPage={itemsPerPage}
-              onPageChange={setCurrentPage}
-              onItemsPerPageChange={(v) => {
-                setItemsPerPage(v);
-                setCurrentPage(1);
-                try { localStorage.setItem('quotesSent_pageSize', String(v)); } catch (_) {}
-              }}
-              storageKey="quotesSent_pageSize"
-              label="teklif"
-            />
-          </div>
           {viewMode === 'table' ? (
             <div className="quotes-sent-table-wrapper">
               <table className="quotes-sent-table">
@@ -420,6 +412,20 @@ const QuotesSent = ({ onEditService }) => {
           ))}
         </div>
           )}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredServices.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={(v) => {
+              setItemsPerPage(v);
+              setCurrentPage(1);
+              try { localStorage.setItem('quotesSent_pageSize', String(v)); } catch (_) {}
+            }}
+            storageKey="quotesSent_pageSize"
+            label="teklif"
+          />
         </>
       )}
 

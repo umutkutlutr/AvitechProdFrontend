@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import bankService from '../../services/bankService';
+import { useAuth } from '../../contexts/AuthContext';
+import SearchBar from '../ServiceReceipt/SearchBar';
 import Pagination from '../shared/Pagination';
 import {
   AiOutlineReload,
@@ -14,6 +16,7 @@ import {
 import './RegisteredBanks.css';
 
 const RegisteredBanks = () => {
+  const { canSubmitOffer, isAdmin } = useAuth();
   const [banks, setBanks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -125,17 +128,16 @@ const RegisteredBanks = () => {
           <div className="header-text">
             <h1>Kayıtlı Bankalar</h1>
             <p>Proforma ve leasing işlemlerinde kullanılan banka bilgileri</p>
-            <button className="add-bank-button" onClick={handleAddBank}>
-              <AiOutlinePlus className="button-icon" />
-              Banka Ekle
-            </button>
+            {canSubmitOffer() && (
+              <button className="add-bank-button" onClick={handleAddBank}>
+                <AiOutlinePlus className="button-icon" />
+                Banka Ekle
+              </button>
+            )}
             <div className="search-row">
-              <input
-                type="text"
-                className="bank-search-input"
+              <SearchBar
+                onSearch={(q) => { setSearchTerm(q); setCurrentPage(1); }}
                 placeholder="Bankalarda ara... (ünvan, adres, vergi dairesi, vergi no)"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
           </div>
@@ -210,12 +212,16 @@ const RegisteredBanks = () => {
                   )}
                 </div>
                 <div className="bank-actions">
-                  <button className="btn-edit" onClick={() => handleEditBank(bank)}>
-                    <AiOutlineEdit /> Düzenle
-                  </button>
-                  <button className="btn-delete" onClick={() => handleDeleteBank(bank)}>
-                    Sil
-                  </button>
+                  {canSubmitOffer() && (
+                    <button className="btn-edit" onClick={() => handleEditBank(bank)}>
+                      <AiOutlineEdit /> Düzenle
+                    </button>
+                  )}
+                  {isAdmin() && (
+                    <button className="btn-delete" onClick={() => handleDeleteBank(bank)}>
+                      Sil
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

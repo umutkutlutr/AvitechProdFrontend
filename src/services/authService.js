@@ -25,11 +25,7 @@ class AuthService {
       }
 
       const data = await response.json();
-      
-      console.log('=== LOGIN RESPONSE ===');
-      console.log('Full login response data:', data);
-      console.log('User role from login response:', data.role);
-      
+
       // Store token
       this.token = data.token;
       localStorage.setItem('authToken', this.token);
@@ -44,13 +40,7 @@ class AuthService {
         role: data.role || 'VIEWER', // Use role from login response, default to VIEWER if not provided
       };
 
-      console.log('=== FINAL USER OBJECT ===');
-      console.log('User object:', this.user);
-      console.log('User role:', this.user.role);
-      console.log('Storing to localStorage...');
       localStorage.setItem('user', JSON.stringify(this.user));
-      console.log('Stored in localStorage:', localStorage.getItem('user'));
-      console.log('=== END LOGIN PROCESS ===');
 
       return this.user;
     } catch (error) {
@@ -67,7 +57,39 @@ class AuthService {
   }
 
   isAuthenticated() {
-    return !!this.token;
+    if (!this.token) {
+      return false;
+    }
+    const payload = this.decodeTokenPayload(this.token);
+    // exp yoksa (beklenmedik token biçimi) mevcut davranışı koru: token varsa geçerli say.
+    if (!payload || typeof payload.exp !== 'number') {
+      return true;
+    }
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    if (payload.exp <= nowSeconds) {
+      // Süresi dolmuş token: yerel oturumu temizle ki korumalı sayfa açılmasın.
+      this.logout();
+      return false;
+    }
+    return true;
+  }
+
+  // JWT payload'ını güvenli şekilde çözer (base64url + UTF-8). Hata olursa null döner.
+  decodeTokenPayload(token) {
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) return null;
+      const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const json = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      return JSON.parse(json);
+    } catch (e) {
+      return null;
+    }
   }
 
   getToken() {

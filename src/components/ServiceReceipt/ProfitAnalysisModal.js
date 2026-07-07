@@ -11,6 +11,7 @@ import './ProfitAnalysisModal.css';
 const ProfitAnalysisModal = ({ service, onClose, showSalesPrice = false }) => {
   const [costSummary, setCostSummary] = useState(null);
   const [offerPrice, setOfferPrice] = useState(null);
+  const [saleNote, setSaleNote] = useState(null);
   const [bidPriceFromOffer, setBidPriceFromOffer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -30,6 +31,7 @@ const ProfitAnalysisModal = ({ service, onClose, showSalesPrice = false }) => {
         setError(null);
         setCostSummary(null);
         setOfferPrice(null);
+        setSaleNote(null);
         setBidPriceFromOffer(null);
 
         // Fetch offer details from the offers endpoint to extract salePrice and price
@@ -48,6 +50,12 @@ const ProfitAnalysisModal = ({ service, onClose, showSalesPrice = false }) => {
               : null;
           if (salePriceSource != null) {
             setOfferPrice(salePriceSource);
+          }
+          const noteSource = viewingOffer?.status === 'COMPLETED'
+            ? viewingOffer.saleNote
+            : (completedOffer ? completedOffer.saleNote : null);
+          if (noteSource) {
+            setSaleNote(noteSource);
           }
 
           const firstOffer = offerData[0];
@@ -88,7 +96,6 @@ const ProfitAnalysisModal = ({ service, onClose, showSalesPrice = false }) => {
       case 'TEMPLATE': return 'Aktif';
       case 'SOLD': return 'Tamamlandı';
       case 'OFFER_SENT': return 'Teklif Gönderildi';
-      case 'BOUGHT': return 'Satın Alındı';
       case 'CANCELLED': return 'İptal Edildi';
       default: return status;
     }
@@ -288,6 +295,12 @@ const ProfitAnalysisModal = ({ service, onClose, showSalesPrice = false }) => {
                     <span>Durum:</span>
                     <span className="sales-status">{getDisplayStatus(service.status)}</span>
                   </div>
+                  {saleNote && String(saleNote).trim() !== '' && (
+                    <div className="sales-item" style={{ alignItems: 'flex-start' }}>
+                      <span>Satış Notu:</span>
+                      <span className="sales-price" style={{ textAlign: 'right', whiteSpace: 'pre-wrap' }}>{saleNote}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -310,7 +323,7 @@ const ProfitAnalysisModal = ({ service, onClose, showSalesPrice = false }) => {
                   <div className="profit-item">
                     <span>Net Kâr Marjı:</span>
                     <span className={`profit-margin ${profitMargin >= 0 ? 'positive' : 'negative'}`}>
-                      {(isNaN(Number(profitMargin)) ? 0 : Number(profitMargin)).toFixed(1)}%
+                      {(isNaN(Number(profitMargin)) ? 0 : Number(profitMargin)).toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
                     </span>
                   </div>
                 </div>

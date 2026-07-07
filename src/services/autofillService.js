@@ -115,7 +115,6 @@ const autofillService = {
             // Helper function to ensure we get an array of strings
             const ensureStringArray = (response) => {
                 const data = response.data;
-                console.log('Raw API response:', data);
                 if (!data) return [];
                 if (Array.isArray(data)) return data.filter(item => item != null).map(item => String(item));
                 return [];
@@ -161,7 +160,6 @@ const autofillService = {
                 machinePowers: ensureStringArray(machinePowers)
             };
 
-            console.log('Processed autofill data:', result);
             return result;
         } catch (error) {
             console.error('Error fetching autofill data:', error);

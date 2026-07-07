@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import projectService from '../../services/projectService';
+import { useAuth } from '../../contexts/AuthContext';
 import ServiceDetailsModal from './ServiceDetailsModal';
 import Pagination from '../shared/Pagination';
 import SearchBar from './SearchBar';
@@ -7,6 +8,7 @@ import { AiOutlineUndo, AiOutlineDelete, AiOutlineInfoCircle } from 'react-icons
 import './AllServicesTable.css';
 
 const ErrorReceipts = () => {
+  const { canDelete } = useAuth();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -164,22 +166,26 @@ const ErrorReceipts = () => {
                         >
                           <AiOutlineInfoCircle />
                         </button>
-                        <button
-                          className="operation-btn restore-btn-enhanced"
-                          onClick={() => handleUndelete(project.id)}
-                          disabled={processingIds.has(project.id)}
-                          title="Geri Yükle"
-                        >
-                          <AiOutlineUndo />
-                        </button>
-                        <button
-                          className="operation-btn delete-btn"
-                          onClick={() => handleHardDelete(project.id)}
-                          disabled={processingIds.has(project.id)}
-                          title="Kalıcı Olarak Sil"
-                        >
-                          <AiOutlineDelete />
-                        </button>
+                        {canDelete() && (
+                          <>
+                            <button
+                              className="operation-btn restore-btn-enhanced"
+                              onClick={() => handleUndelete(project.id)}
+                              disabled={processingIds.has(project.id)}
+                              title="Geri Yükle"
+                            >
+                              <AiOutlineUndo />
+                            </button>
+                            <button
+                              className="operation-btn delete-btn"
+                              onClick={() => handleHardDelete(project.id)}
+                              disabled={processingIds.has(project.id)}
+                              title="Kalıcı Olarak Sil"
+                            >
+                              <AiOutlineDelete />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

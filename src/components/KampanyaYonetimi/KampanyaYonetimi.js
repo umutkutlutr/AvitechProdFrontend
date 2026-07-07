@@ -123,7 +123,7 @@ const EmailPreview = ({ campaign, machines, customers, emailSubject, emailBody }
                   selectedMachineObjects.map(m => (
                     <tr key={m.id}>
                       <td>{m.machineName || m.name || '-'}</td>
-                      <td>{m.machineMake || m.brand || ''} {m.machineModel || m.machineType || ''}</td>
+                      <td>{m.make || m.machineMake || m.brand || ''} {m.model || m.machineModel || m.machineType || ''}</td>
                       <td style={{ fontFamily: 'monospace' }}>{m.serialNumber || m.serialNo || '-'}</td>
                       <td>{m.machineYear || m.year || '-'}</td>
                     </tr>
@@ -668,9 +668,9 @@ const KampanyaYonetimi = () => {
                                 <span className="badge-instock">Stokta</span>
                               </div>
                               <div className="machine-item-specs">
-                                <span>{project.machineMake || ''}</span>
-                                <span>{project.machineModel || ''}</span>
-                                {project.machineYear && <span>{project.machineYear}</span>}
+                                <span>{project.make || project.machineMake || ''}</span>
+                                <span>{project.model || project.machineModel || ''}</span>
+                                {(project.year || project.machineYear) && <span>{project.year || project.machineYear}</span>}
                                 {project.serialNumber && <span className="serial-text">{project.serialNumber}</span>}
                               </div>
                             </div>
@@ -730,7 +730,7 @@ const KampanyaYonetimi = () => {
                           <div className="tag-list">
                             {selectedMachineObjects.map(m => (
                               <span key={m.id} className="tag">
-                                {m.machineMake} {m.machineModel} ({m.machineYear || '-'})
+                                {m.make || m.machineMake || ''} {m.model || m.machineModel || ''} ({m.year || m.machineYear || '-'})
                               </span>
                             ))}
                           </div>

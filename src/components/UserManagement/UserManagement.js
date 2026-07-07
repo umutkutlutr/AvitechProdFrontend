@@ -364,7 +364,7 @@ const UserManagement = () => {
                 <input name="lastName" value={form.lastName} onChange={handleChange} placeholder="Soyad" />
               </div>
               <div className="form-row">
-                <label>Email *</label>
+                <label>E-posta *</label>
                 <input type="email" name="email" value={form.email} onChange={handleChange} />
               </div>
               <div className="form-row">
@@ -411,7 +411,7 @@ const UserManagement = () => {
                 <select name="role" value={form.role} onChange={handleChange}>
                   <option value="VIEWER">İzleyici</option>
                   <option value="SALES">Satış Elemanı</option>
-                  <option value="ADMIN">Admin</option>
+                  <option value="ADMIN">Yönetici</option>
                 </select>
               </div>
               <div className="modal-footer">
@@ -494,7 +494,7 @@ const UserManagement = () => {
                 <input name="lastName" value={editForm.lastName} onChange={handleEditChange} placeholder="Soyad" />
               </div>
               <div className="form-row">
-                <label>Email *</label>
+                <label>E-posta *</label>
                 <input type="email" name="email" value={editForm.email} onChange={handleEditChange} />
               </div>
               <div className="form-row">
@@ -519,7 +519,7 @@ const UserManagement = () => {
                 <select name="role" value={editForm.role} onChange={handleEditChange}>
                   <option value="VIEWER">İzleyici</option>
                   <option value="SALES">Satış Elemanı</option>
-                  <option value="ADMIN">Admin</option>
+                  <option value="ADMIN">Yönetici</option>
                 </select>
               </div>
               <div className="modal-footer">

@@ -129,7 +129,6 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
       setIsLoadingAutofill(true);
       try {
         const data = await autofillService.getAllAutofillData();
-        console.log('Edit Modal - Fetched autofill data:', data);
         setAutofillData({
           machineNames: data.machineNames || [],
           machineModels: data.machineModels || [],
@@ -166,31 +165,6 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
   // Populate form when editing a project
   useEffect(() => {
     if (project) {
-      console.log('=== PROJECT DATA FOR EDITING ===');
-      console.log('Raw project data:', project);
-      console.log('Project ID:', project.id);
-      console.log('Machine Name:', project.machineName);
-      console.log('Year:', project.year, 'Type:', typeof project.year);
-      console.log('Hours Operated:', project.hoursOperated, 'Type:', typeof project.hoursOperated);
-      console.log('RPM:', project.rpm, 'Type:', typeof project.rpm);
-      console.log('Serial Number:', project.serialNumber);
-      console.log('Team Number:', project.teamNumber, 'Type:', typeof project.teamNumber);
-      console.log('Takim Sayisi (legacy):', project.takimSayisi, 'Type:', typeof project.takimSayisi);
-      console.log('Net Weight:', project.netWeight, 'Type:', typeof project.netWeight);
-      console.log('Additional Weight:', project.additionalWeight, 'Type:', typeof project.additionalWeight);
-      console.log('Operating System:', project.operatingSystem);
-      console.log('Key Info:', project.keyInfo, 'Type:', typeof project.keyInfo);
-      console.log('Anahtar Bilgisi (legacy):', project.anahtarBilgisi, 'Type:', typeof project.anahtarBilgisi);
-      console.log('Tool Measure Probe:', project.toolMeasureProbe, 'Type:', typeof project.toolMeasureProbe);
-      console.log('Takim Olcme Probu (legacy):', project.takimOlcmeProbu, 'Type:', typeof project.takimOlcmeProbu);
-      console.log('Part Measure Probe:', project.partMeasureProbe, 'Type:', typeof project.partMeasureProbe);
-      console.log('Parca Olcme Probu (legacy):', project.parcaOlcmeProbu, 'Type:', typeof project.parcaOlcmeProbu);
-      console.log('Internal Water:', project.internalWater, 'Type:', typeof project.internalWater);
-      console.log('Icten Su Verme (legacy):', project.ictenSuVerme, 'Type:', typeof project.ictenSuVerme);
-      console.log('Conveyor:', project.conveyor, 'Type:', typeof project.conveyor);
-      console.log('Paper Filter:', project.paperFilter, 'Type:', typeof project.paperFilter);
-      console.log('Kagit Filtre (legacy):', project.kagitFiltre, 'Type:', typeof project.kagitFiltre);
-      console.log('================================');
 
       setFormData({
         machineName: project.machineName || project.title || '',
@@ -262,7 +236,6 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
       setDeletedExistingPhotos([]);
       setOriginalExistingPhotoUrls((project.photos || []).filter((photoUrl) => typeof photoUrl === 'string'));
 
-      console.log('=== FORM DATA SET ===');
       console.log('Form Data after setting:', {
         machineName: project.machineName || project.title || '',
         year: project.year ? project.year.toString() : '2024',
@@ -276,7 +249,6 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
         paperFilter: (project.kagitFiltre != null ? project.kagitFiltre : false) ? 'Var' : 'Yok',
         elCarki: (project.elCarki != null ? project.elCarki : false) ? 'Var' : 'Yok'
       });
-      console.log('=====================');
 
       // Set key information if it exists, otherwise default to 1
       const keyInfo = project.keyInfo || project.anahtarBilgisi || project.keyInformation || 1;
@@ -407,12 +379,13 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const input = e.target;
-      const value = input.value.replace(/,/g, ''); // Remove existing commas
+      // Binlik ayırıcıları (nokta ve virgül) temizle; "12.000" → 12 veri bozulması önlenir.
+      const value = input.value.replace(/[.,]/g, '');
 
       // Check if it's a valid number
       if (!isNaN(value) && value !== '') {
-        // Format with commas
-        const formattedValue = parseInt(value).toLocaleString();
+        // tr-TR biçim (1.234)
+        const formattedValue = parseInt(value, 10).toLocaleString('tr-TR');
         // Add "Max 1/min" suffix
         const finalValue = `${formattedValue} Max 1/min`;
 
@@ -439,12 +412,13 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const input = e.target;
-      const value = input.value.replace(/,/g, ''); // Remove existing commas
+      // Binlik ayırıcıları (nokta ve virgül) temizle; "12.000" → 12 veri bozulması önlenir.
+      const value = input.value.replace(/[.,]/g, '');
 
       // Check if it's a valid number
       if (!isNaN(value) && value !== '') {
-        // Format with commas
-        const formattedValue = parseInt(value).toLocaleString();
+        // tr-TR biçim (1.234)
+        const formattedValue = parseInt(value, 10).toLocaleString('tr-TR');
         // Add "saat" suffix
         const finalValue = `${formattedValue} saat`;
 
@@ -465,9 +439,7 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
 
   // Photo handling functions
   const handlePhotoUpload = (event, source) => {
-    console.log('Photo upload triggered:', source);
     const files = event.target.files;
-    console.log('Selected files:', files);
 
     if (files && files.length > 0) {
       const newPhotos = Array.from(files).map(file => ({
@@ -477,7 +449,6 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
         name: file.name
       }));
 
-      console.log('New photos to add:', newPhotos);
 
       setFormData(prev => ({
         ...prev,
@@ -769,7 +740,6 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
   }, [formData.photos.length]); // Only depend on length to avoid infinite loops
 
   const openFileUpload = () => {
-    console.log('Opening file upload...');
     if (fileInputRef.current) {
       fileInputRef.current.click();
     } else {
@@ -848,25 +818,6 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
       status: "TEMPLATE"
     };
 
-    console.log('=== VALIDATION CHECK ===');
-    console.log('id:', apiData.id, 'Type:', typeof apiData.id);
-    console.log('projectCode:', apiData.projectCode, 'Type:', typeof apiData.projectCode);
-    console.log('machineName:', apiData.machineName, 'Type:', typeof apiData.machineName);
-    console.log('model:', apiData.model, 'Type:', typeof apiData.model);
-    console.log('make:', apiData.make, 'Type:', typeof apiData.make);
-    console.log('year:', apiData.year, 'Type:', typeof apiData.year);
-    console.log('hoursOperated:', apiData.hoursOperated, 'Type:', typeof apiData.hoursOperated);
-    console.log('rpm:', apiData.rpm, 'Type:', typeof apiData.rpm);
-    console.log('teamSayisi:', apiData.teamSayisi, 'Type:', typeof apiData.teamSayisi);
-    console.log('netWeight:', apiData.netWeight, 'Type:', typeof apiData.netWeight);
-    console.log('additionalWeight:', apiData.additionalWeight, 'Type:', typeof apiData.additionalWeight);
-    console.log('keyInformation:', apiData.keyInformation, 'Type:', typeof apiData.keyInformation);
-    console.log('teamMeasurementProbe:', apiData.teamMeasurementProbe, 'Type:', typeof apiData.teamMeasurementProbe);
-    console.log('partMeasurementProbe:', apiData.partMeasurementProbe, 'Type:', typeof apiData.partMeasurementProbe);
-    console.log('internalSuverme:', apiData.internalSuverme, 'Type:', typeof apiData.internalSuverme);
-    console.log('conveyor:', apiData.conveyor, 'Type:', typeof apiData.conveyor);
-    console.log('paperFilter:', apiData.paperFilter, 'Type:', typeof apiData.paperFilter);
-    console.log('=======================');
 
     return validateAndCleanData(apiData);
   };
@@ -917,16 +868,6 @@ const EditProjectModal = ({ project, onClose, onSaveComplete }) => {
       });
 
       // Log the data being sent to API
-      console.log('=== API UPDATE REQUEST DATA ===');
-      console.log('Raw API Data:', apiData);
-      console.log('All Photos:', formData.photos);
-      console.log('Existing Photo URLs to Keep:', safeExistingPhotoUrls);
-      console.log('New Photo Files to Upload:', newPhotos);
-      console.log('Number of existing photos:', safeExistingPhotoUrls.length);
-      console.log('Number of new photos:', newPhotos.length);
-      console.log('Deleted Existing Photos:', deletedExistingPhotos);
-      console.log('Customer Photo Order:', customerPhotoOrder.slice(0, 10).map(item => item.photoId));
-      console.log('==============================');
 
       // Call API to update project with both existing photo URLs and new photo files
       const response = await projectService.updateProject(

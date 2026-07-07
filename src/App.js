@@ -63,7 +63,11 @@ function AppContent() {
                 />
                 <Route
                   path="/userManagement"
-                  element={<UserManagement />}
+                  element={
+                    <AdminRoute>
+                      <UserManagement />
+                    </AdminRoute>
+                  }
                 />
                 <Route
                   path="/registeredCompanies"
@@ -155,7 +159,8 @@ function AppContent() {
                   element={
                     <div className="placeholder-content">
                       <h1>Sayfa Bulunamadı</h1>
-                      <p>Seçilen sayfa henüz hazır değil.</p>
+                      <p>Aradığınız sayfa mevcut değil veya taşınmış olabilir.</p>
+                      <a href="/mainMenu">Ana menüye dön</a>
                     </div>
                   }
                 />

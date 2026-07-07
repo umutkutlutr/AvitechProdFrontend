@@ -6,10 +6,6 @@ const AdminRoute = ({ children }) => {
   const { isAuthenticated, isAdmin, loading, user } = useAuth();
 
   // Debug logging
-  console.log('AdminRoute - Loading:', loading);
-  console.log('AdminRoute - User:', user);
-  console.log('AdminRoute - isAuthenticated():', isAuthenticated());
-  console.log('AdminRoute - isAdmin():', isAdmin());
 
   if (loading) {
     return (

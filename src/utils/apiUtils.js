@@ -150,15 +150,6 @@ export const fetchWithAuth = async (url, options = {}) => {
 export const extractFilenameFromResponse = (response, fallbackFilename = 'download') => {
   const contentDisposition = response.headers.get('content-disposition');
 
-  // Debug logging - you can remove this after confirming it works
-  console.log('=== FILENAME EXTRACTION DEBUG ===');
-  console.log('Content-Disposition header:', contentDisposition);
-  console.log('All accessible headers:');
-  response.headers.forEach((value, key) => {
-    console.log(`  ${key}: ${value}`);
-  });
-  console.log('================================');
-
   if (contentDisposition) {
     // Try to extract filename from content-disposition header
     // Format: attachment; filename=DMG-MORI-DATASHEET.pdf or attachment; filename="DMG-MORI-DATASHEET.pdf"
@@ -169,7 +160,6 @@ export const extractFilenameFromResponse = (response, fallbackFilename = 'downlo
       let filename = filenameMatch[1].replace(/['"]/g, '').trim();
 
       if (filename) {
-        console.log('Extracted filename from header:', filename);
         return filename;
       }
     }

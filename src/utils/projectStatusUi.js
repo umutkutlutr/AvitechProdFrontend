@@ -22,16 +22,11 @@ export function getProjectStatusBadgeClass(status) {
       return 'status-approved';
     case 'TEMPLATE':
     case 'DRAFT':
-    case 'OFFER_TO_BE_SENT':
-    case 'TEKLİF_GÖNDERİLECEK':
-    case 'TEKLIF_GÖNDERILECEK':
       return 'status-draft';
     case 'OFFER_SENT':
     case 'EXCHANGE_CIHAZ_TEKLİFİ':
     case 'EXCHANGE_CIHAZ_TEKLIFI':
       return 'status-sent';
-    case 'BOUGHT':
-      return 'status-sold';
     case 'CANCELLED':
       return 'status-cancelled';
     default:

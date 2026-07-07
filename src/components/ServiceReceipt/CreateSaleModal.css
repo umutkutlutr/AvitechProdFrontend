@@ -130,13 +130,15 @@
 .offer-details {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 10px 24px;
+  align-items: center;
 }
 
 .info-item {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .info-icon {
@@ -147,12 +149,16 @@
 
 .info-label {
   font-weight: 500;
-  color: #374151;
-  min-width: 80px;
+  color: #6b7280;
+  min-width: 96px;
+  flex-shrink: 0;
 }
 
 .info-value {
   color: #1f2937;
+  font-weight: 500;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .info-value.status {

@@ -6,12 +6,14 @@ import { normalizeProjectDetail } from '../../utils/projectNormalizer';
 import offerService from '../../services/offerService';
 import projectService from '../../services/projectService';
 import proformaService from '../../services/proformaService';
+import { useAuth } from '../../contexts/AuthContext';
 import CreateProformaModal from './CreateProformaModal';
 import OfferPdfPreviewModal from '../shared/OfferPdfPreviewModal';
 import './ViewOfferModal.css';
 import './ProposalInformationModal.css';
 
 const ViewOfferModal = ({ isOpen, onClose, projectId, projectCode, onCreateSale }) => {
+  const { canSubmitOffer } = useAuth();
   const [offers, setOffers] = useState([]);
   const [projectsDetails, setProjectsDetails] = useState({}); // Store project details by offer id
   const [loading, setLoading] = useState(false);
@@ -418,22 +420,26 @@ const ViewOfferModal = ({ isOpen, onClose, projectId, projectCode, onCreateSale 
                         </button>
                       </>
                     )}
-                    <button
-                      className="create-proforma-btn"
-                      onClick={() => setShowProformaModal(offer)}
-                      title="Bu teklif için proforma gönder"
-                    >
-                      <FaFileInvoice className="btn-icon" />
-                      Proforma Gönder
-                    </button>
-                    <button
-                      className="create-sale-btn"
-                      onClick={() => onCreateSale(offer)}
-                      title="Bu teklif için satış oluştur"
-                    >
-                      <FaHandshake className="btn-icon" />
-                      Satış Oluştur
-                    </button>
+                    {canSubmitOffer() && (
+                      <>
+                        <button
+                          className="create-proforma-btn"
+                          onClick={() => setShowProformaModal(offer)}
+                          title="Bu teklif için proforma gönder"
+                        >
+                          <FaFileInvoice className="btn-icon" />
+                          Proforma Gönder
+                        </button>
+                        <button
+                          className="create-sale-btn"
+                          onClick={() => onCreateSale(offer)}
+                          title="Bu teklif için satış oluştur"
+                        >
+                          <FaHandshake className="btn-icon" />
+                          Satış Oluştur
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}

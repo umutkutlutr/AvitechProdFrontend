@@ -17,12 +17,10 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     // Check if user is already logged in
-    const token = authService.getToken();
     const userData = authService.getUser();
 
-    console.log('AuthContext - Initial load:', { token, userData });
-
-    if (token && userData) {
+    // isAuthenticated() token süresini de kontrol eder; süresi geçmişse oturumu temizler.
+    if (authService.isAuthenticated() && userData) {
       setUser(userData);
     } else {
       // If no token or user data, clear everything
@@ -35,7 +33,6 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     try {
       const response = await authService.login(username, password);
-      console.log('AuthContext - Login response:', response);
       setUser(response);
       return response;
     } catch (error) {
@@ -62,58 +59,42 @@ export const AuthProvider = ({ children }) => {
   };
 
   const isAdmin = () => {
-    const result = user && user.role === 'ADMIN';
-    console.log('AuthContext - isAdmin check:', { user, role: user?.role, isAdmin: result });
-    return result;
+    return user && user.role === 'ADMIN';
   };
 
   const canEdit = () => {
     // Users with VIEWER or SALES roles cannot edit
-    const result = user && user.role !== 'VIEWER' && user.role !== 'SALES';
-    console.log('AuthContext - canEdit check:', { user, role: user?.role, canEdit: result });
-    return result;
+    return user && user.role !== 'VIEWER' && user.role !== 'SALES';
   };
 
   const canAccessUserManagement = () => {
     // Only ADMIN users can access user management
-    const result = user && user.role === 'ADMIN';
-    console.log('AuthContext - canAccessUserManagement check:', { user, role: user?.role, canAccess: result });
-    return result;
+    return user && user.role === 'ADMIN';
   };
 
   const canDelete = () => {
     // Users with VIEWER or SALES roles cannot delete
-    const result = user && user.role !== 'VIEWER' && user.role !== 'SALES';
-    console.log('AuthContext - canDelete check:', { user, role: user?.role, canDelete: result });
-    return result;
+    return user && user.role !== 'VIEWER' && user.role !== 'SALES';
   };
 
   const canSubmitOffer = () => {
     // Only VIEWER role cannot submit offers (SALES and ADMIN can)
-    const result = user && user.role !== 'VIEWER';
-    console.log('AuthContext - canSubmitOffer check:', { user, role: user?.role, canSubmitOffer: result });
-    return result;
+    return user && user.role !== 'VIEWER';
   };
 
   const canAddCompany = () => {
     // Only VIEWER role cannot add companies (SALES and ADMIN can)
-    const result = user && user.role !== 'VIEWER';
-    console.log('AuthContext - canAddCompany check:', { user, role: user?.role, canAddCompany: result });
-    return result;
+    return user && user.role !== 'VIEWER';
   };
 
   const canCreateProject = () => {
     // VIEWER and SALES roles cannot create new projects
-    const result = user && user.role !== 'VIEWER' && user.role !== 'SALES';
-    console.log('AuthContext - canCreateProject check:', { user, role: user?.role, canCreateProject: result });
-    return result;
+    return user && user.role !== 'VIEWER' && user.role !== 'SALES';
   };
 
   const canExportData = () => {
     // VIEWER and SALES roles cannot export data to Excel
-    const result = user && user.role !== 'VIEWER' && user.role !== 'SALES';
-    console.log('AuthContext - canExportData check:', { user, role: user?.role, canExportData: result });
-    return result;
+    return user && user.role !== 'VIEWER' && user.role !== 'SALES';
   };
 
   const value = {

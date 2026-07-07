@@ -72,6 +72,7 @@ const SendOfferModal = ({ service, onClose }) => {
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
   const [loadingPdfPreview, setLoadingPdfPreview] = useState(false);
   const [previewUpdating, setPreviewUpdating] = useState(false);
+  const [vatIncluded, setVatIncluded] = useState(false);
   const [signaturePngDataUrl, setSignaturePngDataUrl] = useState(null);
   const signatureCanvasRef = useRef(null);
   const pdfPreviewContextRef = useRef(null);
@@ -191,7 +192,8 @@ const SendOfferModal = ({ service, onClose }) => {
           ctx.price,
           ctx.description,
           ctx.invalidTermKeys,
-          dataUrl
+          dataUrl,
+          ctx.vatIncluded
         );
         const url = URL.createObjectURL(blob);
         setPdfPreviewUrl((prev) => {
@@ -254,7 +256,7 @@ const SendOfferModal = ({ service, onClose }) => {
     setPreviewUpdating(true);
     setError(null);
     offerService
-      .previewOfferPdf(ctx.projectId, ctx.clientId, ctx.price, ctx.description, ctx.invalidTermKeys, null)
+      .previewOfferPdf(ctx.projectId, ctx.clientId, ctx.price, ctx.description, ctx.invalidTermKeys, null, ctx.vatIncluded)
       .then((blob) => {
         const url = URL.createObjectURL(blob);
         setPdfPreviewUrl((prev) => {
@@ -268,18 +270,24 @@ const SendOfferModal = ({ service, onClose }) => {
       .finally(() => setPreviewUpdating(false));
   };
 
-  // Update form data when service prop changes
+  // Seed the offer price from the service when it first loads.
+  // Use the functional updater to read the previous salesPrice (not a stale
+  // closure) so a value already present is preserved instead of being clobbered.
   useEffect(() => {
     if (service) {
-      const price = formData.salesPrice || service.salesPrice || service.totalCost || 0;
-      setFormData(prev => ({
-        ...prev,
-        salesPrice: price
-      }));
-      // Format the display value
-      setSalesPriceDisplay(formatInputValue(String(price)));
+      setFormData(prev => (prev.salesPrice
+        ? prev
+        : { ...prev, salesPrice: service.salesPrice || service.totalCost || 0 }));
     }
   }, [service]);
+
+  // Keep the display in sync with the resolved price (separate effect so we
+  // don't trigger a state update from inside another setState updater).
+  useEffect(() => {
+    if (formData.salesPrice && !salesPriceDisplay) {
+      setSalesPriceDisplay(formatInputValue(String(formData.salesPrice)));
+    }
+  }, [formData.salesPrice, salesPriceDisplay]);
 
   // Initialize machine fields from service (PDF layout)
   useEffect(() => {
@@ -341,7 +349,8 @@ const SendOfferModal = ({ service, onClose }) => {
     accountingService.getCostSummary(projectId)
       .then(summary => {
         if (summary && summary.totalCostTry != null) {
-          setAccountingData(prev => ({ ...prev, totalCostTry: summary.totalCostTry }));
+          // Kanonik EUR maliyeti de sakla; € gösterimini bununla yap (Maliyet modalı ile birebir aynı).
+          setAccountingData(prev => ({ ...prev, totalCostTry: summary.totalCostTry, totalCostEur: summary.totalCostEur }));
         }
       })
       .catch(() => {});
@@ -782,6 +791,8 @@ const SendOfferModal = ({ service, onClose }) => {
         const termsSection = document.querySelector('.terms-section');
         if (termsSection) termsSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 100);
+      // Ticari şartlar (Teslimat/Ödeme/Teslimat Tarihi) boşken teklif önizlemesi/gönderimi engellenir.
+      return;
     } else {
       setShowConditionsWarning(false);
     }
@@ -792,6 +803,7 @@ const SendOfferModal = ({ service, onClose }) => {
       price: priceToSend,
       description,
       invalidTermKeys,
+      vatIncluded,
     };
     setSignaturePngDataUrl(null);
     if (signaturePreviewDebounceRef.current) {
@@ -807,7 +819,8 @@ const SendOfferModal = ({ service, onClose }) => {
         priceToSend,
         description,
         invalidTermKeys,
-        null
+        null,
+        vatIncluded
       );
       const url = URL.createObjectURL(blob);
       setPdfPreviewUrl(url);
@@ -852,7 +865,8 @@ const SendOfferModal = ({ service, onClose }) => {
         ccEmails,
         priceToSend,
         description,
-        signaturePngDataUrl
+        signaturePngDataUrl,
+        vatIncluded
       );
       const firstResult = Array.isArray(results) ? results[0] : results;
 
@@ -942,11 +956,10 @@ const SendOfferModal = ({ service, onClose }) => {
               }}>
                 <div style={{ fontSize: '10px', color: '#c53030', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '3px' }}>Toplam Maliyet</div>
                 <div style={{ fontSize: '15px', fontWeight: 700, color: '#c53030' }}>
-                  {accountingData.totalCostTry != null ? (() => {
-                    const eurRate = parseFloat(rates?.EUR) || FALLBACK_RATES.EUR;
-                    const totalEur = parseFloat(accountingData.totalCostTry) / eurRate;
-                    return <>€{totalEur.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}<br /><span style={{ fontSize: '12px', opacity: 0.9 }}>₺{parseFloat(accountingData.totalCostTry).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span></>;
-                  })() : '-'}
+                  {accountingData.totalCostEur != null ? (
+                    <>€{parseFloat(accountingData.totalCostEur).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {accountingData.totalCostTry != null && (<><br /><span style={{ fontSize: '12px', opacity: 0.9 }}>₺{parseFloat(accountingData.totalCostTry).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></>)}</>
+                  ) : '-'}
                 </div>
               </div>
               <div style={{
@@ -964,14 +977,16 @@ const SendOfferModal = ({ service, onClose }) => {
               }}>
                 <div style={{ fontSize: '10px', color: '#6b46c1', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '3px' }}>Kar Analizi</div>
                 <div style={{ fontSize: '15px', fontWeight: 700, color: '#6b46c1' }}>
-                  {accountingData.totalCostTry != null && formData.salesPrice > 0 ? (() => {
+                  {accountingData.totalCostEur != null && formData.salesPrice > 0 ? (() => {
+                    // EUR bazlı kâr: satış(EUR) - kanonik EUR maliyet. Maliyet/Kâr Analizi modallarıyla tutarlı.
                     const eurRate = parseFloat(rates?.EUR) || FALLBACK_RATES.EUR;
-                    const salesTry = formData.salesPrice * eurRate;
-                    const profitTry = salesTry - parseFloat(accountingData.totalCostTry);
-                    const profitEur = profitTry / eurRate;
-                    const profitPct = salesTry > 0 ? Math.round((profitTry / salesTry) * 10000) / 100 : 0;
+                    const salesEur = parseFloat(formData.salesPrice);
+                    const totalEur = parseFloat(accountingData.totalCostEur);
+                    const profitEur = salesEur - totalEur;
+                    const profitPct = salesEur > 0 ? Math.round((profitEur / salesEur) * 10000) / 100 : 0;
+                    const profitTry = (salesEur * eurRate) - (accountingData.totalCostTry != null ? parseFloat(accountingData.totalCostTry) : totalEur * eurRate);
                     return (
-                      <span style={{ color: profitTry >= 0 ? '#6b46c1' : '#c53030' }}>
+                      <span style={{ color: profitEur >= 0 ? '#6b46c1' : '#c53030' }}>
                         €{profitEur.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} (%{profitPct.toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })})<br />
                         <span style={{ fontSize: '12px', opacity: 0.9 }}>₺{profitTry.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </span>
@@ -993,6 +1008,17 @@ const SendOfferModal = ({ service, onClose }) => {
                   onBlur={handleSalesPriceBlur}
                   placeholder="Teklif fiyatını girin"
                 />
+                <div className="offer-vat-switch-row">
+                  <label className="switch-label">
+                    <input
+                      type="checkbox"
+                      checked={vatIncluded}
+                      onChange={(e) => setVatIncluded(e.target.checked)}
+                    />
+                    <span className="switch-slider"></span>
+                    <span className="switch-text">KDV dahil (%20 satırı ve toplam)</span>
+                  </label>
+                </div>
               </div>
 
               {/* Client Selection Section */}

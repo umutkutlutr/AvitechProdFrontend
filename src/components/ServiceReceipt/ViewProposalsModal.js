@@ -10,10 +10,10 @@ const ViewProposalsModal = ({ service, onClose, onSell }) => {
   if (!service) return null;
 
   const formatCurrency = (amount, currency = 'EUR') => {
-    if (currency === 'TRY') {
-      return `₺${amount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    }
-    return `€${amount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const num = typeof amount === 'number' ? amount : parseFloat(amount);
+    if (num == null || isNaN(num)) return '-';
+    const symbol = currency === 'TRY' ? '₺' : '€';
+    return `${symbol}${num.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const handleOverlayClick = (e) => {
@@ -40,35 +40,9 @@ const ViewProposalsModal = ({ service, onClose, onSell }) => {
     onClose();
   };
 
-  // Mock proposal data - in real app this would come from API/database
-  const proposals = [
-    {
-      id: 1,
-      proposalNumber: 'TEK-2024-001',
-      sentDate: '15.01.2024',
-      clientName: 'ABC Makine Ltd. Şti.',
-      contactPerson: 'Ahmet Yılmaz',
-      email: 'ahmet@abcmakine.com',
-      phone: '+90 212 555 0123',
-      proposedPrice: 22000,
-      currency: 'EUR',
-      status: 'Beklemede',
-      notes: 'Müşteri fiyat konusunda değerlendirme yapıyor.'
-    },
-    {
-      id: 2,
-      proposalNumber: 'TEK-2024-002',
-      sentDate: '18.01.2024',
-      clientName: 'XYZ Endüstri A.Ş.',
-      contactPerson: 'Mehmet Demir',
-      email: 'mehmet@xyzendustri.com',
-      phone: '+90 216 555 0456',
-      proposedPrice: 23500,
-      currency: 'EUR',
-      status: 'Pozitif Yanıt',
-      notes: 'Müşteri teklifi beğendi, detayları görüşmek istiyor.'
-    }
-  ];
+  // Bu modal prod akışında kullanılmıyor (hiçbir yerden açılmıyor). Sahte müşteri
+  // verisi bundle'a girmesin diye boş bırakıldı; ileride tamamen kaldırılabilir.
+  const proposals = [];
 
   return (
     <div className="modal-overlay" onClick={handleOverlayClick}>

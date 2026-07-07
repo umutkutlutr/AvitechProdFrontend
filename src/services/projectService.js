@@ -64,13 +64,6 @@ class ProjectService {
       }
 
       // Log the request details
-      console.log('=== PROJECT SERVICE REQUEST (WITH FILES) ===');
-      console.log('URL:', `${API_BASE_URL}/api/projects`);
-      console.log('Method: POST');
-      console.log('Content-Type: multipart/form-data');
-      console.log('Project Data:', projectDataWithoutPhotos);
-      console.log('Number of photos:', photoFiles.length);
-      console.log('==========================================');
 
       const response = await fetch(`${API_BASE_URL}/api/projects`, {
         method: 'POST',
@@ -78,16 +71,11 @@ class ProjectService {
         body: formData,
       });
 
-      console.log('=== RESPONSE DETAILS ===');
-      console.log('Status:', response.status);
-      console.log('Status Text:', response.statusText);
-      console.log('Headers:', Object.fromEntries(response.headers.entries()));
 
       await handleProjectMultipartAuthResponse(response);
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.log('Error Response Data:', errorData);
         const error = new Error(errorData.message || 'Request failed');
         error.response = {
           status: response.status,
@@ -98,8 +86,6 @@ class ProjectService {
       }
 
       const data = await response.json();
-      console.log('Success Response:', data);
-      console.log('=======================');
       return data;
     } catch (error) {
       console.error('Create project error:', error);
@@ -136,14 +122,6 @@ class ProjectService {
       }
 
       // Log the request details
-      console.log('=== PROJECT UPDATE REQUEST (WITH FILES) ===');
-      console.log('URL:', `${API_BASE_URL}/api/projects/${id}`);
-      console.log('Method: PUT');
-      console.log('Content-Type: multipart/form-data');
-      console.log('Project Data (with existing photo URLs):', projectDataWithPhotos);
-      console.log('Existing Photo URLs in projectData.photos:', existingPhotoUrls);
-      console.log('Number of new photo files in multipart:', photoFiles.length);
-      console.log('==========================================');
 
       const response = await fetch(`${API_BASE_URL}/api/projects/${id}`, {
         method: 'PUT',
@@ -151,16 +129,11 @@ class ProjectService {
         body: formData,
       });
 
-      console.log('=== UPDATE RESPONSE DETAILS ===');
-      console.log('Status:', response.status);
-      console.log('Status Text:', response.statusText);
-      console.log('Headers:', Object.fromEntries(response.headers.entries()));
 
       await handleProjectMultipartAuthResponse(response);
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.log('Error Response Data:', errorData);
         const error = new Error(errorData.message || 'Request failed');
         error.response = {
           status: response.status,
@@ -171,8 +144,6 @@ class ProjectService {
       }
 
       const data = await response.json();
-      console.log('Success Response:', data);
-      console.log('==============================');
       return data;
     } catch (error) {
       console.error('Update project error:', error);
@@ -287,7 +258,7 @@ class ProjectService {
     }
   }
 
-  async sendOfferToClients(projectId, clientIds, ccEmails = [], price, description, senderSignature = null) {
+  async sendOfferToClients(projectId, clientIds, ccEmails = [], price, description, senderSignature = null, vatIncluded = false) {
     try {
       // Send individual requests for each client
       const promises = clientIds.map(async (clientId) => {
@@ -297,6 +268,7 @@ class ProjectService {
           ccEmails: ccEmails,
           price: price,
           description: description,
+          vatIncluded: vatIncluded,
         };
         if (senderSignature) {
           payload.senderSignature = senderSignature;
@@ -331,7 +303,7 @@ class ProjectService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          statuses: ["TEMPLATE", "SOLD", "BOUGHT", "OFFER_SENT", "CANCELLED"]
+          statuses: ["TEMPLATE", "SOLD", "OFFER_SENT", "CANCELLED"]
         }),
       });
 
@@ -399,36 +371,26 @@ class ProjectService {
   // Utility function to get the next AVEMAK project code
   getNextAvemakProjectCode(existingProjects = []) {
     try {
-      console.log('=== AVEMAK PROJECT CODE GENERATION ===');
-      console.log('Existing projects:', existingProjects);
-      console.log('Number of existing projects:', existingProjects.length);
 
       // Extract AVEMAK codes from existing projects
       const avemakCodes = existingProjects
         .map(project => {
-          console.log('Processing project:', project);
           if (project.projectCode && typeof project.projectCode === 'string' && project.projectCode.startsWith('AVEMAK-')) {
             const match = project.projectCode.match(/AVEMAK-(\d+)/);
             const code = match ? parseInt(match[1]) : 0;
-            console.log('Found AVEMAK code:', project.projectCode, '->', code);
             return code;
           }
-          console.log('No AVEMAK code found for project:', project.projectCode);
           return 0;
         })
         .filter(code => code > 0);
 
-      console.log('Extracted AVEMAK codes:', avemakCodes);
 
       // Find the highest existing code, default to 0 if none exist
       const maxCode = avemakCodes.length > 0 ? Math.max(...avemakCodes) : 0;
-      console.log('Max existing code:', maxCode);
 
       // Return the next code in AVEMAK-XXX format
       const nextCode = maxCode + 1;
       const result = `AVEMAK-${nextCode.toString().padStart(3, '0')}`;
-      console.log('Next AVEMAK code:', result);
-      console.log('=====================================');
 
       return result;
     } catch (error) {

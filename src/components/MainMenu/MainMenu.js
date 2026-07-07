@@ -31,7 +31,7 @@ import { getProjectStatusBadgeClass } from '../../utils/projectStatusUi';
 import './MainMenu.css';
 
 const MainMenu = () => {
-  const { canSubmitOffer } = useAuth();
+  const { canSubmitOffer, canDelete } = useAuth();
   const [selectedService, setSelectedService] = useState(null);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [isSendOfferModalOpen, setIsSendOfferModalOpen] = useState(false);
@@ -391,10 +391,10 @@ const MainMenu = () => {
   };
 
   const formatCurrency = (amount, currency = 'EUR') => {
-    if (currency === 'TRY') {
-      return `₺${amount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    }
-    return `€${amount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const num = typeof amount === 'number' ? amount : parseFloat(amount);
+    if (num == null || isNaN(num)) return '-';
+    const symbol = currency === 'TRY' ? '₺' : '€';
+    return `${symbol}${num.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   // Helper function to check if a service can be selected
@@ -432,22 +432,26 @@ const MainMenu = () => {
         <div className="section-header">
           <h2>Son Projeler</h2>
           <div className="section-actions">
-            {isSelectMode && (
-              <button
-                className="btn-danger"
-                onClick={handleDeleteSelected}
-                disabled={selectedIds.size === 0 || loading}
-              >
-                Seçileni Sil ({selectedIds.size})
-              </button>
+            {canDelete() && (
+              <>
+                {isSelectMode && (
+                  <button
+                    className="btn-danger"
+                    onClick={handleDeleteSelected}
+                    disabled={selectedIds.size === 0 || loading}
+                  >
+                    Seçileni Sil ({selectedIds.size})
+                  </button>
+                )}
+                <button
+                  className={`btn-select-toggle ${isSelectMode ? 'active' : ''}`}
+                  onClick={toggleSelectMode}
+                  disabled={loading || isSearching || isFiltering}
+                >
+                  {isSelectMode ? 'İptal' : 'Seç'}
+                </button>
+              </>
             )}
-            <button
-              className={`btn-select-toggle ${isSelectMode ? 'active' : ''}`}
-              onClick={toggleSelectMode}
-              disabled={loading || isSearching || isFiltering}
-            >
-              {isSelectMode ? 'İptal' : 'Seç'}
-            </button>
           </div>
         </div>
 

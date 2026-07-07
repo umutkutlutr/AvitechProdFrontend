@@ -5,15 +5,28 @@ import { normalizeProjectCard } from '../../utils/projectNormalizer';
 import offerService from '../../services/offerService';
 import accountingService from '../../services/accountingService';
 import projectService from '../../services/projectService';
+import { FALLBACK_RATES } from '../../services/currencyService';
 import './ProposalInformationModal.css';
 
 const CostInformationModal = ({ service, onClose }) => {
     const [costSummary, setCostSummary] = useState(null);
     const [offers, setOffers] = useState([]);
     const [offerPrice, setOfferPrice] = useState(null);
+    const [saleNote, setSaleNote] = useState(null);
     const [bidPrice, setBidPrice] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    // Kardeş modal (ProfitAnalysisModal) ile aynı Türkçe durum etiketleri.
+    const getDisplayStatus = (status) => {
+        switch (status) {
+            case 'TEMPLATE': return 'Aktif';
+            case 'SOLD': return 'Tamamlandı';
+            case 'OFFER_SENT': return 'Teklif Gönderildi';
+            case 'CANCELLED': return 'İptal Edildi';
+            default: return status;
+        }
+    };
 
     useEffect(() => {
         const fetchCostData = async () => {
@@ -36,6 +49,7 @@ const CostInformationModal = ({ service, onClose }) => {
                     const completedOffer = offerData.find(o => o.status === 'COMPLETED');
                     if (completedOffer) {
                         setOfferPrice(completedOffer.salePrice ?? completedOffer.price);
+                        setSaleNote(completedOffer.saleNote ?? null);
                     }
                 }
 
@@ -158,9 +172,17 @@ const CostInformationModal = ({ service, onClose }) => {
                                                         {section.sectionName}
                                                     </div>
                                                     {section.items.map((item, idx) => {
+                                                        // Same EUR derivation as ProfitAnalysisModal so both
+                                                        // screens report identical line amounts, incl. legacy
+                                                        // records that only carry a TRY amount + rate.
+                                                        const parsedItemRate = parseFloat(item.exchangeRate);
+                                                        const parsedSalesRate = parseFloat(costSummary?.salesExchangeRate);
+                                                        const itemRate = (!isNaN(parsedItemRate) && parsedItemRate > 0)
+                                                            ? parsedItemRate
+                                                            : (!isNaN(parsedSalesRate) && parsedSalesRate > 0) ? parsedSalesRate : FALLBACK_RATES.EUR;
                                                         const eurAmount = (item.amountEur != null && !isNaN(item.amountEur))
                                                             ? parseFloat(item.amountEur)
-                                                            : 0;
+                                                            : (itemRate > 0 ? Math.round(((parseFloat(item.amountTry) || 0) / itemRate) * 100) / 100 : 0);
                                                         return (
                                                         <div key={`${section.sectionKey}-${idx}`} className="cost-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                             <span className="cost-description">{item.label}</span>
@@ -228,8 +250,14 @@ const CostInformationModal = ({ service, onClose }) => {
                                         </div>
                                         <div className="sales-item">
                                             <span>Durum:</span>
-                                            <span className="sales-status">{service.status}</span>
+                                            <span className="sales-status">{getDisplayStatus(service.status)}</span>
                                         </div>
+                                        {saleNote && String(saleNote).trim() !== '' && (
+                                            <div className="sales-item" style={{ alignItems: 'flex-start' }}>
+                                                <span>Satış Notu:</span>
+                                                <span className="sales-price" style={{ textAlign: 'right', whiteSpace: 'pre-wrap' }}>{saleNote}</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -252,7 +280,7 @@ const CostInformationModal = ({ service, onClose }) => {
                                         <div className="profit-item">
                                             <span>Net Kâr Marjı:</span>
                                             <span className={`profit-margin ${profitMargin >= 0 ? 'positive' : 'negative'}`}>
-                                                {(isNaN(Number(profitMargin)) ? 0 : Number(profitMargin)).toFixed(1)}%
+                                                {(isNaN(Number(profitMargin)) ? 0 : Number(profitMargin)).toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
                                             </span>
                                         </div>
                                     </div>

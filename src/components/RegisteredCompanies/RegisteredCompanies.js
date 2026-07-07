@@ -19,6 +19,7 @@ import ViewOfferModal from './ViewOfferModal';
 import EditCompanyModal from './EditCompanyModal';
 import AddCompanyModal from './AddCompanyModal';
 import Pagination from '../shared/Pagination';
+import SearchBar from '../ServiceReceipt/SearchBar';
 import './RegisteredCompanies.css';
 
 const RegisteredCompanies = () => {
@@ -183,12 +184,9 @@ const RegisteredCompanies = () => {
             )}
             <div className="search-export-row">
               <div className="company-search">
-                <input
-                  type="text"
-                  className="company-search-input"
+                <SearchBar
+                  onSearch={(q) => { setSearchTerm(q); setCurrentPage(1); }}
                   placeholder="Firmalarda ara... (firma, iletişim kişisi, e-posta, telefon)"
-                  value={searchTerm}
-                  onChange={handleSearchChange}
                 />
               </div>
               {canExportData() && (
@@ -220,23 +218,6 @@ const RegisteredCompanies = () => {
           </div>
         ) : (
           <>
-          <div className="companies-toolbar">
-            <Pagination
-              inline
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalItems={filteredClients.length}
-              itemsPerPage={itemsPerPage}
-              onPageChange={setCurrentPage}
-              onItemsPerPageChange={(v) => {
-                setItemsPerPage(v);
-                setCurrentPage(1);
-                try { localStorage.setItem('registeredCompanies_pageSize', String(v)); } catch (_) {}
-              }}
-              storageKey="registeredCompanies_pageSize"
-              label="firma"
-            />
-          </div>
           <div className="companies-grid">
             {paginatedClients.map((client) => (
               <div key={client.id} className="company-card">
@@ -319,6 +300,23 @@ const RegisteredCompanies = () => {
                 </div>
               </div>
             ))}
+          </div>
+          <div className="companies-toolbar">
+            <Pagination
+              inline
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredClients.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={(v) => {
+                setItemsPerPage(v);
+                setCurrentPage(1);
+                try { localStorage.setItem('registeredCompanies_pageSize', String(v)); } catch (_) {}
+              }}
+              storageKey="registeredCompanies_pageSize"
+              label="firma"
+            />
           </div>
           </>
         )}

@@ -129,6 +129,49 @@ const SECTION_LABELS = {
   costSummary: '6. Maliyet Özeti',
 };
 
+// Fatura / belge alanları — muhasebe kapalı projelerde salt-okunur görüntüleme için.
+// Her form bölümündeki *InvoiceKey / *DocumentKey alanları (S3 public URL tutar).
+const INVOICE_FIELDS = {
+  machinePurchase: [
+    { key: 'purchaseInvoiceKey', label: 'Alım Faturası' },
+    { key: 'externalCommissionInvoiceKey', label: 'Dış Komisyon Faturası' },
+  ],
+  machineVisit: [
+    { key: 'flightInvoiceKey', label: 'Uçuş Faturası' },
+    { key: 'hotelInvoiceKey', label: 'Otel Faturası' },
+    { key: 'carRentalInvoiceKey', label: 'Araç Kiralama Faturası' },
+    { key: 'additionalExpenseInvoiceKey', label: 'Ek Masraf Faturası' },
+  ],
+  logistics: [
+    { key: 'freightInvoiceKey', label: 'Navlun Faturası' },
+    { key: 'additionalLogisticsInvoiceKey', label: 'Ek Lojistik Faturası' },
+    { key: 'brandingInvoiceKey', label: 'Markalama Faturası' },
+    { key: 'insuranceDocumentKey', label: 'Sigorta Belgesi' },
+    { key: 'ex1DocumentKey', label: 'EX1 Belgesi' },
+    { key: 't1t2DocumentKey', label: 'T1/T2 Belgesi' },
+    { key: 'smrDocumentKey', label: 'SMR Belgesi' },
+    { key: 'atrDocumentKey', label: 'ATR Belgesi' },
+    { key: 'packingListDocumentKey', label: 'Çeki Listesi' },
+  ],
+  customs: [
+    { key: 'entryCustomsInvoiceKey', label: 'Gümrük Giriş Faturası' },
+    { key: 'warehouseUnloadingInvoiceKey', label: 'Depo Boşaltma Faturası' },
+    { key: 'storageInvoiceKey', label: 'Depolama Faturası' },
+    { key: 'declarationDocumentKey', label: 'Beyanname' },
+    { key: 'countReportDocumentKey', label: 'Sayım Tutanağı' },
+  ],
+  transfer: [
+    { key: 'transferInvoiceKey', label: 'Devir Faturası' },
+    { key: 'transferDeclarationKey', label: 'Devir Beyannamesi' },
+    { key: 'transferCountReportKey', label: 'Devir Sayım Tutanağı' },
+  ],
+  generalCosts: [
+    { key: 'installationInvoiceKey', label: 'Kurulum Faturası' },
+    { key: 'salesInvoiceKey', label: 'Satış Faturası' },
+    { key: 'contractKey', label: 'Sözleşme' },
+  ],
+};
+
 const SALES_ONLY_ITEMS = ['Satış Faturası', 'Sözleşme'];
 const getMissingItems = (n) => {
   if (n.missingItems && Array.isArray(n.missingItems)) return n.missingItems;
@@ -888,6 +931,7 @@ const ProjeMuhasebesi = () => {
 
   // Completed drafts can be edited in explicit edit mode
   const [completedEditMode, setCompletedEditMode] = useState(false);
+  const [showInvoicesModal, setShowInvoicesModal] = useState(false);
 
   // Section active/inactive toggles (loaded from draft)
   const [sectionActive, setSectionActive] = useState({
@@ -1092,10 +1136,12 @@ const ProjeMuhasebesi = () => {
           const cur = normalizeCurrency(sectionForm[currField]);
           const er = rates.EUR;
           if (!er || er <= 1) continue;
-          if (cur === 'EUR') {
+          if (cur === 'EUR' && !sectionForm[rateField]) {
+            // Only fill when empty — never overwrite a rate/TRY value the user
+            // already entered (matches the TRY branch and the "auto-fill empty" intent).
             sectionForm[rateField] = parseFloat(er).toFixed(4);
             const numAmount = parseFormMoney(sectionForm[amountField]);
-            if (numAmount != null && tryField) {
+            if (numAmount != null && tryField && !sectionForm[tryField]) {
               sectionForm[tryField] = (numAmount * er).toFixed(2);
             }
           } else if (cur === 'TRY' && !sectionForm[rateField]) {
@@ -2811,6 +2857,14 @@ const ProjeMuhasebesi = () => {
           {(draft && draft.draftStatus === 'COMPLETED') || isProjectClosed ? (
             <>
               <span className="completed-badge"><AiOutlineCheckCircle /> {isProjectClosed ? 'Satıldı — Salt Okunur' : 'Tamamlandı'}</span>
+              <button
+                className="btn-secondary"
+                onClick={() => setShowInvoicesModal(true)}
+                style={{ marginLeft: '8px' }}
+                title="Bu projenin tüm faturalarını salt okunur görüntüle"
+              >
+                Faturaları Görüntüle
+              </button>
               {/* Edit button: closed projects → admin only; completed drafts → canEdit */}
               {(isProjectClosed ? isAdmin() : canEdit()) && !completedEditMode && (
                 <button
@@ -2978,6 +3032,61 @@ const ProjeMuhasebesi = () => {
                 ) : renderSection()}
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {showInvoicesModal && (
+        <div
+          className="proposal-modal-overlay"
+          onClick={() => setShowInvoicesModal(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: '#fff', borderRadius: '10px', width: 'min(720px, 92vw)', maxHeight: '85vh', overflowY: 'auto', padding: '20px', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <h2 style={{ margin: 0, fontSize: '18px' }}>Faturalar ve Belgeler</h2>
+              <button className="btn-secondary" onClick={() => setShowInvoicesModal(false)}>Kapat</button>
+            </div>
+            {(() => {
+              const sectionOrder = ['machinePurchase', 'machineVisit', 'logistics', 'customs', 'transfer', 'generalCosts'];
+              const rows = [];
+              sectionOrder.forEach((sec) => {
+                const secForm = form[sec] || {};
+                const items = [];
+                (INVOICE_FIELDS[sec] || []).forEach((f) => {
+                  const url = secForm[f.key];
+                  if (url && String(url).trim() !== '') items.push({ label: f.label, url });
+                });
+                // Ek maliyet kalemlerinin faturaları
+                (secForm.additionalCosts || []).forEach((ac) => {
+                  if (ac.invoiceKey && String(ac.invoiceKey).trim() !== '') {
+                    items.push({ label: `Ek Maliyet${ac.itemName ? ` — ${ac.itemName}` : ''} Faturası`, url: ac.invoiceKey });
+                  }
+                });
+                if (items.length > 0) rows.push({ section: sec, items });
+              });
+              if (rows.length === 0) {
+                return <div style={{ color: '#718096', fontSize: '14px' }}>Bu proje için yüklenmiş fatura/belge bulunamadı.</div>;
+              }
+              return rows.map(({ section, items }) => (
+                <div key={section} style={{ marginBottom: '16px' }}>
+                  <div style={{ fontWeight: 600, color: '#2d3748', fontSize: '13px', marginBottom: '6px', borderBottom: '1px solid #edf2f7', paddingBottom: '4px' }}>
+                    {SECTION_LABELS[section]}
+                  </div>
+                  {items.map((it, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', fontSize: '13px' }}>
+                      <span style={{ color: '#4a5568' }}>{it.label}</span>
+                      <a href={it.url} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', fontWeight: 600, textDecoration: 'none' }}>
+                        Görüntüle
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              ));
+            })()}
           </div>
         </div>
       )}

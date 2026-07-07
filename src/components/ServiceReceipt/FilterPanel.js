@@ -102,8 +102,7 @@ const FilterPanel = ({ onFilter, onClear }) => {
     { key: 'model', label: 'Makine Modeli', type: 'select-or-text', placeholder: 'Model seçin veya girin', options: () => getUniqueValues('model'), group: 'temel' },
     { key: 'machineType', label: 'Ticari Tanımı', type: 'select-or-text', placeholder: 'Ticari tanım seçin veya girin', options: () => getUniqueValues('machineType'), group: 'temel' },
     { key: 'condition', label: 'Kullanım Durumu', type: 'select', placeholder: 'Seçin', options: () => ['Sıfır', '2. El'], group: 'temel' },
-    { key: 'yearMin', label: 'Yıl (En Düşük)', type: 'number', placeholder: 'Örn: 2018', min: '1900', max: '2030', group: 'temel' },
-    { key: 'yearMax', label: 'Yıl (En Yüksek)', type: 'number', placeholder: 'Örn: 2024', min: '1900', max: '2030', group: 'temel' },
+    { key: 'year', label: 'Yıl', type: 'range', minKey: 'yearMin', maxKey: 'yearMax', min: '1900', max: '2100', unit: '', group: 'temel' },
     { key: 'machineOrigin', label: 'Makine Menşei', type: 'select-or-text', placeholder: 'Örn: Almanya', options: () => getUniqueValues('machineOrigin'), group: 'temel' },
     { key: 'conveyor', label: 'Konveyör', type: 'select', placeholder: 'Var / Yok', options: () => ['Var', 'Yok'], group: 'ozellik' },
     { key: 'operatingSystem', label: 'İşletim Sistemi', type: 'select-or-text', placeholder: 'Seçin veya girin', options: () => ['Heidenhain', 'Siemens', 'Fanuc', ...getUniqueValues('operatingSystem').filter(v => v && !['Heidenhain', 'Siemens', 'Fanuc'].includes(v))], group: 'ozellik' },
@@ -120,12 +119,12 @@ const FilterPanel = ({ onFilter, onClear }) => {
     { key: 'aMovement', label: 'A Hareketi', type: 'select-or-text', placeholder: 'Örn: 360°', options: () => getUniqueValues('aMovement'), group: 'hareket' },
     { key: 'bMovement', label: 'B Hareketi', type: 'select-or-text', placeholder: 'Örn: 360°', options: () => getUniqueValues('bMovement'), group: 'hareket' },
     { key: 'cMovement', label: 'C Hareketi', type: 'select-or-text', placeholder: 'Örn: 360°', options: () => getUniqueValues('cMovement'), group: 'hareket' },
-    { key: 'netWeightMin', label: 'Makine Net Kilo (min)', type: 'number', placeholder: 'Minimum kg', group: 'boyut' },
-    { key: 'additionalWeightMin', label: 'Ek Kilo (min)', type: 'number', placeholder: 'Minimum kg', group: 'boyut' },
-    { key: 'machineWidthMin', label: 'Makine Genişliği (min)', type: 'number', placeholder: 'Minimum cm', group: 'boyut' },
-    { key: 'machineLengthMin', label: 'Makine Uzunluğu (min)', type: 'number', placeholder: 'Minimum cm', group: 'boyut' },
-    { key: 'machineHeightMin', label: 'Makine Yüksekliği (min)', type: 'number', placeholder: 'Minimum cm', group: 'boyut' },
-    { key: 'maxMaterialWeightMin', label: 'Maks. Malzeme Ağırlığı (min)', type: 'number', placeholder: 'Minimum kg', group: 'boyut' },
+    { key: 'netWeight', label: 'Makine Net Kilo', type: 'range', minKey: 'netWeightMin', maxKey: 'netWeightMax', unit: 'kg', group: 'boyut' },
+    { key: 'additionalWeight', label: 'Ek Kilo', type: 'range', minKey: 'additionalWeightMin', maxKey: 'additionalWeightMax', unit: 'kg', group: 'boyut' },
+    { key: 'machineWidth', label: 'Makine Genişliği', type: 'range', minKey: 'machineWidthMin', maxKey: 'machineWidthMax', unit: 'cm', group: 'boyut' },
+    { key: 'machineLength', label: 'Makine Uzunluğu', type: 'range', minKey: 'machineLengthMin', maxKey: 'machineLengthMax', unit: 'cm', group: 'boyut' },
+    { key: 'machineHeight', label: 'Makine Yüksekliği', type: 'range', minKey: 'machineHeightMin', maxKey: 'machineHeightMax', unit: 'cm', group: 'boyut' },
+    { key: 'maxMaterialWeight', label: 'Maks. Malzeme Ağırlığı', type: 'range', minKey: 'maxMaterialWeightMin', maxKey: 'maxMaterialWeightMax', unit: 'kg', group: 'boyut' },
     { key: 'accessoryData', label: 'Ek Aksesuar', type: 'text', placeholder: 'Aksesuar ara', group: 'diger' },
   ];
 
@@ -148,14 +147,19 @@ const FilterPanel = ({ onFilter, onClear }) => {
   const handleAddFilter = (fieldKey) => {
     const option = availableFilterOptions.find(opt => opt.key === fieldKey);
     if (option) {
-      setActiveFilters(prev => [...prev, { 
-        field: fieldKey, 
+      setActiveFilters(prev => [...prev, {
+        field: fieldKey,
         value: '',
+        minValue: '',
+        maxValue: '',
         label: option.label,
         type: option.type,
         placeholder: option.placeholder,
         min: option.min,
         max: option.max,
+        minKey: option.minKey,
+        maxKey: option.maxKey,
+        unit: option.unit,
         options: option.options ? option.options() : []
       }]);
     }
@@ -215,7 +219,10 @@ const FilterPanel = ({ onFilter, onClear }) => {
     try {
       const filters = {};
       updatedFilters.forEach(filter => {
-        if (filter.value !== '') {
+        if (filter.type === 'range') {
+          if (filter.minValue !== '' && filter.minValue != null) filters[filter.minKey] = filter.minValue;
+          if (filter.maxValue !== '' && filter.maxValue != null) filters[filter.maxKey] = filter.maxValue;
+        } else if (filter.value !== '') {
           filters[filter.field] = filter.value;
         }
       });
@@ -234,8 +241,15 @@ const FilterPanel = ({ onFilter, onClear }) => {
 
   // Handle input value change
   const handleInputChange = (index, value) => {
-    setActiveFilters(prev => prev.map((filter, i) => 
+    setActiveFilters(prev => prev.map((filter, i) =>
       i === index ? { ...filter, value } : filter
+    ));
+  };
+
+  // Aralık (range) filtreleri: min/max ayrı güncellenir
+  const handleRangeChange = (index, which, value) => {
+    setActiveFilters(prev => prev.map((filter, i) =>
+      i === index ? { ...filter, [which === 'min' ? 'minValue' : 'maxValue']: value } : filter
     ));
   };
 
@@ -243,7 +257,10 @@ const FilterPanel = ({ onFilter, onClear }) => {
   const getFiltersObject = () => {
     const filters = {};
     activeFilters.forEach(filter => {
-      if (filter.value !== '') {
+      if (filter.type === 'range') {
+        if (filter.minValue !== '' && filter.minValue != null) filters[filter.minKey] = filter.minValue;
+        if (filter.maxValue !== '' && filter.maxValue != null) filters[filter.maxKey] = filter.maxValue;
+      } else if (filter.value !== '') {
         filters[filter.field] = filter.value;
       }
     });
@@ -282,7 +299,7 @@ const FilterPanel = ({ onFilter, onClear }) => {
     onClear();
   };
 
-  const hasActiveFilters = activeFilters.some(f => f.value !== '');
+  const hasActiveFilters = activeFilters.some(f => f.type === 'range' ? (f.minValue !== '' || f.maxValue !== '') : f.value !== '');
   const availableOptions = getAvailableOptions();
 
   // Close dropdown when clicking outside
@@ -392,6 +409,30 @@ const FilterPanel = ({ onFilter, onClear }) => {
                       min={filter.min}
                       max={filter.max}
                     />
+                  )}
+
+                  {/* Aralık (min–max) girişi */}
+                  {filter.type === 'range' && (
+                    <div className="filter-range-inputs">
+                      <input
+                        type="number"
+                        placeholder="En az"
+                        value={filter.minValue}
+                        onChange={(e) => handleRangeChange(index, 'min', e.target.value)}
+                        min={filter.min}
+                        max={filter.max}
+                      />
+                      <span className="range-sep">–</span>
+                      <input
+                        type="number"
+                        placeholder="En çok"
+                        value={filter.maxValue}
+                        onChange={(e) => handleRangeChange(index, 'max', e.target.value)}
+                        min={filter.min}
+                        max={filter.max}
+                      />
+                      {filter.unit ? <span className="range-unit">{filter.unit}</span> : null}
+                    </div>
                   )}
                 </div>
                 <button

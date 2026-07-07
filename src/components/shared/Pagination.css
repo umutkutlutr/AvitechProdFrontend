@@ -109,6 +109,13 @@
   color: #374151;
   cursor: pointer;
   transition: all 0.2s;
+  line-height: 1;
+}
+
+/* Render the arrow SVG as a block so the inline baseline gap doesn't push it
+   a few pixels down, which made the arrows look misaligned vs. the page text. */
+.pagination-btn svg {
+  display: block;
 }
 
 .pagination-btn:hover:not(:disabled) {

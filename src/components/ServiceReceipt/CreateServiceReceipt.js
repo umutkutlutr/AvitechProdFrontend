@@ -171,7 +171,6 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
       setIsLoadingOperatingSystems(true);
       try {
         const systems = await projectService.getOperatingSystems();
-        console.log('Fetched operating systems:', systems);
         setOperatingSystems(systems);
       } catch (error) {
         console.error('Error fetching operating systems:', error);
@@ -190,7 +189,6 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
       setIsLoadingAutofill(true);
       try {
         const data = await autofillService.getAllAutofillData();
-        console.log('Fetched autofill data:', data);
         setAutofillData({
           machineNames: data.machineNames || [],
           machineModels: data.machineModels || [],
@@ -660,9 +658,7 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
 
   // Photo handling functions
   const handlePhotoUpload = (event, source) => {
-    console.log('Photo upload triggered:', source);
     const files = event.target.files;
-    console.log('Selected files:', files);
 
     if (files && files.length > 0) {
       const newPhotos = Array.from(files).map(file => ({
@@ -672,7 +668,6 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
         name: file.name
       }));
 
-      console.log('New photos to add:', newPhotos);
 
       setFormData(prev => ({
         ...prev,
@@ -797,11 +792,6 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
       targetIndex = dropIndex + 1;
     }
 
-    console.log('=== PHOTO DROP DEBUG ===');
-    console.log('Dragged photo index:', draggedPhotoIndex);
-    console.log('Drop photo index:', dropIndex);
-    console.log('Insert before?', insertBefore);
-    console.log('Target index:', targetIndex);
 
     // Calculate what the position will be after removal
     const finalPosition = draggedPhotoIndex < targetIndex ? targetIndex - 1 : targetIndex;
@@ -809,8 +799,6 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
     // Only skip if we're dropping at the exact same position
     // (where the photo is currently located)
     if (finalPosition === draggedPhotoIndex) {
-      console.log('Same position, skipping');
-      console.log('=======================');
       setDragOverIndex(null);
       setDragOverSide(null);
       return;
@@ -818,22 +806,17 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
 
     setFormData(prev => {
       const newPhotos = [...prev.photos];
-      console.log('Before:', newPhotos.map((p, i) => `${i}: ${p.name || p.id}`));
 
       const draggedPhoto = newPhotos[draggedPhotoIndex];
 
       // Remove the dragged photo from its original position
       newPhotos.splice(draggedPhotoIndex, 1);
-      console.log('After remove:', newPhotos.map((p, i) => `${i}: ${p.name || p.id}`));
 
       // Adjust target index if necessary
       const adjustedIndex = draggedPhotoIndex < targetIndex ? targetIndex - 1 : targetIndex;
-      console.log('Adjusted index:', adjustedIndex);
 
       // Insert it at the target position
       newPhotos.splice(adjustedIndex, 0, draggedPhoto);
-      console.log('After insert:', newPhotos.map((p, i) => `${i}: ${p.name || p.id}`));
-      console.log('=======================');
 
       return {
         ...prev,
@@ -865,7 +848,6 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
   };
 
   const openFileUpload = () => {
-    console.log('Opening file upload...');
     if (fileInputRef.current) {
       fileInputRef.current.click();
     } else {
@@ -890,15 +872,12 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
         );
 
         if (!exists) {
-          console.log('Creating new operating system:', customOSName);
           await projectService.createOperatingSystem({ name: customOSName });
-          console.log('New operating system created successfully');
 
           // Refresh the operating systems list
           const systems = await projectService.getOperatingSystems();
           setOperatingSystems(systems);
         } else {
-          console.log('Operating system already exists, skipping creation:', customOSName);
         }
       }
     } catch (error) {
@@ -1043,11 +1022,6 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
       const apiData = mapFormDataToAPI();
 
       // Log the data being sent to API
-      console.log('=== API REQUEST DATA ===');
-      console.log('Raw API Data:', apiData);
-      console.log('Photo Files to Upload:', formData.photos);
-      console.log('Number of photos:', formData.photos.length);
-      console.log('========================');
 
       // Call API to create project with photo files
       const response = await projectService.createProject(apiData, formData.photos);
@@ -1114,15 +1088,12 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
       alert(editingService ? 'Proje güncellendi!' : 'Proje başarıyla oluşturuldu!');
     } catch (error) {
       console.error('Proje kaydetme hatası:', error);
-      console.log('Error response:', error.response);
-      console.log('Error response data:', error.response?.data);
 
       // Check if the error response contains validationErrors
       const errorData = error.response?.data;
 
       if (errorData && errorData.validationErrors && Array.isArray(errorData.validationErrors) && errorData.validationErrors.length > 0) {
         const validationErrors = errorData.validationErrors;
-        console.log('Validation errors found:', validationErrors);
 
         // Parse validation errors to extract field names and messages
         const errors = {};

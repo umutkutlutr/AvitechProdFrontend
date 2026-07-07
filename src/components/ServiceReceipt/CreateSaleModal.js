@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { AiOutlineClose, AiOutlineDollar, AiOutlineFileText, AiOutlineCalendar, AiOutlineUser, AiOutlineFilePdf } from 'react-icons/ai';
+import { AiOutlineClose, AiOutlineEuro, AiOutlineFileText, AiOutlineCalendar, AiOutlineUser, AiOutlineFilePdf } from 'react-icons/ai';
 import { FaHandshake } from 'react-icons/fa';
 import saleService from '../../services/saleService';
 import projectService from '../../services/projectService';
 import OfferPdfPreviewModal from '../shared/OfferPdfPreviewModal';
 import { parseFormattedNumber, formatNumberForInput } from '../../utils/numberFormat';
+import { getStatusLabel } from '../../utils/statusDateDictionary';
 import './CreateSaleModal.css';
 import './ProposalInformationModal.css';
 
@@ -220,7 +221,7 @@ const CreateSaleModal = ({ offer, onClose, onSaleComplete }) => {
                 </div>
                 <div className="info-item">
                   <span className="info-label">Durum:</span>
-                  <span className="info-value status">{offer.status}</span>
+                  <span className="info-value status">{getStatusLabel(offer.status)}</span>
                 </div>
                 <div className="info-item">
                   <span className="info-label">Marka:</span>
@@ -244,7 +245,7 @@ const CreateSaleModal = ({ offer, onClose, onSaleComplete }) => {
             <form onSubmit={handleSubmit} className="sale-form">
               <div className="form-group">
                 <label htmlFor="salePrice">
-                  <AiOutlineDollar className="label-icon" />
+                  <AiOutlineEuro className="label-icon" />
                   Satış Fiyatı {offer?.price != null && offer.price !== '' && `(${formatNumberForInput(offer.price)} EUR)`} *
                 </label>
                 <div className="price-input-wrapper">
