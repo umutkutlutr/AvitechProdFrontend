@@ -19,6 +19,7 @@ import {
   AiOutlineLoading3Quarters,
   AiOutlineBell,
   AiOutlineDownload,
+  AiOutlineFileText,
 } from 'react-icons/ai';
 import { parseFormattedNumber, formatNumberForInput } from '../../utils/numberFormat';
 import { normalizeProjectCard, getProjectSearchText } from '../../utils/projectNormalizer';
@@ -977,6 +978,69 @@ const ProjeMuhasebesi = () => {
   // Accounting summaries for project cards
   const [accountingSummaries, setAccountingSummaries] = useState({});
   const [summariesLoading, setSummariesLoading] = useState(true);
+
+  // ── Kart notları (ortak defter: ADMIN + SALES) ──
+  const [notesModalProject, setNotesModalProject] = useState(null);
+  const [noteItems, setNoteItems] = useState([]);
+  const [noteInput, setNoteInput] = useState('');
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [notesSaving, setNotesSaving] = useState(false);
+  const [notesError, setNotesError] = useState('');
+
+  const openNotesModal = useCallback(async (project) => {
+    setNotesModalProject(project);
+    setNoteItems([]);
+    setNoteInput('');
+    setNotesError('');
+    setNotesLoading(true);
+    try {
+      const raw = await accountingService.getNotes(project.id);
+      let items = [];
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) items = parsed.filter(x => typeof x === 'string');
+        } catch (_) {
+          items = [String(raw)];
+        }
+      }
+      setNoteItems(items);
+    } catch (err) {
+      setNotesError(err.message || 'Notlar yüklenemedi');
+    } finally {
+      setNotesLoading(false);
+    }
+  }, []);
+
+  const closeNotesModal = useCallback(async () => {
+    const project = notesModalProject;
+    if (!project || notesSaving) return;
+    // Yazılmış ama henüz eklenmemiş madde varsa onu da dahil et
+    const pending = noteInput.trim();
+    const items = pending ? [...noteItems, pending] : noteItems;
+    setNotesSaving(true);
+    setNotesError('');
+    try {
+      await accountingService.saveNotes(project.id, JSON.stringify(items));
+      setAccountingSummaries(prev => ({
+        ...prev,
+        [project.id]: { ...(prev[project.id] || { projectId: project.id }), hasNotes: items.length > 0 },
+      }));
+      setNotesModalProject(null);
+      setNoteInput('');
+    } catch (err) {
+      setNotesError(err.message || 'Notlar kaydedilemedi. Tekrar deneyin.');
+    } finally {
+      setNotesSaving(false);
+    }
+  }, [notesModalProject, notesSaving, noteItems, noteInput]);
+
+  const addNoteItem = useCallback(() => {
+    const t = noteInput.trim();
+    if (!t) return;
+    setNoteItems(prev => [...prev, t]);
+    setNoteInput('');
+  }, [noteInput]);
 
   // Load notifications and accounting summaries on mount
   useEffect(() => {
@@ -2793,23 +2857,115 @@ const ProjeMuhasebesi = () => {
                   <span style={{ fontSize: '11px', color: '#9ca3af' }}>
                     {project.createdAt ? new Date(project.createdAt).toLocaleDateString('tr-TR') : ''}
                   </span>
-                  <button
-                    className="btn-save"
-                    style={{ fontSize: '11px', padding: '5px 12px', borderRadius: '6px' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSelectProject(project, {
-                        openCompletedUnifiedEdit: summary?.draftStatus === 'COMPLETED',
-                      });
-                    }}
-                  >
-                    {summary?.draftStatus === 'COMPLETED' ? 'Maliyet Düzenle' : 'Maliyet Gir'}
-                  </button>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <button
+                      className="btn-secondary"
+                      style={{ fontSize: '11px', padding: '5px 10px', borderRadius: '6px', position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openNotesModal(project);
+                      }}
+                      title={summary?.hasNotes ? 'Bu projede not var — görüntüle' : 'Not bırak'}
+                    >
+                      <AiOutlineFileText style={{ fontSize: '13px' }} />
+                      Not
+                      {summary?.hasNotes && (
+                        <span style={{ position: 'absolute', top: '-4px', right: '-4px', width: '10px', height: '10px', borderRadius: '50%', background: '#d69e2e', border: '2px solid #fff' }} />
+                      )}
+                    </button>
+                    <button
+                      className="btn-save"
+                      style={{ fontSize: '11px', padding: '5px 12px', borderRadius: '6px' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectProject(project, {
+                          openCompletedUnifiedEdit: summary?.draftStatus === 'COMPLETED',
+                        });
+                      }}
+                    >
+                      {summary?.draftStatus === 'COMPLETED' ? 'Maliyet Düzenle' : 'Maliyet Gir'}
+                    </button>
+                  </div>
                 </div>
               </div>
             );
           })}
         </div>
+
+        {notesModalProject && (
+          <div
+            className="proposal-modal-overlay"
+            onClick={closeNotesModal}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ background: '#fff', borderRadius: '10px', width: 'min(520px, 92vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', padding: '20px', boxShadow: '0 10px 40px rgba(0,0,0,0.25)' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <h2 style={{ margin: 0, fontSize: '17px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <AiOutlineFileText style={{ color: '#d69e2e' }} />
+                  Notlar — {notesModalProject.projectCode}
+                </h2>
+                <button className="btn-secondary" onClick={closeNotesModal} disabled={notesSaving}>
+                  {notesSaving ? 'Kaydediliyor...' : 'Kapat'}
+                </button>
+              </div>
+              <p style={{ margin: '0 0 12px', fontSize: '12px', color: '#718096' }}>
+                Ortak not defteri — kapatınca otomatik kaydedilir.
+              </p>
+              {notesError && (
+                <div style={{ background: '#fed7d7', color: '#c53030', padding: '8px 10px', borderRadius: '6px', fontSize: '12px', marginBottom: '10px' }}>
+                  {notesError}
+                </div>
+              )}
+              {notesLoading ? (
+                <div style={{ color: '#718096', fontSize: '13px', padding: '12px 0' }}>Notlar yükleniyor...</div>
+              ) : (
+                <>
+                  <div style={{ overflowY: 'auto', flex: 1, minHeight: '60px', maxHeight: '45vh', marginBottom: '12px' }}>
+                    {noteItems.length === 0 && (
+                      <div style={{ color: '#a0aec0', fontSize: '13px', fontStyle: 'italic', padding: '8px 0' }}>
+                        Henüz not yok. Aşağıdan madde ekleyin.
+                      </div>
+                    )}
+                    {noteItems.map((item, idx) => (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '8px 10px', background: '#f7fafc', borderRadius: '6px', marginBottom: '6px' }}>
+                        <span style={{ color: '#d69e2e', fontWeight: 700, lineHeight: '20px' }}>•</span>
+                        <span style={{ flex: 1, fontSize: '13px', color: '#2d3748', whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: '20px' }}>{item}</span>
+                        <button
+                          onClick={() => setNoteItems(prev => prev.filter((_, i) => i !== idx))}
+                          title="Maddeyi sil"
+                          style={{ background: 'transparent', border: 'none', color: '#e53e3e', cursor: 'pointer', padding: '2px', display: 'flex' }}
+                        >
+                          <AiOutlineDelete style={{ fontSize: '15px' }} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      type="text"
+                      value={noteInput}
+                      onChange={(e) => setNoteInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addNoteItem(); } }}
+                      placeholder="Yeni madde yazın ve Enter'a basın..."
+                      style={{ flex: 1, padding: '9px 12px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '13px' }}
+                      autoFocus
+                    />
+                    <button
+                      className="btn-save"
+                      style={{ padding: '8px 14px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                      onClick={addNoteItem}
+                    >
+                      <AiOutlinePlus /> Ekle
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   }

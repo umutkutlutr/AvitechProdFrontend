@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import projectService from '../../services/projectService';
 import autofillService from '../../services/autofillService';
@@ -288,6 +288,132 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
       setKeyInformation(editingService.keyInformation || 1);
     }
   }, [editingService, formatInputValue]);
+
+  // ── Marka+Model+Yıl akıllı autofill (yalnızca yeni proje modunda) ──────────
+  // Marka+model seçilince: yıl önerileri SADECE o marka+modelin önceki girişlerinden gelir.
+  // Yıl da eşleşirse: en son eşleşen projeden tüm teknik alanlar doldurulur
+  // (HARİÇ: seri no, kullanım saati, fotoğraflar — makine birimine özgü alanlar).
+  const [previousProjects, setPreviousProjects] = useState([]);
+  const autofillAppliedKeyRef = useRef('');
+
+  useEffect(() => {
+    if (editingService) return;
+    projectService.getProjects()
+      .then(data => setPreviousProjects(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, [editingService]);
+
+  const makeModelMatches = useMemo(() => {
+    const norm = (v) => String(v || '').trim().toLowerCase();
+    const mk = norm(formData.machineName);
+    const md = norm(formData.model);
+    if (!mk || !md) return [];
+    return previousProjects.filter(p =>
+      norm(p.make || p.machineName) === mk &&
+      norm(p.model || p.machineModel) === md
+    );
+  }, [previousProjects, formData.machineName, formData.model]);
+
+  const yearSuggestions = useMemo(() => {
+    const ys = [...new Set(
+      makeModelMatches
+        .map(p => (p.year != null && p.year !== '' ? String(p.year) : null))
+        .filter(Boolean)
+    )];
+    ys.sort((a, b) => Number(b) - Number(a));
+    return ys;
+  }, [makeModelMatches]);
+
+  const applyPreviousProjectAutofill = useCallback((src) => {
+    const formatWithUnit = (value, unit) => {
+      if (!value && value !== 0) return '';
+      if (String(value).includes(unit)) return String(value);
+      const num = typeof value === 'number' ? value : parseFloat(String(value).replace(/[^\d.]/g, ''));
+      if (isNaN(num)) return '';
+      const formatted = formatInputValue(String(Math.round(num)));
+      return formatted ? `${formatted}${unit}` : '';
+    };
+
+    const predefinedOS = ['Heidenhain', 'Siemens', 'Fanuc'];
+    const osValue = src.operatingSystem || '';
+    const osOther = src.operatingSystemOther || src.customOperatingSystem || '';
+    let nextOS = 'Heidenhain';
+    let nextCustomOS = '';
+    if (predefinedOS.includes(osValue)) {
+      nextOS = osValue;
+    } else if (osValue === 'Other' && osOther) {
+      nextOS = 'Other';
+      nextCustomOS = osOther;
+    } else if (osValue) {
+      nextOS = 'Other';
+      nextCustomOS = osValue;
+    }
+
+    const asText = (v) => (v == null ? '' : String(v));
+
+    setFormData(prev => ({
+      ...prev,
+      // DOLDURULMAYANLAR (bilinçli): serialNumber, workingHours (kullanım saati), photos
+      repairHours: asText(src.rpm != null ? src.rpm : src.repairHours),
+      teamCount: asText(src.takimSayisi != null ? src.takimSayisi : src.teamCount),
+      machineNetWeight: formatWithUnit(src.netWeight != null ? src.netWeight : src.machineNetWeight, 'kg'),
+      additionalWeight: formatWithUnit(src.additionalWeight, 'kg'),
+      machineType: asText(src.type != null ? src.type : src.machineType),
+      condition: src.condition || prev.condition || '',
+      operatingSystem: nextOS,
+      customOperatingSystem: nextCustomOS,
+      teamMeasurementProbe: (src.takimOlcmeProbu != null ? src.takimOlcmeProbu : true) ? 'Var' : 'Yok',
+      partMeasurementProbe: (src.parcaOlcmeProbu != null ? src.parcaOlcmeProbu : true) ? 'Var' : 'Yok',
+      insideWaterGiving: (src.ictenSuVerme != null ? src.ictenSuVerme : false) ? 'Var' : 'Yok',
+      conveyor: (src.konveyor != null ? src.konveyor : false) ? 'Var' : 'Yok',
+      paperFilter: (src.kagitFiltre != null ? src.kagitFiltre : false) ? 'Var' : 'Yok',
+      elCarki: (src.elCarki != null ? src.elCarki : false) ? 'Var' : 'Yok',
+      xMovement: asText(src.xmovement || src.xMovement),
+      yMovement: asText(src.ymovement || src.yMovement),
+      zMovement: asText(src.zmovement || src.zMovement),
+      aMovement: asText(src.amovement || src.aMovement),
+      bMovement: asText(src.bmovement || src.bMovement),
+      cMovement: asText(src.cmovement || src.cMovement),
+      holderType: asText(src.holderType),
+      machineWidth: asText(src.machineWidth),
+      machineLength: asText(src.machineLength),
+      machineHeight: asText(src.machineHeight),
+      maxMaterialWeight: asText(src.maxMaterialWeight),
+      machineOrigin: asText(src.machineOrigin),
+      machinePower: asText(src.machinePower),
+      accessoryData: asText(src.accessoryData || src.additionalEquipment),
+    }));
+    const rawKeyInfo = src.keyInformation != null ? src.keyInformation : src.anahtarBilgisi;
+    const parsedKeyInfo = parseInt(rawKeyInfo, 10);
+    setKeyInformation(!isNaN(parsedKeyInfo) && parsedKeyInfo > 0 ? parsedKeyInfo : 1);
+  }, [formatInputValue]);
+
+  useEffect(() => {
+    if (editingService) return;
+    const yr = String(formData.year || '').trim();
+    if (!yr || makeModelMatches.length === 0) return;
+    const candidates = makeModelMatches.filter(p => String(p.year) === yr);
+    if (candidates.length === 0) return;
+    const key = String(formData.machineName || '').trim().toLowerCase()
+      + '|' + String(formData.model || '').trim().toLowerCase()
+      + '|' + yr;
+    if (autofillAppliedKeyRef.current === key) return; // aynı kombinasyon zaten dolduruldu
+    autofillAppliedKeyRef.current = key;
+    // En son girilen eşleşen projeyi kaynak al; liste hafif kart DTO'su olduğundan
+    // teknik alanlar için tam proje detayını çek.
+    const srcCard = candidates.reduce((a, b) => (((b && b.id) || 0) > ((a && a.id) || 0) ? b : a));
+    if (!srcCard || srcCard.id == null) return;
+    let cancelled = false;
+    projectService.getProjectById(srcCard.id)
+      .then(full => {
+        if (!cancelled && full) applyPreviousProjectAutofill(full);
+      })
+      .catch(() => {
+        // Detay alınamadıysa hiçbir alanı BOŞALTMA; tekrar denenebilsin diye anahtarı sıfırla.
+        if (!cancelled) autofillAppliedKeyRef.current = '';
+      });
+    return () => { cancelled = true; };
+  }, [editingService, formData.machineName, formData.model, formData.year, makeModelMatches, applyPreviousProjectAutofill]);
 
   const handleInputChange = (field, value) => {
     // Clear error for this field when user starts typing
@@ -1255,7 +1381,7 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
               value={formData.year}
               onChange={(e) => handleRestrictedInput('year', e.target.value)}
               onKeyPress={handleEnterKeyPress}
-              suggestions={autofillData.years}
+              suggestions={editingService ? autofillData.years : yearSuggestions}
               placeholder="Makine yılı"
               errorClass={fieldErrors.year ? 'error' : ''}
             />

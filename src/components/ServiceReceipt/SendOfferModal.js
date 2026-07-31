@@ -984,7 +984,8 @@ const SendOfferModal = ({ service, onClose }) => {
                     const totalEur = parseFloat(accountingData.totalCostEur);
                     const profitEur = salesEur - totalEur;
                     const profitPct = salesEur > 0 ? Math.round((profitEur / salesEur) * 10000) / 100 : 0;
-                    const profitTry = (salesEur * eurRate) - (accountingData.totalCostTry != null ? parseFloat(accountingData.totalCostTry) : totalEur * eurRate);
+                    // TL karşılığı: EUR kârın bugünkü kurla çevrimi (tek kur — karışık kur hatası yok).
+                    const profitTry = profitEur * eurRate;
                     return (
                       <span style={{ color: profitEur >= 0 ? '#6b46c1' : '#c53030' }}>
                         €{profitEur.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} (%{profitPct.toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })})<br />

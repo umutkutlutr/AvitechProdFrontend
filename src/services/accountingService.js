@@ -245,6 +245,49 @@ class AccountingService {
   }
 
   /**
+   * Proje kart notlarını getirir (JSON dizi metni veya null).
+   */
+  async getNotes(projectId) {
+    try {
+      const response = await fetchWithAuth(
+        `${API_BASE_URL}/api/accounting/projects/${projectId}/notes`,
+        {
+          method: 'GET',
+          headers: authService.getAuthHeaders(),
+        }
+      );
+      const data = await response.json();
+      return data && data.notes ? data.notes : null;
+    } catch (error) {
+      console.error('AccountingService.getNotes error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Proje kart notlarını kaydeder (tam liste, JSON dizi metni). Modal kapanırken çağrılır.
+   */
+  async saveNotes(projectId, notesJsonString) {
+    try {
+      const response = await fetchWithAuth(
+        `${API_BASE_URL}/api/accounting/projects/${projectId}/notes`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...authService.getAuthHeaders(),
+          },
+          body: JSON.stringify({ notes: notesJsonString }),
+        }
+      );
+      return await response.json();
+    } catch (error) {
+      console.error('AccountingService.saveNotes error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Mark the draft as COMPLETED.
    * Requires completionPercent == 100 on the backend.
    */
