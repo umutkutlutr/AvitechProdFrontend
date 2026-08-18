@@ -16,7 +16,8 @@ import {
   AiOutlineCreditCard,
   AiOutlineDashboard,
   AiOutlineCalculator,
-  AiOutlineMail
+  AiOutlineMail,
+  AiOutlineBulb
 } from 'react-icons/ai';
 import './Sidebar.css';
 
@@ -35,6 +36,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     services: [
       { id: 'create-service', label: 'Yeni Proje Oluştur', icon: AiOutlinePlus, path: '/createService', viewerHidden: true },
       { id: 'all-services', label: 'Aktif Projeler', icon: AiOutlineFolder, path: '/allServices' },
+      { id: 'potential-machines', label: 'Potansiyel Makineler', icon: AiOutlineBulb, path: '/potentialMachines' },
       { id: 'quotes-sent', label: 'Teklifler', icon: AiOutlineSend, path: '/quotesSent' },
       { id: 'closed-projects', label: 'Tamamlanan Projeler', icon: AiOutlineCheckCircle, path: '/closedProjects' }
     ],

@@ -23,6 +23,8 @@ export function getProjectStatusBadgeClass(status) {
     case 'TEMPLATE':
     case 'DRAFT':
       return 'status-draft';
+    case 'POTENTIAL':
+      return 'status-potential';
     case 'OFFER_SENT':
     case 'EXCHANGE_CIHAZ_TEKLİFİ':
     case 'EXCHANGE_CIHAZ_TEKLIFI':

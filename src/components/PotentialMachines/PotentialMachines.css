@@ -1,0 +1,358 @@
+/* Potansiyel Makineler sayfası — Aktif Projeler (AllServicesTable.css) görsel diliyle uyumlu */
+
+.potential-machines {
+  padding: 0;
+  max-width: var(--page-max-width, 1200px);
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+.pm-header {
+  margin-bottom: var(--page-header-margin-bottom, 24px);
+}
+
+.pm-header-text h1 {
+  font-size: var(--page-title-size, 28px);
+  font-weight: var(--page-title-weight, 600);
+  color: var(--page-title-color, #2c3e50);
+  margin-bottom: 6px;
+}
+
+.pm-header-text p {
+  font-size: var(--page-subtitle-size, 15px);
+  color: var(--page-subtitle-color, #6c757d);
+  margin: 0;
+}
+
+/* Hata durumu */
+.pm-error-message {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 16px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  border: 1px solid #f5c6cb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pm-error-message p {
+  margin: 0;
+  font-weight: 500;
+}
+
+.pm-retry-button {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.pm-retry-button:hover {
+  background-color: #c82333;
+}
+
+/* Yüklenme durumu */
+.pm-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #6c757d;
+  gap: 12px;
+}
+
+.pm-loading-spinner {
+  font-size: 32px;
+  animation: pm-spin 1s linear infinite;
+}
+
+@keyframes pm-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Boş durum */
+.pm-empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  background: white;
+  border-radius: 8px;
+  color: #6c757d;
+  font-size: 16px;
+}
+
+/* Tablo */
+.pm-table-container {
+  max-width: 1400px;
+  margin: 0 auto 40px auto;
+  background: white;
+  border-radius: 8px;
+  overflow-x: auto;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  -webkit-overflow-scrolling: touch;
+}
+
+.pm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  min-width: 900px;
+}
+
+.pm-table thead {
+  background-color: #f8f9fa;
+}
+
+.pm-table th {
+  padding: 16px 20px;
+  text-align: left;
+  font-weight: 600;
+  color: #2c3e50;
+  border-bottom: 2px solid #dee2e6;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.pm-table td {
+  padding: 14px 20px;
+  border-bottom: 1px solid #eef0f2;
+  color: #2c3e50;
+  vertical-align: middle;
+}
+
+.pm-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.pm-code {
+  font-weight: 600;
+  color: #5b21b6;
+  white-space: nowrap;
+}
+
+/* İşlem butonları */
+.pm-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.pm-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pm-btn-edit {
+  background-color: #e9ecef;
+  color: #374151;
+}
+
+.pm-btn-edit:hover:not(:disabled) {
+  background-color: #dee2e6;
+}
+
+.pm-btn-stock {
+  background-color: #333333;
+  color: white;
+}
+
+.pm-btn-stock:hover:not(:disabled) {
+  background-color: #222222;
+}
+
+.pm-btn-delete {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.pm-btn-delete:hover:not(:disabled) {
+  background-color: #f1b0b7;
+}
+
+.pm-btn-spinner {
+  animation: pm-spin 1s linear infinite;
+}
+
+/* Stoğa çekme onay modalı */
+.pm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.pm-modal {
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.pm-modal h3 {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  color: #2c3e50;
+}
+
+.pm-modal p {
+  margin: 0 0 20px 0;
+  font-size: 14px;
+  color: #4b5563;
+  line-height: 1.5;
+}
+
+.pm-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.pm-modal-cancel,
+.pm-modal-confirm {
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.pm-modal-cancel {
+  background: white;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.pm-modal-cancel:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.pm-modal-confirm {
+  background: #333333;
+  color: white;
+}
+
+.pm-modal-confirm:hover:not(:disabled) {
+  background: #222222;
+}
+
+.pm-modal-cancel:disabled,
+.pm-modal-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Teklif Gönder / Proforma satır butonları — .operation-btn ve .submit-btn-enhanced
+   AllServicesTable.css'ten yeniden kullanılır (bundle'da global). Proforma için
+   AllServices'te birebir sınıf olmadığından aynı desende minimal ek: */
+.pm-proforma-btn {
+  color: #3b82f6;
+  border: 2px solid #3b82f6;
+  background-color: rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3);
+}
+
+.pm-proforma-btn:hover:not(:disabled) {
+  background-color: #3b82f6;
+  color: white;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+}
+
+/* Çoklu teklif: proforma için teklif seçim listesi (pm-modal içinde) */
+.pm-offer-choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.pm-offer-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #f8f9fa;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.pm-offer-choice:hover {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.pm-offer-choice-client {
+  font-weight: 600;
+  font-size: 14px;
+  color: #2c3e50;
+}
+
+.pm-offer-choice-meta {
+  font-size: 13px;
+  color: #6c757d;
+}
+
+/* Mobil */
+@media (max-width: 768px) {
+  .pm-table {
+    min-width: 700px;
+  }
+
+  .pm-table th,
+  .pm-table td {
+    padding: 10px 12px;
+  }
+
+  .pm-btn span {
+    display: none;
+  }
+
+  .pm-btn {
+    padding: 8px;
+  }
+}

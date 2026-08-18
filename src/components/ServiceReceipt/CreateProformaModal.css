@@ -376,9 +376,122 @@
 .success-box h3 { color: #1f2937; margin: 0 0 8px; }
 .success-box p { color: #6b7280; margin: 0; }
 
+/* CC Email Styles (SendOfferModal ile aynı görünüm; .create-proforma-modal ile
+   kapsandı ki .proforma-form-group input genel kuralını ezsin) */
+.create-proforma-modal .cc-email-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.create-proforma-modal .cc-email-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.create-proforma-modal .cc-email-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.create-proforma-modal .cc-email-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.create-proforma-modal .btn-add-cc {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 40px;
+}
+
+.create-proforma-modal .btn-add-cc:hover:not(:disabled) {
+  background-color: #218838;
+}
+
+.create-proforma-modal .btn-add-cc:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.create-proforma-modal .cc-email-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.create-proforma-modal .cc-email-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+.create-proforma-modal .cc-email-item:hover {
+  background-color: #e9ecef;
+}
+
+.create-proforma-modal .cc-email-text {
+  font-size: 14px;
+  color: #2c3e50;
+  flex: 1;
+  margin-right: 8px;
+}
+
+.create-proforma-modal .btn-remove-cc {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+}
+
+.create-proforma-modal .btn-remove-cc:hover {
+  background-color: #c82333;
+}
+
 @media (max-width: 768px) {
   .create-proforma-modal { max-width: calc(100% - 20px); }
   .proforma-info-grid, .proforma-form-row, .new-bank-form { grid-template-columns: 1fr; }
   .proforma-actions { flex-direction: column; }
   .proforma-actions button { width: 100%; justify-content: center; }
+
+  .create-proforma-modal .cc-email-input-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .create-proforma-modal .btn-add-cc {
+    width: 100%;
+    margin-top: 8px;
+  }
 }

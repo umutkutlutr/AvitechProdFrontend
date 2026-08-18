@@ -32,6 +32,8 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
   const [newBank, setNewBank] = useState({ companyName: '', address: '', taxOffice: '', taxNumber: '' });
   const [saveNewBank, setSaveNewBank] = useState(true);
   const [vatIncluded, setVatIncluded] = useState(false);
+  const [ccEmails, setCcEmails] = useState([]);
+  const [newCcEmail, setNewCcEmail] = useState('');
 
   const [isSending, setIsSending] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -62,6 +64,8 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
     setSelectedBankId('');
     setShowNewBankForm(false);
     setNewBank({ companyName: '', address: '', taxOffice: '', taxNumber: '' });
+    setCcEmails([]);
+    setNewCcEmail('');
     setError('');
   }, [offer?.id]);
 
@@ -110,6 +114,17 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
     setExtraNotes(extraNotes.filter((_, i) => i !== idx));
   };
 
+  const handleAddCcEmail = () => {
+    if (newCcEmail.trim() && !ccEmails.includes(newCcEmail.trim())) {
+      setCcEmails(prev => [...prev, newCcEmail.trim()]);
+      setNewCcEmail('');
+    }
+  };
+
+  const handleRemoveCcEmail = (emailToRemove) => {
+    setCcEmails(prev => prev.filter(email => email !== emailToRemove));
+  };
+
   const handleSendClick = () => {
     setError('');
     const numericPrice = parseFormattedNumber(price);
@@ -143,6 +158,7 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
         terms: buildTermsString(),
         extraNotes: extraNotes.length > 0 ? extraNotes.join('\n') : null,
         vatIncluded,
+        ccEmails,
       };
 
       if (includeBankProforma) {
@@ -210,6 +226,53 @@ const CreateProformaModal = ({ offer, onClose, onProformaComplete }) => {
               onChange={handlePriceChange}
               placeholder="Fiyat giriniz"
             />
+          </div>
+
+          {/* CC Email Section */}
+          <div className="proforma-form-group">
+            <label>CC E-postalar</label>
+            <div className="cc-email-container">
+              <div className="cc-email-input-row">
+                <input
+                  type="email"
+                  value={newCcEmail}
+                  onChange={(e) => setNewCcEmail(e.target.value)}
+                  placeholder="CC e-posta adresi girin. (Eklemek istediğiniz mailleri + tuşuna basarak ekleyebilirsiniz)"
+                  className="cc-email-input"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddCcEmail();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCcEmail}
+                  className="btn-add-cc"
+                  disabled={!newCcEmail.trim()}
+                >
+                  <FaPlus />
+                </button>
+              </div>
+
+              {ccEmails.length > 0 && (
+                <div className="cc-email-list">
+                  {ccEmails.map((email, index) => (
+                    <div key={index} className="cc-email-item">
+                      <span className="cc-email-text">{email}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCcEmail(email)}
+                        className="btn-remove-cc"
+                      >
+                        <FaTrash />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* GTIP */}

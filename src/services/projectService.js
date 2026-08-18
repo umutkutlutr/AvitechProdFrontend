@@ -210,6 +210,36 @@ class ProjectService {
     }
   }
 
+  async getPotentialProjects() {
+    try {
+      const response = await fetchWithAuth(`${API_BASE_URL}/api/projects/potential`, {
+        method: 'GET',
+        headers: authService.getAuthHeaders(),
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Get potential projects error:', error);
+      throw error;
+    }
+  }
+
+  async pullToStock(id) {
+    try {
+      const response = await fetchWithAuth(`${API_BASE_URL}/api/projects/${id}/pull-to-stock`, {
+        method: 'POST',
+        headers: authService.getAuthHeaders(),
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Pull to stock error:', error);
+      throw error;
+    }
+  }
+
   async undeleteProject(id) {
     try {
       const response = await fetchWithAuth(`${API_BASE_URL}/api/projects/deleted/${id}/undelete`, {

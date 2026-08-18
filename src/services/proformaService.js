@@ -8,6 +8,8 @@ const API_BASE_URL = _API_BASE_URL + '/api';
 // (Türkçe) mesajıyla exception. Böylece oturum bitince kullanıcı /login'e gider ve
 // İngilizce hata metinleri kullanıcıya sızmaz.
 const proformaService = {
+  // data: ProformaCreateRequest gövdesi (offerId, price, terms, ccEmails vb.) —
+  // olduğu gibi JSON body olarak gönderilir; ccEmails yalnızca gönderimde kullanılır, saklanmaz.
   async createProforma(data) {
     const response = await fetchWithAuth(`${API_BASE_URL}/proformas`, {
       method: 'POST',

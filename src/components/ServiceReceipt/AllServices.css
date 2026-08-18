@@ -212,6 +212,11 @@
   color: #495057;
 }
 
+.status-potential {
+  background-color: #ede9fe;
+  color: #5b21b6;
+}
+
 .status-approved {
   background-color: #000000;
   color: white;

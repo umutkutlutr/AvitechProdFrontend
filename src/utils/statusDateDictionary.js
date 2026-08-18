@@ -6,6 +6,7 @@
 export const STATUS_LABELS = {
   TEMPLATE: 'Şablon',
   DRAFT: 'Taslak',
+  POTENTIAL: 'POTANSİYEL',
   OFFER_SENT: 'Teklif Gönderildi',
   SOLD: 'Satıldı',
   COMPLETED: 'Tamamlandı',

@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import MainLayout from './components/Layout/MainLayout';
 import CreateServiceReceipt from './components/ServiceReceipt/CreateServiceReceipt';
 import AllServices from './components/ServiceReceipt/AllServices';
+import PotentialMachines from './components/PotentialMachines/PotentialMachines';
 import QuotesSent from './components/ServiceReceipt/QuotesSent';
 import ClosedProjects from './components/ServiceReceipt/ClosedProjects';
 import ErrorReceipts from './components/ServiceReceipt/ErrorReceipts';
@@ -84,6 +85,10 @@ function AppContent() {
                       onEditService={handleEditService}
                     />
                   }
+                />
+                <Route
+                  path="/potentialMachines"
+                  element={<PotentialMachines />}
                 />
                 <Route
                   path="/quotesSent"

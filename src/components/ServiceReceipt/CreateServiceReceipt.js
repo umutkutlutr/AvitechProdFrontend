@@ -81,6 +81,8 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
 
 
   const [isSaving, setIsSaving] = useState(false);
+  // Makine türü: true → Potansiyel Makine (PMAK), false → Stok Makinesi (AVMAK). Varsayılan: Potansiyel.
+  const [isPotential, setIsPotential] = useState(true);
   const [operatingSystems, setOperatingSystems] = useState([]);
   const [, setIsLoadingOperatingSystems] = useState(true);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -298,8 +300,16 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
 
   useEffect(() => {
     if (editingService) return;
-    projectService.getProjects()
-      .then(data => setPreviousProjects(Array.isArray(data) ? data : []))
+    // Autofill kaynağına potansiyel makineler de dahil edilir (iki hafif kart listesi birleştirilir).
+    Promise.all([
+      projectService.getProjects().catch(() => []),
+      projectService.getPotentialProjects().catch(() => [])
+    ])
+      .then(([stockProjects, potentialProjects]) => {
+        const stock = Array.isArray(stockProjects) ? stockProjects : [];
+        const potential = Array.isArray(potentialProjects) ? potentialProjects : [];
+        setPreviousProjects([...stock, ...potential]);
+      })
       .catch(() => {});
   }, [editingService]);
 
@@ -1103,7 +1113,9 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
       machineOrigin: formData.machineOrigin || '',
       machinePower: formData.machinePower || '',
       additionalEquipment: formData.accessoryData || '',
-      status: "TEMPLATE"
+      status: "TEMPLATE",
+      // Yeni proje modunda makine türü: true → PMAK (POTENTIAL), false → AVMAK (mevcut davranış).
+      potential: !editingService && isPotential
       // Note: photos are now sent separately as files, not as URLs
     };
 
@@ -1169,8 +1181,10 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
         onSaveComplete(serviceData);
       }
 
-      // Navigate to all services page
-      navigate('/allServices');
+      const createdAsPotential = !editingService && isPotential;
+
+      // Navigate to the matching list page (potansiyel → Potansiyel Makineler)
+      navigate(createdAsPotential ? '/potentialMachines' : '/allServices');
 
       // Reset form if creating new service
       if (!editingService) {
@@ -1209,9 +1223,14 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
           accessoryData: '',
           photos: []
         });
+        setIsPotential(true); // Varsayılana dön: Potansiyel Makine
       }
 
-      alert(editingService ? 'Proje güncellendi!' : 'Proje başarıyla oluşturuldu!');
+      alert(editingService
+        ? 'Proje güncellendi!'
+        : (createdAsPotential
+          ? 'Potansiyel makine başarıyla oluşturuldu! (PMAK kodu atandı)'
+          : 'Stok makinesi başarıyla oluşturuldu! (AVMAK kodu atandı)'));
     } catch (error) {
       console.error('Proje kaydetme hatası:', error);
 
@@ -1929,6 +1948,36 @@ const CreateServiceReceipt = ({ editingService, onSaveComplete }) => {
           </div>
         </div>
       </div>
+
+      {/* Makine Türü (yalnızca yeni proje modunda) */}
+      {!editingService && (
+        <div className="machine-kind-toggle">
+          <span className="machine-kind-title">Makine Türü</span>
+          <div className="machine-kind-options" role="radiogroup" aria-label="Makine Türü">
+            <button
+              type="button"
+              className={`machine-kind-option ${isPotential ? 'selected' : ''}`}
+              onClick={() => setIsPotential(true)}
+              aria-pressed={isPotential}
+            >
+              Potansiyel Makine
+            </button>
+            <button
+              type="button"
+              className={`machine-kind-option ${!isPotential ? 'selected' : ''}`}
+              onClick={() => setIsPotential(false)}
+              aria-pressed={!isPotential}
+            >
+              Stok Makinesi
+            </button>
+          </div>
+          <span className="machine-kind-hint">
+            {isPotential
+              ? 'PMAK kodu atanır; makine yalnızca "Potansiyel Makineler" sayfasında listelenir.'
+              : 'AVMAK kodu atanır; makine aktif projelere eklenir.'}
+          </span>
+        </div>
+      )}
 
       {/* Action Buttons */}
       <div className="form-actions">
